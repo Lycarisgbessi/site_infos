@@ -1,0 +1,552 @@
+  1571→
+  1572→```
+  1573→article.create        article.read.all      article.read.own
+  1574→article.update.all    article.update.own    article.publish
+  1575→article.unpublish     article.delete        article.schedule
+  1576→article.feature       article.lock.override
+  1577→
+  1578→live.manage           flash.manage          weather.manage
+  1579→
+  1580→media.upload          media.update          media.delete
+  1581→
+  1582→taxonomy.manage       dossier.manage        entity.manage
+  1583→
+  1584→page.manage           menu.manage           homepage.compose
+  1585→banner.manage         redirect.manage
+  1586→
+  1587→seo.read              seo.manage            seo.keywords.query
+  1588→
+  1589→ads.read              ads.manage            ads.reports
+  1590→
+  1591→newsletter.read       newsletter.compose    newsletter.send
+  1592→subscriber.manage     subscriber.export
+  1593→
+  1594→comment.moderate      inbox.read            inbox.assign
+  1595→
+  1596→analytics.read        analytics.export
+  1597→
+  1598→user.read             user.manage           role.manage
+  1599→settings.manage       integrations.manage   audit.read
+  1600→system.purge_cache    system.export
+  1601→```
+  1602→
+  1603→## 08.2 Rôles système (à créer dans le seed)
+  1604→
+  1605→| `key` | Label | Permissions |
+  1606→|---|---|---|
+  1607→| `admin` | Administrateur | **Toutes** |
+  1608→| `publisher` | Directeur de publication | Tout sauf `user.manage`, `role.manage`, `settings.manage`, `integrations.manage` ; a `audit.read` complet |
+  1609→| `chief_editor` | Rédacteur en chef | `article.*`, `live.manage`, `flash.manage`, `homepage.compose`, `taxonomy.manage`, `dossier.manage`, `seo.*`, `newsletter.*`, `comment.moderate`, `analytics.read`, `media.*` |
+  1610→| `section_editor` | Chef de rubrique | Idem `chief_editor` mais **restreint à `user_roles.category_ids`** |
+  1611→| `journalist` | Journaliste | `article.create`, `article.read.own`, `article.update.own`, `media.upload`, `seo.read`, `seo.keywords.query` ; `article.publish` **paramétrable** via `settings.editorial.journalist_can_publish` |
+  1612→| `copy_editor` | Correcteur | `article.read.all`, `article.update.all` (texte uniquement), pas de publication |
+  1613→| `contributor` | Contributeur externe | `article.create`, `article.read.own`, `article.update.own` (état `draft` et `in_review` seulement) |
+  1614→| `ad_manager` | Régie publicitaire | `ads.*`, `analytics.read` |
+  1615→| `newsletter_manager` | Gestionnaire newsletter | `newsletter.*`, `subscriber.manage`, `analytics.read` |
+  1616→| `moderator` | Modérateur | `comment.moderate`, `inbox.read` |
+  1617→| `analyst` | Analyste | `analytics.read`, `analytics.export`, `seo.read` |
+  1618→
+  1619→L'administrateur peut créer des rôles personnalisés en combinant librement les permissions élémentaires.
+  1620→
+  1621→## 08.3 Règles d'authentification
+  1622→
+  1623→- Mot de passe : 12 caractères minimum, vérifié contre une base de mots de passe compromis (API k-anonymat HIBP), haché en **Argon2id**.
+  1624→- **2FA TOTP obligatoire** pour `admin`, `publisher`, `chief_editor`, `ad_manager`. Codes de secours à usage unique générés à l'activation.
+  1625→- Session : 8 h d'inactivité, 30 jours maximum avec « se souvenir de moi ». Cookie `httpOnly`, `secure`, `sameSite=lax`.
+  1626→- Verrouillage du compte après 5 échecs pendant 15 minutes (`failed_attempts`, `locked_until`).
+  1627→- Liste des sessions actives visible par l'utilisateur, avec révocation.
+  1628→- Invitation par e-mail avec jeton expirant en 72 h. Pas d'auto-inscription.
+  1629→- Journalisation : connexion, échec, changement de mot de passe, activation 2FA, changement de rôle.
+  1630→
+  1631→---
+  1632→
+  1633→# 09. FRONT-OFFICE — SPÉCIFICATION PAR PAGE
+  1634→
+  1635→## 09.1 Page d'accueil — `/`
+  1636→
+  1637→**Rendu :** ISR, `revalidate = 60`, tag `homepage`.
+  1638→**Données :** `GET /api/v1/homepage` → blocs actifs résolus, dans l'ordre `position`.
+  1639→
+  1640→### Zoning par défaut (à insérer dans le seed `homepage_blocks`)
+  1641→
+  1642→| Code | Type | Contenu | Variante par défaut |
+  1643→|---|---|---|---|
+  1644→| `Z-00` | `alert` | Bandeau d'alerte majeure, rouge, fermable (mémorisé en session) | masqué |
+  1645→| `Z-01` | — | Barre utilitaire + masthead + navigation (hors blocs, dans le layout) | — |
+  1646→| `Z-02` | `ad` | `AD-02` leaderboard d'en-tête | — |
+  1647→| `Z-03` | `flash` | 5 derniers flashs, défilement, pastille rouge pulsante, refresh 60 s | `ticker` |
+  1648→| `Z-04` | `lead` | À la une : 1 article `hero` + 4 `medium` | `lead-1x4` |
+  1649→| `Z-05` | `live` | Direct en cours (conditionnel) | `banner` |
+  1650→| `Z-06` | `latest` | Fil chronologique 2 colonnes + `most_read` latéral + `AD-04` | `list-sidebar` |
+  1651→| `Z-07a…n` | `section` | Un bloc par rubrique majeure : 1 `large` + 4 `list` | `featured-list` |
+  1652→| `Z-08` | `video` | Carrousel reportages, fond sombre, preview au survol | `carousel-dark` |
+  1653→| `Z-09` | `newsletter` | Encart : promesse, périodicité, aperçu, champ e-mail | `inline-wide` |
+  1654→| `Z-10` | `weather` | Conakry + 4 villes, prévision 5 jours | `strip` |
+  1655→| `Z-11` | `dossier` | Dossier mis en avant, immersif | `immersive` |
+  1656→| `Z-12` | `world` | Onglets par continent | `tabs` |
+  1657→| `Z-13` | `opinion` | Fond alterné, portraits ronds des signataires | `authors` |
+  1658→| `Z-14` | `ad` | `AD-07` inter-bloc ou natif | — |
+  1659→| `Z-15` | — | Pied de page (layout) | — |
+  1660→
+  1661→**Gabarits alternatifs du bloc `lead`** (sélectionnables en back-office) : `lead-1x4` (1 grand + 4), `lead-2x3` (2 égaux + 3 listés), `lead-full` (1 seul plein écran, pour une actualité majeure).
+  1662→
+  1663→### Comportements
+  1664→- Masthead qui se compacte au défilement descendant, réapparaît au défilement ascendant.
+  1665→- Aucun bloc ne charge de JS avant d'entrer dans le champ de vision, sauf `Z-03` et `Z-04`.
+  1666→- Le bloc `Z-05` est rendu côté serveur si un `live_blog.status = 'live'` existe, sinon il n'est pas émis du tout.
+  1667→
+  1668→## 09.2 Page article — `/{category}/{slug}`
+  1669→
+  1670→**Rendu :** `generateStaticParams` sur les 500 derniers articles + ISR `revalidate = 300`, tag `article:{slug}`. Invalidation immédiate à la publication/modification.
+  1671→
+  1672→### Ordre de rendu
+  1673→1. `Breadcrumb` + `kicker` (rubrique)
+  1674→2. `h1` titre · `lede` chapô
+  1675→3. `AuthorByline` : portraits, noms liés, `dateline`, date de publication, date de mise à jour si `updated_content_at > published_at + 1h`, temps de lecture
+  1676→4. `CorrectionNotice` si `correction_note` non nul — encadré rouge en tête
+  1677→5. `SponsoredLabel` si `is_sponsored` — fond distinct, mention explicite, **aucune publicité tierce dans l'article**
+  1678→6. `ShareBar` persistante — **WhatsApp en premier**, puis Facebook, X, LinkedIn, Telegram, copier le lien, e-mail, imprimer
+  1679→7. Média principal + légende + crédit (crédit **obligatoire**, bloque la publication si absent)
+  1680→8. Corps : rendu des blocs, insertion automatique de `AD-06` après le 3ᵉ et le 7ᵉ paragraphe, `NewsletterInline` après le 3ᵉ paragraphe
+  1681→9. `TagList` + `EntityChip`
+  1682→10. `AuthorBox` développée
+  1683→11. `RelatedArticles` (3 à 6 : manuels d'abord, puis automatiques par similarité)
+  1684→12. « Dans ce dossier » si `dossier_id`
+  1685→13. `CommentThread` (si activé)
+  1686→14. `ContinuousReader` — chargement de l'article suivant, mise à jour de l'URL et du `<title>`
+  1687→
+  1688→### Colonne latérale (≥ 1024 px)
+  1689→`ArticleToc` collant (généré depuis les blocs `heading`) · `MostReadList` · `AD-05` collant (300×600) · dernières vidéos
+  1690→
+  1691→### Éléments transverses
+  1692→- `ReadingProgress` : barre rouge 2 px en haut de la fenêtre
+  1693→- Temps de lecture = `ceil(word_count / 220)`
+  1694→- Version imprimable propre (`@media print`) et export PDF
+  1695→- JSON-LD `NewsArticle` complet (voir §12.2)
+  1696→
+  1697→## 09.3 Autres pages
+  1698→
+  1699→| Route | Rendu | Contenu clé |
+  1700→|---|---|---|
+  1701→| `/{category}` | ISR 60 s | En-tête (nom, `intro_html`, chefs de rubrique), 1 article vedette, grille paginée 20/page, filtres sous-rubrique/format/période, RSS dédié |
+  1702→| `/{category}/page/{n}` | ISR 60 s | Pagination **indexable**, `rel=prev/next` logique |
+  1703→| `/rubriques` | Statique | Toutes les rubriques avec compteur et derniers articles |
+  1704→| `/a-la-une` | ISR 60 s | Fil enrichi de la sélection rédaction |
+  1705→| `/reportages` | ISR 300 s | Grille vidéo, filtres par série/playlist, lecteur intégré |
+  1706→| `/direct/{slug}` | SSR + polling 15 s | Live blog : « l'essentiel » épinglé, fil inversé horodaté, badge d'état |
+  1707→| `/dossiers/{slug}` | ISR 300 s | Chapô, chronologie, articles ordonnés manuellement |
+  1708→| `/monde/{zone}` | ISR 300 s | Édition géographique, sous-navigation par pays |
+  1709→| `/auteurs/{slug}` | ISR 3600 s | Bio, spécialités, réseaux, articles, `Person` JSON-LD |
+  1710→| `/tags/{slug}` | ISR 3600 s | `intro_html` éditorial + articles — **page SEO à part entière** |
+  1711→| `/entites/{slug}` | ISR 3600 s | Fiche personne/organisation + couverture |
+  1712→| `/recherche` | SSR | Suggestion dès 3 caractères, tolérance aux fautes, facettes (rubrique, auteur, format, période, zone), tri pertinence/date, surlignage, état vide utile |
+  1713→| `/meteo` | ISR 900 s | Prévisions détaillées multi-villes, alertes |
+  1714→| `/newsletters` | Statique | Catalogue, inscription, archives publiques indexables |
+  1715→| `/archives/{y}/{m}/{d}` | ISR 3600 s | Navigation calendaire complète |
+  1716→| `/a-propos`, `/contact`, `/publicite`, `/charte-editoriale`, `/mentions-legales`, `/confidentialite`, `/cgu`, `/cookies` | ISR 3600 s | Pages `pages` avec `template` dédié |
+  1717→| `/plan-du-site` | Statique | Plan HTML complet |
+  1718→
+  1719→## 09.4 Navigation
+  1720→
+  1721→- **Barre utilitaire** : date du jour (fuseau lecteur + mention heure de Conakry), météo condensée, sélecteur de langue, lien newsletter, recherche, bascule clair/sombre.
+  1722→- **Masthead** : logo, menu principal (8 entrées visibles max, débordement dans « Plus »), CTA rouge.
+  1723→- **Méga-menu** au survol : sous-rubriques + 3 derniers articles avec vignette + dossier en cours.
+  1724→- **Barre de rubriques** secondaire, défilement horizontal sur mobile.
+  1725→- **Menu mobile** plein écran, accordéons, recherche prioritaire.
+  1726→- **Fil d'Ariane** partout, avec `BreadcrumbList`.
+  1727→- **Pied de page** 4 colonnes, intégralement administrable (ordre et libellé de chaque lien).
+  1728→
+  1729→---
+  1730→
+  1731→# 10. ANIMATIONS ET INTERACTIONS
+  1732→
+  1733→## 10.1 Grammaire
+  1734→
+  1735→| Catégorie | Durée | Courbe | Exemples |
+  1736→|---|---|---|---|
+  1737→| Micro-interaction | 120–200 ms | `ease-out` | Soulignement qui se déploie, bouton enfoncé, icône de partage qui pivote, label flottant, coche tracée |
+  1738→| Transition d'état | 200–320 ms | `--ease-signal` | Méga-menu, accordéon, bascule de thème en fondu croisé, suggestions de recherche |
+  1739→| Entrée de contenu | 280–420 ms | `ease-out`, décalage 40 ms | Fondu + translation 12 px à l'entrée dans le viewport, cascade de grille |
+  1740→| Macro-animation | 400–700 ms | ressort amorti | Transition d'image partagée vignette→article, menu mobile plein écran, entrée de long format |
+  1741→| Boucle d'état | continue | linéaire | Pastille « direct », bandeau flash, squelettes |
+  1742→| Lié au défilement | — | linéaire | Compactage du masthead, barre de progression, parallaxe **max 15 %** |
+  1743→
+  1744→## 10.2 Règles strictes (bloquantes en revue de code)
+  1745→
+  1746→1. **Seules `transform` et `opacity` sont animées.** Toute animation de `width`, `height`, `top`, `left`, `margin` ou `box-shadow` est refusée.
+  1747→2. 60 fps visés, **plancher 50 fps** sur Android d'entrée de gamme.
+  1748→3. **CLS < 0,1** : aucune animation ne provoque de décalage de mise en page.
+  1749→4. `prefers-reduced-motion: reduce` → fondus de 100 ms uniquement, suppression des parallaxes, des défilements automatiques et des translations.
+  1750→5. **Le contenu est peint d'abord, animé ensuite.** Aucun contenu au-dessus de la ligne de flottaison masqué en attente d'apparition au défilement.
+  1751→6. Une animation d'entrée se déclenche **une seule fois** par élément et par session de page.
+  1752→7. Maximum **3 animations simultanées** dans le viewport ; maximum 8 % du thread principal.
+  1753→8. Toute animation > 5 s ou en boucle est interruptible par l'utilisateur.
+  1754→
+  1755→## 10.3 Interactions à implémenter
+  1756→
+  1757→- Masthead rétractable au défilement, transition fluide vers barre compacte.
+  1758→- Transition d'image partagée entre carte et article (`layoutId` Framer Motion).
+  1759→- Recherche en surcouche ouvrable au clavier (`/` ou `Ctrl+K`), fond assombri, résultats en cascade.
+  1760→- Preview vidéo muette de 4 s au survol d'une vignette — **désactivée** si `navigator.connection.saveData` ou mode données réduites.
+  1761→- Compteurs de vues et de mises à jour du direct avec incrémentation animée.
+  1762→- Visionneuse plein écran : navigation clavier, gestes tactiles, zoom.
+  1763→- Squelettes calqués sur la forme réelle du contenu — **jamais de spinner générique**.
+  1764→- Retour haptique léger (`navigator.vibrate(10)`) sur partage et inscription, mobile uniquement.
+  1765→
+  1766→---
+  1767→
+  1768→# 11. BACK-OFFICE — SPÉCIFICATION PAR ÉCRAN
+  1769→
+  1770→## 11.1 Principes
+  1771→
+  1772→- Interface **en français**, terminologie de presse.
+  1773→- Recherche globale + palette de commandes (`Ctrl+K`).
+  1774→- **Enregistrement automatique toutes les 20 s**, récupération après coupure réseau, avertissement avant sortie non enregistrée.
+  1775→- Prévisualisation fidèle en un clic, dans 3 tailles d'écran, sur l'état brouillon (route `/admin/preview/{id}?token=`).
+  1776→- Tolérance aux connexions lentes : formulaires optimistes, file d'attente locale.
+  1777→- **Aucune suppression immédiate** : corbeille avec rétention 30 jours.
+  1778→- Aide contextuelle sur chaque champ.
+  1779→
+  1780→## 11.2 Écrans
+  1781→
+  1782→### `/admin` — Tableau de bord
+  1783→- Indicateurs du jour : lecteurs en temps réel, pages vues, articles publiés, top 10 des articles, sources de trafic.
+  1784→- File de travail personnelle : brouillons, à relire, programmés, retours de relecture.
+  1785→- Agenda éditorial : vue calendaire des publications programmées, marronniers, événements à couvrir.
+  1786→- Alertes système : erreurs d'envoi, campagnes arrivant à terme, quotas d'API, incidents.
+  1787→- Widgets réorganisables par utilisateur (persistés en `settings` utilisateur).
+  1788→
+  1789→### `/admin/articles` — Liste
+  1790→Colonnes : titre, rubrique, auteur(s), statut, date, vues, score SEO.
+  1791→Filtres : statut, rubrique, auteur, format, période, score SEO, « sans image », « sans mot-clé cible ».
+  1792→Actions groupées : changer de rubrique, ajouter un mot-clé, programmer, archiver, supprimer.
+  1793→Vues enregistrées par utilisateur.
+  1794→
+  1795→### `/admin/articles/{id}` — Éditeur
+  1796→
+  1797→**Zone centrale :** éditeur TipTap par blocs. Insertion par `/`, glisser-déposer, duplication, verrouillage de bloc. Collage intelligent depuis Word/Google Docs avec conversion propre en blocs.
+  1798→
+  1799→**Panneaux latéraux (onglets) :**
+  1800→
+  1801→| Onglet | Champs |
+  1802→|---|---|
+  1803→| **Publication** | Statut, date/heure de programmation, date d'expiration, visibilité, importance (1–5), épinglage, « article majeur », envoi push, inclusion newsletter, texte social |
+  1804→| **Classement** | Rubrique principale, sous-rubrique, rubriques secondaires, mots-clés (combobox avec création), dossier, zones géographiques, format éditorial, entités citées |
+  1805→| **Signature** | Auteurs et rôles (auteur, co-auteur, photographe, traducteur), agence source, dateline |
+  1806→| **Médias** | Image principale + recadrages 16:9 / 4:3 / 1:1 / 21:9 avec point focal, `alt` **obligatoire**, légende, crédit **obligatoire**, image sociale spécifique |
+  1807→| **SEO** | Slug (gelé après publication → redirection auto), méta-titre, méta-description, canonique, robots, mot-clé cible, **score SEO en direct**, mots-clés suggérés (voir §12) |
+  1808→| **Relecture** | Commentaires ancrés, historique des versions avec diff visuel et restauration, note de correction, sources |
+  1809→
+  1810→**Contrôles de publication (bloquants) :**
+  1811→- titre non vide, rubrique choisie, chapô ≥ 80 caractères
+  1812→- image principale avec `alt` **et** crédit
+  1813→- au moins 1 mot-clé
+  1814→- pas de lien cassé interne détecté
+  1815→- si `is_sponsored` : `sponsor_name` renseigné
+  1816→
+  1817→**Contrôles d'avertissement (non bloquants) :** score SEO < 60, méta-description absente, aucun lien interne, titre dupliqué, longueur < 200 mots pour un format ≠ `brief`.
+  1818→
+  1819→**Publication d'urgence :** bouton « Publier en flash » qui crée un `flash_news` + un article `brief` en 2 champs, enrichissable ensuite.
+  1820→
+  1821→### `/admin/une` — Composeur de la une
+  1822→Glisser-déposer entre une liste d'articles candidats (recherche, filtres) et les zones de la une. Épinglage, programmation horaire, titre et image alternatifs pour la une, prévisualisation avant publication, historique et retour arrière.
+  1823→
+  1824→### `/admin/homepage` — Composeur de page d'accueil
+  1825→Liste verticale des `homepage_blocks` réordonnable par glisser-déposer. Pour chaque bloc : activer/désactiver, dupliquer, choisir le gabarit, définir la source (rubrique, dossier, mot-clé, sélection manuelle, automatique), le nombre d'éléments, le titre affiché, la période d'affichage. **Prévisualisation en direct** dans un cadre à côté. Enregistrement de configurations nommées (`homepage_layouts`) et restauration.
+  1826→
+  1827→### `/admin/flash`, `/admin/direct`
+  1828→Saisie d'un flash en une ligne (texte, priorité, lien, expiration). Live blog : création, gestion des entrées en temps réel, épinglage, « l'essentiel », contributeurs simultanés, passage en `ended`.
+  1829→
+  1830→### `/admin/medias` — Médiathèque
+  1831→Téléversement multiple par glisser-déposer. Métadonnées obligatoires à l'import (titre, `alt`, crédit, licence). Recadrage intégré avec points focaux. Conversion automatique AVIF/WebP + 6 largeurs (`320, 640, 960, 1280, 1600, 2000`). Suppression des EXIF sensibles (GPS). Recherche et filtres. **Affichage des contenus utilisant le média avant suppression.** Détection de doublons par `checksum`. Purge des orphelins.
+  1832→
+  1833→### `/admin/taxonomies`
+  1834→Onglets : Rubriques (arbre réordonnable, 3 niveaux), Mots-clés (fusion, synonymes), Dossiers, Zones géographiques, Entités.
+  1835→**Règles :**
+  1836→- Renommer une rubrique ou un mot-clé → **redirection 301 automatique** créée dans `redirects`.
+  1837→- Supprimer une rubrique contenant des articles → **bloqué** tant qu'une cible de réaffectation n'est pas choisie.
+  1838→- Fusion journalisée et **réversible pendant 30 jours**.
+  1839→
+  1840→### `/admin/pages`, `/admin/menus`
+  1841→Pages : même éditeur par blocs, choix du `template`, SEO. Menus : arborescence par glisser-déposer, cible (rubrique, page, dossier, mot-clé, URL externe), icône, nouvel onglet, style « CTA rouge », visibilité.
+  1842→
+  1843→### `/admin/parametres` — Autonomie totale
+  1844→Groupes de `settings` administrables :
+  1845→
+  1846→| Groupe | Clés |
+  1847→|---|---|
+  1848→| `identity` | nom, baseline, logos (clair/sombre/icône/favicon), image sociale par défaut, couleur d'accent, fuseau, langues actives |
+  1849→| `contact` | adresse, téléphones, WhatsApp, e-mails par service, horaires, coordonnées GPS, destinataires des formulaires |
+  1850→| `social` | liste ordonnée `[{platform, url, label, showInHeader, showInFooter}]` |
+  1851→| `editorial` | `journalist_can_publish`, `comments_enabled`, `comments_moderation` (pre/post), délai d'expiration des flashs, mots bloqués |
+  1852→| `seo` | titre par défaut, séparateur, suffixe, vérification Search Console, robots par défaut |
+  1853→| `ads` | activation globale, densité maximale, mots-clés sensibles excluant la publicité |
+  1854→| `email` | expéditeur, nom d'expéditeur, pied de page légal, adresse postale (obligation CAN-SPAM) |
+  1855→| `features` | drapeaux d'activation de chaque module (météo, direct, commentaires, push, dons) |
+  1856→| `legal` | éditeur, directeur de publication, hébergeur, numéro d'enregistrement |
+  1857→
+  1858→**Écran « Textes d'interface » :** table `translations` éditable — tous les libellés du site (boutons, messages, mentions de consentement, erreurs) modifiables sans développeur.
+  1859→
+  1860→### `/admin/moderation`
+  1861→Boîte unifiée : commentaires, contacts, alertes info, droits de réponse. Filtrage automatique haine/spam, file d'attente, actions groupées, listes de mots bloqués, bannissement, réponse officielle identifiée visuellement, traçabilité des décisions.
+  1862→
+  1863→### `/admin/audit`
+  1864→Journal horodaté filtrable par utilisateur, action, ressource et période. Diff avant/après. Export CSV.
+  1865→
+  1866→---
+  1867→
+  1868→# 12. MODULE SEO ET MOTEUR DE MOTS-CLÉS
+  1869→
+  1870→## 12.1 Principe
+  1871→
+  1872→Le SEO n'est pas une couche ajoutée en fin de projet : il est intégré au socle technique (§12.2), puis prolongé par un **moteur de suggestion de mots-clés** qui propose au journaliste, **avant publication**, les termes de courte et longue traîne les plus pertinents pour son sujet.
+  1873→
+  1874→## 12.2 Socle technique obligatoire
+  1875→
+  1876→| Domaine | Exigence |
+  1877→|---|---|
+  1878→| Rendu | RSC/ISR : le HTML servi contient le contenu intégral. **Aucune dépendance au JS pour l'indexation.** |
+  1879→| Balises | Un seul `h1`, hiérarchie stricte, `<title>` ≤ 60 caractères, meta description 140–160, canonique systématique, `robots` par page |
+  1880→| Données structurées | `NewsArticle`, `Article`, `VideoObject`, `LiveBlogPosting`, `ClaimReview`, `BreadcrumbList`, `Organization`, `Person`, `WebSite`+`SearchAction`, `FAQPage` — générées automatiquement et **validées dans les tests** |
+  1881→| Sitemaps | Index segmenté : `sitemap-articles-{n}.xml` (50 000 URL max), `sitemap-categories`, `sitemap-tags`, `sitemap-authors`, `sitemap-videos`, `sitemap-images`. **`sitemap-news.xml` limité aux 48 dernières heures.** Régénération à chaque publication + ping IndexNow |
+  1882→| Flux | RSS **et** Atom par rubrique, mot-clé, auteur, dossier ; MRSS pour les vidéos |
+  1883→| International | `hreflang` réciproques entre versions linguistiques + `x-default`, URL localisées |
+  1884→| Partage | Open Graph et Twitter Cards complets ; image sociale **générée automatiquement** (`opengraph-image.tsx`) si absente |
+  1885→| Google News / Discover | Pages auteur, transparence éditoriale, politique de corrections publiée, images ≥ 1200 px de large |
+  1886→| Hygiène | 404 et 410 corrects, 301 permanentes, **aucune chaîne de redirection**, pagination indexable, contrôle du contenu dupliqué et de la cannibalisation |
+  1887→
+  1888→### Exemple de JSON-LD `NewsArticle` à générer
+  1889→
+  1890→```json
+  1891→{
+  1892→  "@context": "https://schema.org",
+  1893→  "@type": "NewsArticle",
+  1894→  "headline": "{title, ≤110 car.}",
+  1895→  "description": "{lede}",
+  1896→  "datePublished": "{published_at ISO8601}",
+  1897→  "dateModified": "{updated_content_at ISO8601}",
+  1898→  "articleSection": "{category.name}",
+  1899→  "keywords": "{tags joints par virgule}",
+  1900→  "wordCount": "{word_count}",
+  1901→  "inLanguage": "{locale}",
+  1902→  "image": [ "{cover 16:9 ≥1200px}", "{cover 4:3}", "{cover 1:1}" ],
+  1903→  "author": [{ "@type": "Person", "name": "...", "url": "/auteurs/{slug}" }],
+  1904→  "publisher": {
+  1905→    "@type": "NewsMediaOrganization",
+  1906→    "name": "INFOSPRO",
+  1907→    "logo": { "@type": "ImageObject", "url": "...", "width": 600, "height": 60 }
+  1908→  },
+  1909→  "mainEntityOfPage": { "@type": "WebPage", "@id": "{url canonique}" },
+  1910→  "isAccessibleForFree": true
+  1911→}
+  1912→```
+  1913→
+  1914→## 12.3 Moteur de suggestion — architecture
+  1915→
+  1916→Service dans `lib/seo/keyword-engine/`. Invoqué depuis l'éditeur via Server Action `suggestKeywords(input)`.
+  1917→
+  1918→### Pipeline en 9 étapes
+  1919→
+  1920→```
+  1921→1. SAISIE
+  1922→   Entrée : { topic?: string, articleId?: string, draftText?: string,
+  1923→              locale: "fr", country: "GN", categoryId?: string }
+  1924→
+  1925→2. EXTRACTION SÉMANTIQUE
+  1926→   → entités nommées, thème principal, zone géographique, période,
+  1927→     intention dominante (informational | news | transactional | navigational)
+  1928→   → via LLM + règles ; sortie normalisée
+  1929→
+  1930→3. EXPANSION — génération large de candidats
+  1931→   a) autocomplétion : requêtes seed × [a–z] × préfixes interrogatifs
+  1932→      (comment, pourquoi, qui, quand, combien, où, quel, est-ce que)
+  1933→   b) recherches associées et "autres questions posées"
+  1934→   c) variantes morphologiques, singulier/pluriel, synonymes
+  1935→   d) traductions et translittérations (noms propres guinéens)
+  1936→   e) formulations locales (dictionnaire interne, voir 12.5)
+  1937→   f) expansion LLM sur le thème
+  1938→   → 200 à 800 candidats bruts
+  1939→
+  1940→4. ENRICHISSEMENT
+  1941→   Pour chaque candidat : volume, tendance, difficulté, saisonnalité, CPC
+  1942→   Sources par ordre de priorité : GSC > autocomplete > Trends > provider payant
+  1943→   → mise en cache 30 jours dans keyword_metrics ; ne jamais réinterroger
+  1944→     un terme déjà collecté récemment (maîtrise du coût)
+  1945→
+  1946→5. ANALYSE SERP (sur les 10 meilleurs candidats seulement)
+  1947→   → type de contenu dominant, longueur moyenne, structure,
+  1948→     présence de blocs enrichis, concurrents présents
+  1949→
+  1950→6. CLUSTERING
+  1951→   → embeddings des candidats, regroupement par similarité cosinus (seuil 0,82)
+  1952→   → un cluster = une intention = un article
+  1953→   → confrontation aux clusters déjà couverts par le site
+  1954→
+  1955→7. SCORING
+  1956→   opportunity =
+  1957→       (volume_weighted ^ 0.5)
+  1958→     * trend_factor          // spiking 1.6 | rising 1.3 | stable 1.0
+  1959→                             // seasonal 1.1 si en saison | declining 0.7
+  1960→     * affinity_factor       // 1.0 à 1.5 selon l'autorité du site sur le cluster
+  1961→     / (1 + difficulty / 100)
+  1962→   Les coefficients sont stockés dans settings.seo.scoring et modifiables
+  1963→   par un administrateur SANS redéploiement.
+  1964→
+  1965→8. RESTITUTION
+  1966→   {
+  1967→     focusKeyword:     { term, volume, difficulty, score, rationale },
+  1968→     secondary:        Keyword[],   // 3 à 6, moyenne traîne
+  1969→     longTail:         Keyword[],   // 8 à 15
+  1970→     questions:        string[],    // à traiter en intertitres
+  1971→     titles:           string[],    // 3 propositions ≤ 60 car.
+  1972→     metaDescriptions: string[],    // 3 propositions 140-160 car.
+  1973→     outline:          { heading: string; keywords: string[] }[],
+  1974→     internalLinks:    { articleId, title, suggestedAnchor }[],
+  1975→     cannibalization:  { articleId, title, sharedIntent, recommendation }[],
+  1976→     cluster:          { id, label, coverage }
+  1977→   }
+  1978→
+  1979→9. CONTRÔLE AVANT PUBLICATION
+  1980→   → recalcul du score SEO à chaque frappe (debounce 1500 ms)
+  1981→   → checklist affichée ; blocage doux si critères majeurs manquants
+  1982→```
+  1983→
+  1984→## 12.4 Sources de données
+  1985→
+  1986→| Source | Rôle | Coût | Priorité |
+  1987→|---|---|---|---|
+  1988→| **Google Search Console** (API) | Requêtes réelles du domaine, impressions, clics, positions | Gratuit | **1 — la plus fiable** |
+  1989→| **Autocomplétion** moteurs/plateformes | Reflet direct des recherches locales | Gratuit | **2** |
+  1990→| **Google Trends** | Dynamique, saisonnalité, filtré Guinée + pays cibles | Gratuit | 3 |
+  1991→| **Fournisseur payant** (DataForSEO / Semrush / Ahrefs) | Volumes, difficulté | Payant — **quotas surveillés** | 4 |
+  1992→| **Corpus interne** | Articles publiés, performances passées, autorité thématique | Gratuit | 2 |
+  1993→| **LLM** | Expansion sémantique, variantes locales, titres | Payant faible | 3 |
+  1994→
+  1995→**Architecture d'adaptateur obligatoire :**
+  1996→```ts
+  1997→interface KeywordProvider {
+  1998→  name: string;
+  1999→  getMetrics(terms: string[], opts: { locale: string; country: string }): Promise<KeywordMetric[]>;
+  2000→  getSuggestions(seed: string, opts: ProviderOpts): Promise<string[]>;
+  2001→  estimateCost(callCount: number): number;
+  2002→}
+  2003→```
+  2004→Changer de fournisseur ne doit demander **aucune** réécriture hors du dossier `providers/`. Un provider `none` doit exister, fonctionnant uniquement sur GSC + autocomplete + LLM.
+  2005→
+  2006→## 12.5 Spécificité guinéenne — exigence forte
+  2007→
+  2008→Les données de volume de recherche sont **notoirement pauvres pour la Guinée**. Le moteur doit donc :
+  2009→
+  2010→1. **Pondérer les volumes** par un coefficient régional paramétrable (`settings.seo.region_weight`, défaut : ×3,5 pour une requête francophone ouest-africaine par rapport au volume mondial affiché).
+  2011→2. **Privilégier GSC et l'autocomplétion**, qui reflètent la réalité locale, plutôt que les estimations des outils commerciaux.
+  2012→3. Maintenir un **dictionnaire local** (`lib/seo/dictionaries/gn.ts`) : patronymes guinéens et leurs graphies alternatives (Condé/Conde, Diallo, Camara, Bah/Ba, Sylla, Touré/Toure), toponymes (Conakry, Kankan, N'Zérékoré/Nzerekore, Labé/Labe, Kindia, Boké/Boke, Siguiri), sigles institutionnels (CNRD, CENI, RTG, BCRG, SMB, CBG, ANSS), et les variantes sans accents et sans apostrophes.
+  2013→4. **Ne jamais présenter une absence de données comme une absence d'intérêt.** Quand aucun volume n'est disponible, afficher « volume non mesuré » et se reposer sur la fraîcheur et l'affinité.
+  2014→
+  2015→## 12.6 Classification des mots-clés
+  2016→
+  2017→| Type | Définition | Nombre par article | Emplacement |
+  2018→|---|---|---|---|
+  2019→| Courte traîne | 1–2 mots, intention large, forte concurrence | **1 seul** | Titre, `h1`, URL |
+  2020→| Moyenne traîne | 3–4 mots, intention précisée | 3–6 | Intertitres, chapô, meta description |
+  2021→| Longue traîne | ≥ 5 mots, souvent interrogative | 8–15 | Sous-sections, questions traitées, encadrés |
+  2022→
+  2023→## 12.7 Assistant dans l'éditeur — panneau SEO
+  2024→
+  2025→Permanent, non bloquant, rafraîchi pendant la frappe (debounce 1,5 s).
+  2026→
+  2027→### Score sur 100 — critères vérifiés en direct
+  2028→
+  2029→| Critère | Poids | Règle |
+  2030→|---|---|---|
+  2031→| Mot-clé cible dans le titre | 12 | Présent, de préférence dans les 60 premiers caractères |
+  2032→| Mot-clé cible dans le `h1` | 8 | Présent |
+  2033→| Mot-clé dans le 1er paragraphe | 10 | Dans les 150 premiers mots |
+  2034→| Mot-clé dans l'URL | 8 | Slug contient le terme normalisé |
+  2035→| Mot-clé dans la meta description | 6 | Présent |
+  2036→| Mot-clé dans ≥ 1 intertitre | 6 | Présent |
+  2037→| Longueur du titre | 6 | 45–60 caractères |
+  2038→| Longueur de la meta description | 6 | 140–160 caractères |
+  2039→| Densité du mot-clé | 8 | **entre 0,8 % et 2,5 %** — pénalité au-delà |
+  2040→| Mots-clés secondaires présents | 8 | ≥ 3 des suggérés |
+  2041→| Nombre de mots | 6 | ≥ 300 (hors `brief`) |
+  2042→| Liens internes | 6 | ≥ 2 |
+  2043→| Liens externes sourcés | 4 | ≥ 1 |
+  2044→| `alt` sur toutes les images | 4 | 100 % |
+  2045→| Lisibilité | 2 | Phrases ≤ 25 mots en moyenne |
+  2046→
+  2047→### Autres fonctions du panneau
+  2048→
+  2049→- **3 propositions de titres** et **3 meta descriptions**, avec aperçu du rendu dans les résultats Google **et** dans un partage social.
+  2050→- **Plan d'intertitres suggéré** depuis les questions associées, insérable en un clic dans le brouillon.
+  2051→- **Suggestions de liens internes** : articles existants pertinents + ancre proposée. **Suggestion inverse** : anciens articles qui gagneraient à pointer vers le nouveau.
+  2052→- **Détection de cannibalisation** : alerte si un article publié cible la même intention, avec recommandation « mettre à jour l'existant » plutôt que « créer ».
+  2053→- **Optimisation pour moteurs génératifs (GEO/AEO)** : contrôle de la présence d'une réponse synthétique en tête, de définitions claires, de données citables et de sources nommées.
+  2054→
+  2055→> **L'assistant conseille, il ne contraint pas.** Il n'impose jamais un vocabulaire qui dénaturerait l'écriture journalistique. Le rédacteur en chef peut publier en passant outre — l'action est journalisée.
+  2056→
+  2057→## 12.8 Écran `/admin/seo`
+  2058→
+  2059→| Onglet | Contenu |
+  2060→|---|---|
+  2061→| **Positions** | Suivi des mots-clés `is_tracked`, historique, alerte de décrochage (> 5 places perdues) |
+  2062→| **Opportunités** | Articles positionnés **entre la 5ᵉ et la 20ᵉ place** — à mettre à jour en priorité, tri par impressions |
+  2063→| **Couverture** | Cartographie des clusters : traités, vides, redondants ; suggestions de sujets |
+  2064→| **Santé technique** | Pages non indexées, erreurs de données structurées, 404 entrantes (depuis `not_found_log`), liens cassés, pages orphelines, temps de chargement par gabarit |
+  2065→| **Recherche interne** | Requêtes des visiteurs, notamment **celles sans résultat** — source directe d'idées éditoriales |
+  2066→| **Coûts** | Appels par fournisseur, quota restant, coût estimé du mois (`seo_provider_usage`) |
+  2067→
+  2068→Rapport mensuel exportable en PDF et CSV.
+  2069→
+  2070→---
+  2071→
+  2072→# 13. RÉGIE PUBLICITAIRE
+  2073→
+  2074→## 13.1 Inventaire des emplacements (seed obligatoire dans `ad_slots`)
+  2075→
+  2076→| Code | Emplacement | Formats | Pages | Attention |
+  2077→|---|---|---|---|---|
+  2078→| `AD-01` | Habillage de page (skin) | fond latéral + 1800×1000 | accueil, rubriques | Très forte — exclusivité journée |
+  2079→| `AD-02` | Leaderboard d'en-tête | 970×250, 970×90, 728×90 · mobile 320×100 | toutes | Forte |
+  2080→| `AD-03` | Billboard sous la une | 970×250 | accueil | Très forte |
+  2081→| `AD-04` | Pavé latéral haut | 300×250, 300×600 | article, rubrique | Forte |
+  2082→| `AD-05` | Pavé latéral collant | 300×600 demi-page | article | Très forte — durée d'exposition |
+  2083→| `AD-06` | In-read (dans le texte) | 300×250, natif responsive | article, après 3ᵉ et 7ᵉ § | Très forte |
+  2084→| `AD-07` | Inter-bloc accueil | 728×90, natif | accueil | Moyenne à forte |
+  2085→| `AD-08` | Natif dans le fil | carte au gabarit éditorial + mention « Publicité » | accueil, rubriques, recherche | Forte |
+  2086→| `AD-09` | Sponsoring de rubrique | logo « en partenariat avec » + bandeau | une rubrique entière | Forte — vente au mois |
+  2087→| `AD-10` | Sponsoring de newsletter | 600×150 + encart texte | e-mails | Très forte |
+  2088→| `AD-11` | Pré-roll vidéo | 6–15 s, skippable après 5 s | reportages | Très forte |
+  2089→| `AD-12` | Bandeau collant mobile | 320×50, 320×100 — fermable | toutes, mobile | Forte |
+  2090→| `AD-13` | Interstitiel de transition | plein écran, fermable, **1×/session max** | inter-articles | Très forte — usage limité |
+  2091→| `AD-14` | Bas d'article | 728×90, 970×250 | article | Moyenne |
+  2092→| `AD-15` | Pied de page | 728×90 | toutes | Faible — remplissage |
+  2093→| `AD-16` | Widget météo sponsorisé | logo + « Météo présentée par » | accueil, météo | Forte |
+  2094→| `AD-17` | Bandeau de direct | bandeau fin sous le titre du live | directs | Très forte en événement |
+  2095→| `AD-18` | Contenu de marque | article complet, gabarit distinct, hors flux classé | rubrique dédiée | Forte |
+  2096→| `AD-19` | Auto-promotion | newsletter, dossiers, appel à témoignages | inventaire invendu | Remplissage |
+  2097→
+  2098→## 13.2 Algorithme de sélection (`lib/ads/serve.ts`)
+  2099→
+  2100→```
+  2101→Entrée : slotCode, contexte { path, categoryId, tags[], format, country,
+  2102→                              city, device, locale, hour, weekday,
+  2103→                              visitorType, visitorHash, isSensitive }
+  2104→
+  2105→1. Filtrer ad_slots : code actif
+  2106→2. Récupérer les créations éligibles :
+  2107→   - campagne status='running' ET now() ENTRE starts_at ET ends_at
+  2108→   - creative.slot_code = slotCode ET is_active
+  2109→3. Appliquer le ciblage (targeting JSONB) :
+  2110→   catégories, tags, formats, pays, villes, devices, langues,
+  2111→   heures, jours, type de visiteur
+  2112→4. EXCLUSIONS OBLIGATOIRES :
+  2113→   - si contexte.isSensitive (deuil, catastrophe, fait divers grave,
+  2114→     détecté par settings.ads.sensitive_keywords) → ne rien servir
+  2115→   - exclusion concurrentielle : pas deux annonceurs du même `sector`
+  2116→     sur la même page
+  2117→   - article.is_sponsored → AUCUNE publicité tierce dans cet article
+  2118→5. Plafonnement : compteur Redis `cap:{campaignId}:{visitorHash}:{yyyymmdd}`
+  2119→   → écarter si >= frequency_cap
+  2120→6. Trier par priority ASC, puis tirage aléatoire pondéré par `weight`
+
+[showing lines 1571-2120 of 2613; use offset=2121 with limit to continue reading]

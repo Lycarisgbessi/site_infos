@@ -1,0 +1,2613 @@
+# INFOSPRO.NET — SPÉCIFICATION D'IMPLÉMENTATION COMPLÈTE
+### Document d'entrée pour agent de développement IA (GLM)
+**Version 2.0 — Spécification exécutable · 16 septembre 2026**
+**Projet :** plateforme média numérique de standard international · Conakry, République de Guinée
+**Domaine :** `infospro.net`
+
+---
+
+# 00. INSTRUCTIONS POUR L'AGENT DE DÉVELOPPEMENT
+
+> **Lis intégralement ce document avant d'écrire la moindre ligne de code.**
+
+## 00.1 Ta mission
+
+Tu dois construire **l'intégralité** de la plateforme INFOSPRO.NET décrite ci-dessous : base de données, backend serverless, API, site public (front-office), tableau de bord d'administration (back-office), moteur SEO, régie publicitaire, module newsletter, et toute l'infrastructure associée.
+
+Ce document est **normatif**. Chaque section contient des spécifications directement implémentables : schéma SQL, routes d'API, arborescence de fichiers, jetons de design, noms de composants, règles métier, critères d'acceptation.
+
+## 00.2 Règles absolues
+
+1. **Ne simplifie rien.** Si une fonctionnalité est décrite, elle doit être implémentée entièrement, pas en version « démo ».
+2. **Aucune donnée en dur.** Tout texte affiché sur le site public doit provenir de la base de données ou de la table `translations`. Aucun titre de rubrique, aucun libellé de menu, aucune adresse e-mail, aucun lien social ne doit être écrit dans le code.
+3. **Respecte les noms.** Les noms de tables, colonnes, routes, composants et variables d'environnement donnés ici sont contractuels. Ne les renomme pas.
+4. **TypeScript strict.** `strict: true`, aucun `any` implicite, aucun `@ts-ignore` sans commentaire justificatif.
+5. **Pas de `localStorage` pour des données métier.** Uniquement pour les préférences d'affichage (thème, mode données réduites).
+6. **Sécurité côté serveur.** Chaque vérification de permission se fait sur le serveur. Masquer un bouton n'est jamais une protection.
+7. **Mobile d'abord.** Toute interface est conçue d'abord pour un écran de 360 px, puis élargie.
+8. **Performance dès le premier commit.** Ne code pas « on optimisera après ». Les budgets de la section 16 sont bloquants.
+9. **Si une information manque**, choisis l'option la plus proche de ce qui se fait sur BBC News, The Economist ou Le Monde, et documente ton choix dans `/docs/DECISIONS.md`.
+10. **Langue du produit :** français. Langue du code (variables, fonctions) : anglais. Commentaires : français.
+
+## 00.3 Ordre d'exécution imposé
+
+Construis dans cet ordre. Ne passe à la phase suivante qu'une fois la précédente fonctionnelle et testée.
+
+```
+PHASE 1  Socle          → repo, config, DB, migrations, seed, auth, RBAC
+PHASE 2  Back-office    → CRUD articles, éditeur blocs, médiathèque, taxonomies
+PHASE 3  API publique   → endpoints de lecture, cache, recherche
+PHASE 4  Front-office   → design system, layouts, pages, animations
+PHASE 5  Modules        → flash, à la une, direct, météo, reportages
+PHASE 6  SEO            → socle technique + moteur de mots-clés + assistant
+PHASE 7  Monétisation   → régie publicitaire + newsletter
+PHASE 8  Finition       → i18n, a11y, perf, tests, observabilité, docs
+```
+
+Le détail de chaque phase, avec ses critères d'acceptation, figure en **section 20**.
+
+## 00.4 Identité visuelle imposée
+
+- **Couleurs :** blanc, noir, rouge — strictement. Aucune autre couleur décorative.
+- **Rouge de marque :** `#C8102E`
+- **Le rouge est un signal, pas une décoration.** Réservé à : marque, liens, statuts d'urgence (direct/flash/alerte), un seul accent par bloc. Maximum 10 % de surface rouge par page.
+- **Langage visuel :** presse imprimée haut de gamme — filets fins, typographie serif en titraille, densité maîtrisée. Pas d'ombres portées diffuses, pas de dégradés, pas de coins très arrondis, pas d'esthétique « SaaS ».
+
+## 00.5 Références de qualité
+
+| Référence | Ce qu'il faut en tirer |
+|---|---|
+| BBC News | Architecture de l'information, accessibilité, performance en réseau contraint |
+| The Economist | Rigueur typographique, identité rouge/blanc/noir, densité |
+| The New York Times | Formats immersifs, live blogs, publicité native |
+| France 24 | Multilinguisme, place de la vidéo, couverture Afrique |
+| Le Monde | Dossiers, newsletters éditorialisées, hiérarchie de la une |
+
+---
+
+# 01. CONTEXTE ET OBJECTIFS
+
+## 01.1 Nature du produit
+
+Site d'information généraliste, national et international, produit depuis la Guinée, avec ambition de qualité comparable aux grands médias mondiaux. Contenus en français au lancement, architecture multilingue native (anglais en phase 2, arabe RTL prévu).
+
+## 01.2 Contraintes structurantes
+
+| Contrainte | Conséquence technique directe |
+|---|---|
+| Audience majoritairement sur 3G/4G instable, forfaits data coûteux | Budget strict de poids de page, mode données réduites, ISR agressif |
+| Parc Android d'entrée de gamme (4 Go RAM) | Animations `transform`/`opacity` uniquement, JS initial < 180 Ko |
+| Rédaction non technique | Back-office en français, vocabulaire de presse, formation en 4 h |
+| Pics d'audience imprévisibles (élections, crises) | Serverless élastique, cache en périphérie, pas de serveur à dimensionner |
+| Extension future (abonnements, annonces, emploi) | Schéma relationnel extensible, pas de refonte nécessaire |
+| Lecteurs répartis sur 4 continents | CDN mondial, fuseaux horaires, éditions géographiques |
+
+## 01.3 Objectifs mesurables à 12 mois
+
+| Objectif | Indicateur | Cible |
+|---|---|---|
+| Audience | Visiteurs uniques mensuels | ≥ 300 000, dont 25 % hors Guinée |
+| Fidélisation | Abonnés newsletter actifs | ≥ 20 000 · ouverture ≥ 35 % |
+| SEO | Part du trafic organique | ≥ 45 % |
+| Performance | Core Web Vitals terrain p75 | LCP < 2,0 s · INP < 200 ms · CLS < 0,1 |
+| Disponibilité | Uptime mensuel | ≥ 99,9 % |
+| Autonomie | Modifications sans développeur | 100 % du contenu, 95 % de la mise en page |
+| Monétisation | Emplacements publicitaires actifs | ≥ 18 formats distincts |
+| Productivité | Délai de publication d'une brève | < 3 minutes |
+
+## 01.4 Hors périmètre de cette implémentation
+
+Ces éléments ne sont **pas** à construire maintenant, mais le schéma de données et l'architecture doivent les rendre possibles sans refonte :
+
+- Applications mobiles natives iOS/Android
+- Paywall et abonnements payants (prévoir `users.subscription_status`, table `subscriptions` vide)
+- Web radio / podcast en flux continu
+- Petites annonces et annonces légales
+
+---
+
+# 02. STACK TECHNIQUE IMPOSÉE
+
+## 02.1 Choix technologiques
+
+| Couche | Technologie | Version | Note |
+|---|---|---|---|
+| Framework | **Next.js** App Router | 15.x | React Server Components par défaut |
+| Langage | **TypeScript** | 5.x | `strict: true` |
+| UI | **React** | 19.x | — |
+| Styles | **Tailwind CSS** | 4.x | Jetons de design en variables CSS |
+| Animations | **Framer Motion** (`motion`) | 11.x+ | + transitions CSS natives pour le simple |
+| Base de données | **PostgreSQL** | 16+ | Serverless : Neon, Supabase, ou Aurora Serverless v2 |
+| ORM | **Prisma** | 5.x+ | Alternative acceptée : Drizzle |
+| Pool de connexions | PgBouncer / pooler intégré | — | **Obligatoire** en serverless |
+| Auth | **Auth.js (NextAuth)** v5 | 5.x | Credentials + TOTP 2FA |
+| Validation | **Zod** | 3.x | Schémas partagés client/serveur |
+| Recherche | **Meilisearch** | 1.x | Repli : PostgreSQL FTS + `pg_trgm` |
+| Cache / compteurs | **Redis serverless** (Upstash) | — | Vues, sessions, rate limit |
+| Stockage objet | **S3** ou **Cloudflare R2** | — | Médias |
+| Transformation images | `next/image` + service de transformation | — | AVIF/WebP, 6 largeurs |
+| Vidéo | **Mux** ou **Cloudflare Stream** | — | HLS adaptatif, sous-titres |
+| E-mail | **Resend** ou **Amazon SES** | — | SPF/DKIM/DMARC obligatoires |
+| Files & cron | **QStash** ou **Inngest** | — | Tâches asynchrones |
+| Éditeur riche | **TipTap** | 2.x | Sortie **JSON blocs**, jamais HTML brut |
+| Formulaires | **React Hook Form** + Zod | — | — |
+| Tables admin | **TanStack Table** | 8.x | — |
+| Graphiques | **Recharts** | — | Dashboards |
+| Tests unitaires | **Vitest** | — | — |
+| Tests E2E | **Playwright** | — | — |
+| Erreurs | **Sentry** | — | — |
+| Hébergement | **Vercel** | — | Alternative : AWS Lambda + CloudFront |
+
+## 02.2 Architecture en couches
+
+```
+┌─────────────────────────────────────────────────────────┐
+│  EDGE : CDN mondial, cache HTML+médias, WAF,            │
+│         rate limiting, redirections, TLS                 │
+├─────────────────────────────────────────────────────────┤
+│  APP  : Next.js — RSC, ISR (articles), SSR (perso),     │
+│         Server Actions (admin)                           │
+├─────────────────────────────────────────────────────────┤
+│  API  : Route Handlers /api/v1/* (public, cachée)       │
+│         Server Actions (admin, authentifiées)            │
+├─────────────────────────────────────────────────────────┤
+│  JOBS : encodage vidéo, envoi e-mail, collecte SEO,     │
+│         sitemaps, agrégation stats, backups              │
+├─────────────────────────────────────────────────────────┤
+│  DATA : PostgreSQL (+ replica lecture) · Redis ·        │
+│         Meilisearch · S3/R2                              │
+├─────────────────────────────────────────────────────────┤
+│  TIERS: météo · vidéo · e-mail · données SEO ·          │
+│         analytics · push · régie externe                 │
+└─────────────────────────────────────────────────────────┘
+```
+
+## 02.3 Règle d'indépendance
+
+Aucune dépendance propriétaire bloquante. Un export complet (dump PostgreSQL + archive des médias) doit être obtenable par une commande documentée : `pnpm run export:full`.
+
+---
+
+# 03. STRUCTURE DU DÉPÔT
+
+```
+infospro/
+├── apps/
+│   └── web/                          # Application Next.js unique
+│       ├── src/
+│       │   ├── app/
+│       │   │   ├── (public)/                 # Site public — layout public
+│       │   │   │   ├── layout.tsx
+│       │   │   │   ├── page.tsx              # Accueil
+│       │   │   │   ├── a-la-une/page.tsx
+│       │   │   │   ├── rubriques/page.tsx
+│       │   │   │   ├── [category]/
+│       │   │   │   │   ├── page.tsx          # Page rubrique
+│       │   │   │   │   ├── page/[n]/page.tsx # Pagination indexable
+│       │   │   │   │   └── [slug]/page.tsx   # Article
+│       │   │   │   ├── reportages/
+│       │   │   │   ├── direct/[slug]/
+│       │   │   │   ├── dossiers/[slug]/
+│       │   │   │   ├── monde/[zone]/
+│       │   │   │   ├── auteurs/[slug]/
+│       │   │   │   ├── tags/[slug]/
+│       │   │   │   ├── entites/[slug]/
+│       │   │   │   ├── recherche/
+│       │   │   │   ├── meteo/
+│       │   │   │   ├── newsletters/
+│       │   │   │   ├── archives/[y]/[m]/[d]/
+│       │   │   │   └── [page]/page.tsx       # Pages statiques (à-propos, contact…)
+│       │   │   ├── admin/                    # Back-office — layout admin
+│       │   │   │   ├── layout.tsx
+│       │   │   │   ├── page.tsx              # Dashboard
+│       │   │   │   ├── articles/
+│       │   │   │   ├── une/                  # Composeur de la une
+│       │   │   │   ├── flash/
+│       │   │   │   ├── direct/
+│       │   │   │   ├── medias/
+│       │   │   │   ├── taxonomies/
+│       │   │   │   ├── pages/
+│       │   │   │   ├── menus/
+│       │   │   │   ├── homepage/             # Composeur page d'accueil
+│       │   │   │   ├── seo/
+│       │   │   │   ├── publicite/
+│       │   │   │   ├── newsletter/
+│       │   │   │   ├── moderation/
+│       │   │   │   ├── analytics/
+│       │   │   │   ├── utilisateurs/
+│       │   │   │   ├── parametres/
+│       │   │   │   └── audit/
+│       │   │   ├── api/v1/                   # API publique REST
+│       │   │   ├── api/admin/                # API privée
+│       │   │   ├── api/cron/                 # Tâches planifiées
+│       │   │   ├── api/webhooks/             # Callbacks tiers
+│       │   │   ├── sitemap.xml/route.ts
+│       │   │   ├── sitemap-news.xml/route.ts
+│       │   │   ├── rss.xml/route.ts
+│       │   │   ├── robots.ts
+│       │   │   └── opengraph-image.tsx
+│       │   ├── components/
+│       │   │   ├── ui/                       # Primitives design system
+│       │   │   ├── public/                   # Composants site public
+│       │   │   ├── admin/                    # Composants back-office
+│       │   │   ├── editor/                   # Éditeur de blocs
+│       │   │   ├── blocks/                   # Rendu des blocs de contenu
+│       │   │   └── ads/                      # Emplacements publicitaires
+│       │   ├── lib/
+│       │   │   ├── db.ts                     # Client Prisma singleton
+│       │   │   ├── auth.ts                   # Config Auth.js
+│       │   │   ├── permissions.ts            # RBAC
+│       │   │   ├── cache.ts                  # Helpers cache + tags
+│       │   │   ├── redis.ts
+│       │   │   ├── search.ts                 # Meilisearch
+│       │   │   ├── media.ts                  # Upload, transformation
+│       │   │   ├── email.ts
+│       │   │   ├── seo/                      # Moteur SEO (voir §12)
+│       │   │   ├── ads/                      # Sélection des créations
+│       │   │   ├── i18n/
+│       │   │   ├── analytics.ts
+│       │   │   └── utils/
+│       │   ├── server/
+│       │   │   ├── actions/                  # Server Actions par domaine
+│       │   │   ├── services/                 # Logique métier
+│       │   │   └── repositories/             # Accès données
+│       │   ├── schemas/                      # Schémas Zod partagés
+│       │   ├── types/
+│       │   ├── styles/
+│       │   │   ├── globals.css               # Jetons CSS
+│       │   │   └── tokens.css
+│       │   └── middleware.ts                 # i18n, redirections, auth guard
+│       ├── public/
+│       ├── prisma/
+│       │   ├── schema.prisma
+│       │   ├── migrations/
+│       │   └── seed.ts
+│       ├── tests/
+│       │   ├── unit/
+│       │   └── e2e/
+│       ├── next.config.ts
+│       ├── tailwind.config.ts
+│       └── package.json
+├── docs/
+│   ├── DECISIONS.md          # Journal des choix techniques
+│   ├── DEPLOYMENT.md
+│   ├── OPERATIONS.md
+│   ├── DATA-DICTIONARY.md
+│   └── USER-MANUAL.md        # Manuel back-office, en français
+├── .env.example
+├── README.md
+└── pnpm-workspace.yaml
+```
+
+---
+
+# 04. VARIABLES D'ENVIRONNEMENT
+
+Crée `.env.example` exactement avec ces clés. Aucun secret dans le dépôt.
+
+```bash
+# ─── Application ───────────────────────────────────────
+NEXT_PUBLIC_SITE_URL=https://infospro.net
+NEXT_PUBLIC_SITE_NAME=INFOSPRO
+NODE_ENV=production
+APP_TIMEZONE=Africa/Conakry
+
+# ─── Base de données ───────────────────────────────────
+DATABASE_URL=postgresql://user:pass@host/db?sslmode=require&pgbouncer=true
+DIRECT_DATABASE_URL=postgresql://user:pass@host/db?sslmode=require  # migrations
+
+# ─── Auth ──────────────────────────────────────────────
+AUTH_SECRET=
+AUTH_URL=https://infospro.net
+AUTH_TRUST_HOST=true
+
+# ─── Redis ─────────────────────────────────────────────
+UPSTASH_REDIS_REST_URL=
+UPSTASH_REDIS_REST_TOKEN=
+
+# ─── Stockage médias ───────────────────────────────────
+S3_ENDPOINT=
+S3_REGION=
+S3_BUCKET=infospro-media
+S3_ACCESS_KEY_ID=
+S3_SECRET_ACCESS_KEY=
+NEXT_PUBLIC_CDN_URL=https://cdn.infospro.net
+
+# ─── Recherche ─────────────────────────────────────────
+MEILISEARCH_HOST=
+MEILISEARCH_MASTER_KEY=
+MEILISEARCH_SEARCH_KEY=          # clé publique restreinte
+
+# ─── Vidéo ─────────────────────────────────────────────
+MUX_TOKEN_ID=
+MUX_TOKEN_SECRET=
+MUX_WEBHOOK_SECRET=
+
+# ─── E-mail ────────────────────────────────────────────
+RESEND_API_KEY=
+EMAIL_FROM=redaction@infospro.net
+EMAIL_REPLY_TO=contact@infospro.net
+EMAIL_BOUNCE_WEBHOOK_SECRET=
+
+# ─── Météo ─────────────────────────────────────────────
+WEATHER_API_PROVIDER=openweathermap
+WEATHER_API_KEY=
+
+# ─── SEO / données mots-clés ───────────────────────────
+GOOGLE_SEARCH_CONSOLE_CLIENT_EMAIL=
+GOOGLE_SEARCH_CONSOLE_PRIVATE_KEY=
+GOOGLE_SEARCH_CONSOLE_SITE_URL=
+KEYWORD_PROVIDER=dataforseo        # dataforseo | semrush | ahrefs | none
+KEYWORD_PROVIDER_LOGIN=
+KEYWORD_PROVIDER_PASSWORD=
+KEYWORD_PROVIDER_MONTHLY_QUOTA=5000
+LLM_API_KEY=
+LLM_MODEL=
+
+# ─── Analytics ─────────────────────────────────────────
+NEXT_PUBLIC_PLAUSIBLE_DOMAIN=infospro.net
+PLAUSIBLE_API_KEY=
+NEXT_PUBLIC_GA_ID=
+
+# ─── Publicité ─────────────────────────────────────────
+NEXT_PUBLIC_GAM_NETWORK_CODE=
+NEXT_PUBLIC_ADS_ENABLED=true
+
+# ─── Push ──────────────────────────────────────────────
+VAPID_PUBLIC_KEY=
+VAPID_PRIVATE_KEY=
+VAPID_SUBJECT=mailto:tech@infospro.net
+
+# ─── Observabilité ─────────────────────────────────────
+SENTRY_DSN=
+SENTRY_AUTH_TOKEN=
+
+# ─── Sécurité ──────────────────────────────────────────
+CRON_SECRET=
+REVALIDATE_SECRET=
+TURNSTILE_SITE_KEY=
+TURNSTILE_SECRET_KEY=
+```
+
+---
+
+# 05. DESIGN SYSTEM
+
+## 05.1 Jetons de couleur (à écrire dans `src/styles/tokens.css`)
+
+```css
+:root {
+  /* Encres */
+  --ink:            #14110F;
+  --ink-soft:       #4A4441;
+  --ink-faint:      #7B7470;
+  --ink-inverse:    #FFFFFF;
+
+  /* Papiers */
+  --paper:          #FFFFFF;
+  --paper-alt:      #F6F5F3;
+  --paper-sunk:     #ECEBE8;
+
+  /* Rouge de marque */
+  --red:            #C8102E;
+  --red-deep:       #8F0B20;
+  --red-bright:     #E31B37;
+  --red-wash:       #FDF2F3;
+
+  /* Filets */
+  --rule:           #DDD9D4;
+  --rule-strong:    #BDB7B1;
+
+  /* Statuts (back-office uniquement) */
+  --success:        #0F7B4F;
+  --warning:        #B26A00;
+  --danger:         #C8102E;
+  --info:           #1B4F8F;
+
+  /* Typographie */
+  --font-serif: "Source Serif 4", Georgia, "Times New Roman", serif;
+  --font-sans:  "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-mono:  "JetBrains Mono", ui-monospace, Menlo, monospace;
+
+  /* Rayons — volontairement faibles */
+  --radius-none: 0;
+  --radius-sm:   2px;
+  --radius-md:   4px;
+  --radius-full: 9999px;
+
+  /* Durées */
+  --dur-micro:  160ms;
+  --dur-state:  260ms;
+  --dur-enter:  340ms;
+  --dur-macro:  520ms;
+
+  /* Courbes */
+  --ease-out:    cubic-bezier(0, 0, 0.2, 1);
+  --ease-inout:  cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-signal: cubic-bezier(0.2, 0.8, 0.2, 1);
+
+  /* Profondeur (usage parcimonieux) */
+  --z-dropdown: 100;
+  --z-sticky:   200;
+  --z-overlay:  300;
+  --z-modal:    400;
+  --z-toast:    500;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --ink: #F2EFEC; --ink-soft: #BDB6B0; --ink-faint: #8B837D; --ink-inverse: #0E0D0C;
+    --paper: #0E0D0C; --paper-alt: #171514; --paper-sunk: #1F1C1A;
+    --red: #FF3B57; --red-deep: #FF6B7F; --red-bright: #FF5470; --red-wash: #241214;
+    --rule: #2C2826; --rule-strong: #443E3A;
+  }
+}
+:root[data-theme="dark"] { /* mêmes valeurs que ci-dessus */ }
+```
+
+**Contraintes de contraste :** texte courant ≥ 4,5:1, éléments d'interface ≥ 3:1. Vérification automatisée dans le pipeline.
+
+## 05.2 Échelle typographique
+
+| Niveau | Desktop | Mobile | Interligne | Graisse | Famille | Usage |
+|---|---|---|---|---|---|---|
+| `display` | 56px | 34px | 1.05 | 700 | serif | Une immersive, dossiers |
+| `h1` | 42px | 28px | 1.12 | 700 | serif | Titre d'article |
+| `h2` | 30px | 23px | 1.20 | 700 | serif | Titres de sections d'accueil |
+| `h3` | 22px | 19px | 1.30 | 600 | serif | Intertitres d'article |
+| `lede` | 21px | 18px | 1.45 | 400 | serif | Chapô |
+| `body` | 18px | 17px | 1.70 | 400 | sans | Corps d'article (62–75 signes/ligne) |
+| `ui` | 15px | 15px | 1.50 | 400 | sans | Interface |
+| `caption` | 14px | 13px | 1.45 | 400 | sans | Légendes, crédits |
+| `kicker` | 12px | 11px | 1.20 | 700 | sans | Surtitre, capitales, `letter-spacing: .14em` |
+| `meta` | 13px | 12px | 1.40 | 500 | sans | Horodatages, signatures |
+
+Polices en WOFF2, sous-ensemble latin, **2 graisses préchargées maximum**, `font-display: swap` avec métriques de repli ajustées (`size-adjust`) pour CLS = 0.
+
+## 05.3 Grille et espacement
+
+- Grille 12 colonnes · gouttière 24 px · marges 24 px (mobile) / 48 px (≥1024 px) · conteneur max 1320 px
+- Colonne de lecture d'article : **max 720 px**
+- Points de rupture : `xs 360` · `sm 480` · `md 768` · `lg 1024` · `xl 1280` · `2xl 1600`
+- Échelle d'espacement (base 4) : `4, 8, 12, 16, 24, 32, 48, 64, 96, 128`
+- **Séparation par filets fins, pas par ombres.**
+
+## 05.4 Inventaire des composants à construire
+
+### `components/ui/` — primitives
+`Button` (variants: primary, secondary, ghost, danger; sizes: sm, md, lg) · `IconButton` · `Link` · `Input` · `Textarea` · `Select` · `Combobox` · `Checkbox` · `Radio` · `Switch` · `Slider` · `DatePicker` · `DateTimePicker` · `Tabs` · `Accordion` · `Dialog` · `Drawer` · `Popover` · `Tooltip` · `Toast` · `Badge` · `Tag` · `Avatar` · `Skeleton` · `Spinner` · `ProgressBar` · `Pagination` · `Breadcrumb` · `EmptyState` · `ErrorState` · `Table` · `DropdownMenu` · `CommandPalette` · `VisuallyHidden` · `SkipLink`
+
+**Chaque composant doit spécifier ses états :** default, hover, focus-visible, active, disabled, loading, error.
+
+### `components/public/` — site public
+`TopUtilityBar` · `Masthead` · `MainNav` · `MegaMenu` · `CategoryStrip` · `MobileMenu` · `SearchOverlay` · `SiteFooter` · `AlertBanner` · `FlashTicker` · `HeroLead` (3 gabarits) · `ArticleCard` (6 variantes : hero, large, medium, small, list, compact) · `ArticleGrid` · `ArticleList` · `LiveBadge` · `LivePreviewCard` · `MostReadList` · `SectionBlock` · `VideoCarousel` · `VideoPlayer` · `NewsletterInline` · `NewsletterBlock` · `WeatherWidget` · `WeatherPage` · `DossierBanner` · `WorldTabs` · `OpinionBlock` · `AuthorByline` · `AuthorBox` · `ShareBar` · `ReadingProgress` · `ArticleToc` · `RelatedArticles` · `TagList` · `EntityChip` · `CorrectionNotice` · `SponsoredLabel` · `CommentThread` · `ContinuousReader` · `Lightbox` · `PrintView`
+
+### `components/blocks/` — rendu du contenu d'article
+Un composant par type de bloc (voir §06.4) : `ParagraphBlock` · `HeadingBlock` · `QuoteBlock` · `PullQuoteBlock` · `KeyPointsBlock` · `ListBlock` · `ImageBlock` · `GalleryBlock` · `VideoBlock` · `AudioBlock` · `TableBlock` · `EmbedBlock` · `ChartBlock` · `MapBlock` · `TimelineBlock` · `BeforeAfterBlock` · `DefinitionBlock` · `ReadMoreBlock` · `DividerBlock` · `CodeBlock` · `NewsletterFormBlock` · `AdSlotBlock` · `FactCheckVerdictBlock` · `QABlock`
+
+### `components/ads/`
+`AdSlot` (composant générique paramétré par code d'emplacement) · `AdLabel` · `NativeAdCard` · `StickyMobileBanner` · `Interstitial` · `AdBlockNotice`
+
+### `components/editor/`
+`BlockEditor` · `BlockToolbar` · `SlashMenu` · `MediaPicker` · `LinkEditor` · `SeoPanel` · `PublishPanel` · `VersionDiff` · `ReviewComments` · `PreviewFrame`
+
+## 05.5 Variantes de `ArticleCard`
+
+| Variante | Image | Surtitre | Titre | Chapô | Méta | Usage |
+|---|---|---|---|---|---|---|
+| `hero` | 21:9 ou 16:9 pleine largeur | oui | display/h1 | 2 lignes | auteur + date | Une principale |
+| `large` | 16:9 | oui | h2 | 2 lignes | date | Tête de bloc rubrique |
+| `medium` | 16:9 | oui | h3 | 1 ligne | date | Grilles |
+| `small` | 4:3 vignette latérale | oui | 17px | non | date | Colonnes latérales |
+| `list` | aucune ou vignette 1:1 | oui | 17px | non | heure | Fil chronologique |
+| `compact` | aucune | non | 15px | non | heure | Le plus lu, flash |
+
+---
+
+# 06. MODÈLE DE DONNÉES
+
+## 06.1 Conventions
+
+- Identifiants : **UUID v7** (triables chronologiquement). Colonne `id uuid primary key`.
+- Horodatages : `timestamptz`, stockés en UTC. Colonnes `created_at`, `updated_at` sur toutes les tables.
+- Suppression logique : `deleted_at timestamptz null` sur toutes les tables de contenu. Toute requête de lecture filtre `deleted_at IS NULL`.
+- Nommage : `snake_case`, tables au pluriel.
+- Contraintes d'intégrité référentielle **déclarées en base**, jamais uniquement applicatives.
+- Index GIN sur les colonnes `jsonb` interrogées et sur la recherche plein texte.
+- Partitionnement mensuel sur `ad_events`, `email_events`, `page_views`.
+
+## 06.2 Schéma SQL complet
+
+```sql
+-- ═══════════════════════════════════════════════════════
+-- EXTENSIONS
+-- ═══════════════════════════════════════════════════════
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+CREATE EXTENSION IF NOT EXISTS "pg_trgm";
+CREATE EXTENSION IF NOT EXISTS "unaccent";
+
+-- ═══════════════════════════════════════════════════════
+-- ÉNUMÉRATIONS
+-- ═══════════════════════════════════════════════════════
+CREATE TYPE article_status AS ENUM (
+  'draft','in_review','changes_requested','approved',
+  'scheduled','published','updated','archived','unpublished'
+);
+CREATE TYPE article_format AS ENUM (
+  'brief','standard','analysis','investigation','interview','opinion',
+  'portrait','live','video','infographic','factcheck','press_review','longform'
+);
+CREATE TYPE article_visibility AS ENUM ('public','unlisted','restricted');
+CREATE TYPE media_type AS ENUM ('image','video','audio','document');
+CREATE TYPE geo_type AS ENUM ('continent','country','region','city');
+CREATE TYPE entity_type AS ENUM ('person','organization','place');
+CREATE TYPE user_status AS ENUM ('active','invited','suspended','disabled');
+CREATE TYPE comment_status AS ENUM ('pending','approved','rejected','spam');
+CREATE TYPE campaign_status AS ENUM ('draft','scheduled','running','paused','completed','cancelled');
+CREATE TYPE creative_type AS ENUM ('image','html5','video','native','third_party_script');
+CREATE TYPE subscriber_status AS ENUM ('pending','confirmed','unsubscribed','bounced','complained');
+CREATE TYPE email_campaign_status AS ENUM ('draft','scheduled','sending','sent','failed','cancelled');
+CREATE TYPE keyword_trend AS ENUM ('spiking','rising','stable','declining','seasonal');
+CREATE TYPE live_status AS ENUM ('upcoming','live','ended');
+
+-- ═══════════════════════════════════════════════════════
+-- UTILISATEURS, RÔLES, PERMISSIONS
+-- ═══════════════════════════════════════════════════════
+CREATE TABLE users (
+  id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  email           citext UNIQUE NOT NULL,
+  password_hash   text,
+  display_name    text NOT NULL,
+  slug            text UNIQUE NOT NULL,
+  job_title       text,
+  bio             text,
+  avatar_media_id uuid REFERENCES media(id) ON DELETE SET NULL,
+  socials         jsonb NOT NULL DEFAULT '[]',   -- [{platform,url}]
+  expertise       text[] DEFAULT '{}',
+  phone           text,
+  locale          text NOT NULL DEFAULT 'fr',
+  status          user_status NOT NULL DEFAULT 'invited',
+  two_factor_secret text,
+  two_factor_enabled boolean NOT NULL DEFAULT false,
+  failed_attempts int NOT NULL DEFAULT 0,
+  locked_until    timestamptz,
+  last_login_at   timestamptz,
+  is_author_public boolean NOT NULL DEFAULT true,
+  created_at      timestamptz NOT NULL DEFAULT now(),
+  updated_at      timestamptz NOT NULL DEFAULT now(),
+  deleted_at      timestamptz
+);
+CREATE INDEX idx_users_slug ON users(slug) WHERE deleted_at IS NULL;
+
+CREATE TABLE roles (
+  id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  key         text UNIQUE NOT NULL,       -- admin, publisher, chief_editor…
+  label       text NOT NULL,
+  description text,
+  permissions text[] NOT NULL DEFAULT '{}',
+  is_system   boolean NOT NULL DEFAULT false,
+  created_at  timestamptz NOT NULL DEFAULT now(),
+  updated_at  timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE user_roles (
+  user_id      uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  role_id      uuid NOT NULL REFERENCES roles(id) ON DELETE CASCADE,
+  -- restriction optionnelle du rôle à certaines rubriques (chef de rubrique)
+  category_ids uuid[] DEFAULT NULL,
+  granted_at   timestamptz NOT NULL DEFAULT now(),
+  granted_by   uuid REFERENCES users(id),
+  PRIMARY KEY (user_id, role_id)
+);
+
+CREATE TABLE sessions (
+  id           uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id      uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  token_hash   text UNIQUE NOT NULL,
+  ip_hash      text,
+  user_agent   text,
+  expires_at   timestamptz NOT NULL,
+  created_at   timestamptz NOT NULL DEFAULT now()
+);
+
+-- ═══════════════════════════════════════════════════════
+-- MÉDIAS
+-- ═══════════════════════════════════════════════════════
+CREATE TABLE media (
+  id            uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  type          media_type NOT NULL,
+  storage_key   text NOT NULL,
+  url           text NOT NULL,
+  mime_type     text NOT NULL,
+  file_size     bigint NOT NULL,
+  width         int, height int, duration_sec numeric,
+  blurhash      text,
+  checksum      text,                          -- détection de doublons
+  title         text,
+  alt_text      text,                          -- OBLIGATOIRE pour type=image
+  caption       text,
+  credit        text NOT NULL,                 -- OBLIGATOIRE
+  license       text,
+  shot_at       timestamptz,
+  location      text,
+  focal_point   jsonb DEFAULT '{"x":0.5,"y":0.5}',
+  crops         jsonb DEFAULT '{}',            -- {"16:9":{...},"1:1":{...}}
+  variants      jsonb DEFAULT '[]',            -- [{w,format,url,size}]
+  provider      text,                          -- mux, s3…
+  provider_id   text,                          -- playback id
+  transcript    text,                          -- vidéo/audio, indexable
+  captions      jsonb DEFAULT '[]',            -- [{lang,url}]
+  uploaded_by   uuid REFERENCES users(id),
+  created_at    timestamptz NOT NULL DEFAULT now(),
+  updated_at    timestamptz NOT NULL DEFAULT now(),
+  deleted_at    timestamptz
+);
+CREATE INDEX idx_media_type ON media(type) WHERE deleted_at IS NULL;
+CREATE INDEX idx_media_checksum ON media(checksum);
+CREATE INDEX idx_media_search ON media USING gin (
+  to_tsvector('french', coalesce(title,'')||' '||coalesce(caption,'')||' '||coalesce(credit,''))
+);
+
+-- ═══════════════════════════════════════════════════════
+-- TAXONOMIES
+-- ═══════════════════════════════════════════════════════
+CREATE TABLE categories (
+  id             uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  parent_id      uuid REFERENCES categories(id) ON DELETE RESTRICT,
+  slug           text NOT NULL,
+  name           text NOT NULL,
+  short_name     text,
+  description    text,
+  intro_html     text,                    -- texte éditorial SEO de la page rubrique
+  color_accent   text,                    -- optionnel, doit rester dans la palette
+  cover_media_id uuid REFERENCES media(id) ON DELETE SET NULL,
+  icon           text,
+  position       int NOT NULL DEFAULT 0,
+  depth          int NOT NULL DEFAULT 0,  -- 0,1,2 — max 3 niveaux
+  is_visible     boolean NOT NULL DEFAULT true,
+  show_in_nav    boolean NOT NULL DEFAULT true,
+  seo            jsonb NOT NULL DEFAULT '{}',
+  article_count  int NOT NULL DEFAULT 0,  -- dénormalisé, maintenu par trigger
+  created_at     timestamptz NOT NULL DEFAULT now(),
+  updated_at     timestamptz NOT NULL DEFAULT now(),
+  deleted_at     timestamptz,
+  UNIQUE (parent_id, slug)
+);
+CREATE INDEX idx_categories_parent ON categories(parent_id, position);
+
+CREATE TABLE tags (
+  id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  slug        text UNIQUE NOT NULL,
+  name        text NOT NULL,
+  description text,
+  intro_html  text,
+  synonyms    text[] DEFAULT '{}',
+  is_featured boolean NOT NULL DEFAULT false,
+  usage_count int NOT NULL DEFAULT 0,
+  seo         jsonb NOT NULL DEFAULT '{}',
+  created_at  timestamptz NOT NULL DEFAULT now(),
+  updated_at  timestamptz NOT NULL DEFAULT now(),
+  deleted_at  timestamptz
+);
+CREATE INDEX idx_tags_name_trgm ON tags USING gin (name gin_trgm_ops);
+
+CREATE TABLE dossiers (
+  id             uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  slug           text UNIQUE NOT NULL,
+  title          text NOT NULL,
+  lede           text,
+  description    text,
+  cover_media_id uuid REFERENCES media(id) ON DELETE SET NULL,
+  is_active      boolean NOT NULL DEFAULT true,
+  is_featured    boolean NOT NULL DEFAULT false,
+  started_at     timestamptz,
+  ended_at       timestamptz,
+  seo            jsonb NOT NULL DEFAULT '{}',
+  created_at     timestamptz NOT NULL DEFAULT now(),
+  updated_at     timestamptz NOT NULL DEFAULT now(),
+  deleted_at     timestamptz
+);
+
+CREATE TABLE geo_zones (
+  id         uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  parent_id  uuid REFERENCES geo_zones(id) ON DELETE RESTRICT,
+  type       geo_type NOT NULL,
+  slug       text NOT NULL,
+  name       text NOT NULL,
+  iso_code   text,
+  latitude   numeric, longitude numeric,
+  position   int NOT NULL DEFAULT 0,
+  is_visible boolean NOT NULL DEFAULT true,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (parent_id, slug)
+);
+
+CREATE TABLE entities (
+  id            uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  type          entity_type NOT NULL,
+  slug          text UNIQUE NOT NULL,
+  name          text NOT NULL,
+  aliases       text[] DEFAULT '{}',
+  description   text,
+  role_title    text,
+  image_media_id uuid REFERENCES media(id) ON DELETE SET NULL,
+  wikidata_id   text,
+  official_url  text,
+  created_at    timestamptz NOT NULL DEFAULT now(),
+  updated_at    timestamptz NOT NULL DEFAULT now(),
+  deleted_at    timestamptz
+);
+
+-- ═══════════════════════════════════════════════════════
+-- ARTICLES
+-- ═══════════════════════════════════════════════════════
+CREATE TABLE articles (
+  id                uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  slug              text NOT NULL,
+  locale            text NOT NULL DEFAULT 'fr',
+  translation_of_id uuid REFERENCES articles(id) ON DELETE SET NULL,
+
+  kicker            text,                 -- surtitre
+  title             text NOT NULL,
+  short_title       text,                 -- titre court pour la une
+  seo_title         text,                 -- titre distinct pour Google
+  lede              text,                 -- chapô
+  body              jsonb NOT NULL DEFAULT '[]',   -- blocs (voir §06.4)
+  plain_text        text,                 -- généré, pour recherche et comptage
+  word_count        int NOT NULL DEFAULT 0,
+  reading_time_min  int NOT NULL DEFAULT 1,  -- word_count / 220 arrondi sup.
+
+  format            article_format NOT NULL DEFAULT 'standard',
+  status            article_status NOT NULL DEFAULT 'draft',
+  visibility        article_visibility NOT NULL DEFAULT 'public',
+  importance        int NOT NULL DEFAULT 3,  -- 1 (majeure) à 5 (mineure)
+  is_sponsored      boolean NOT NULL DEFAULT false,
+  sponsor_name      text,
+  is_breaking       boolean NOT NULL DEFAULT false,
+
+  category_id       uuid NOT NULL REFERENCES categories(id) ON DELETE RESTRICT,
+  dossier_id        uuid REFERENCES dossiers(id) ON DELETE SET NULL,
+  live_blog_id      uuid REFERENCES live_blogs(id) ON DELETE SET NULL,
+
+  cover_media_id    uuid REFERENCES media(id) ON DELETE SET NULL,
+  social_image_id   uuid REFERENCES media(id) ON DELETE SET NULL,
+
+  dateline          text,                 -- "Conakry, envoyé spécial"
+  source_agency     text,                 -- AFP, Reuters…
+
+  published_at      timestamptz,
+  scheduled_at      timestamptz,
+  expires_at        timestamptz,
+  updated_content_at timestamptz,         -- dernière modif éditoriale réelle
+
+  -- SEO
+  meta_title        text,
+  meta_description  text,
+  canonical_url     text,
+  robots_directives text NOT NULL DEFAULT 'index,follow',
+  focus_keyword     text,
+  seo_score         int,                  -- 0-100, calculé
+  seo_checks        jsonb DEFAULT '{}',   -- détail des contrôles
+
+  -- Diffusion
+  send_push         boolean NOT NULL DEFAULT false,
+  include_newsletter boolean NOT NULL DEFAULT true,
+  social_text       text,
+
+  -- Traçabilité
+  created_by        uuid REFERENCES users(id),
+  published_by      uuid REFERENCES users(id),
+  correction_note   text,
+  sources           jsonb DEFAULT '[]',   -- [{label,url}]
+
+  view_count        bigint NOT NULL DEFAULT 0,
+  share_count       int NOT NULL DEFAULT 0,
+
+  search_vector     tsvector,
+  created_at        timestamptz NOT NULL DEFAULT now(),
+  updated_at        timestamptz NOT NULL DEFAULT now(),
+  deleted_at        timestamptz,
+  UNIQUE (locale, slug)
+);
+CREATE INDEX idx_articles_published ON articles(published_at DESC)
+  WHERE status='published' AND deleted_at IS NULL;
+CREATE INDEX idx_articles_category ON articles(category_id, published_at DESC)
+  WHERE status='published' AND deleted_at IS NULL;
+CREATE INDEX idx_articles_status ON articles(status, updated_at DESC);
+CREATE INDEX idx_articles_scheduled ON articles(scheduled_at) WHERE status='scheduled';
+CREATE INDEX idx_articles_search ON articles USING gin(search_vector);
+CREATE INDEX idx_articles_body ON articles USING gin(body);
+
+-- Trigger : maintien de search_vector (pondération A titre, B chapô, C corps)
+CREATE FUNCTION articles_search_trigger() RETURNS trigger AS $$
+BEGIN
+  NEW.search_vector :=
+    setweight(to_tsvector('french', unaccent(coalesce(NEW.title,''))), 'A') ||
+    setweight(to_tsvector('french', unaccent(coalesce(NEW.kicker,''))), 'B') ||
+    setweight(to_tsvector('french', unaccent(coalesce(NEW.lede,''))), 'B') ||
+    setweight(to_tsvector('french', unaccent(coalesce(NEW.plain_text,''))), 'C');
+  RETURN NEW;
+END $$ LANGUAGE plpgsql;
+CREATE TRIGGER trg_articles_search BEFORE INSERT OR UPDATE ON articles
+  FOR EACH ROW EXECUTE FUNCTION articles_search_trigger();
+
+-- Relations n-n
+CREATE TABLE article_authors (
+  article_id uuid REFERENCES articles(id) ON DELETE CASCADE,
+  user_id    uuid REFERENCES users(id) ON DELETE RESTRICT,
+  role       text NOT NULL DEFAULT 'author',  -- author|coauthor|photographer|translator|editor
+  position   int NOT NULL DEFAULT 0,
+  PRIMARY KEY (article_id, user_id, role)
+);
+CREATE TABLE article_tags (
+  article_id uuid REFERENCES articles(id) ON DELETE CASCADE,
+  tag_id     uuid REFERENCES tags(id) ON DELETE CASCADE,
+  position   int NOT NULL DEFAULT 0,
+  PRIMARY KEY (article_id, tag_id)
+);
+CREATE TABLE article_categories (      -- rubriques secondaires
+  article_id uuid REFERENCES articles(id) ON DELETE CASCADE,
+  category_id uuid REFERENCES categories(id) ON DELETE CASCADE,
+  PRIMARY KEY (article_id, category_id)
+);
+CREATE TABLE article_geo_zones (
+  article_id uuid REFERENCES articles(id) ON DELETE CASCADE,
+  geo_zone_id uuid REFERENCES geo_zones(id) ON DELETE CASCADE,
+  PRIMARY KEY (article_id, geo_zone_id)
+);
+CREATE TABLE article_entities (
+  article_id uuid REFERENCES articles(id) ON DELETE CASCADE,
+  entity_id  uuid REFERENCES entities(id) ON DELETE CASCADE,
+  relevance  numeric DEFAULT 1,
+  PRIMARY KEY (article_id, entity_id)
+);
+CREATE TABLE article_related (
+  article_id uuid REFERENCES articles(id) ON DELETE CASCADE,
+  related_id uuid REFERENCES articles(id) ON DELETE CASCADE,
+  position   int NOT NULL DEFAULT 0,
+  is_manual  boolean NOT NULL DEFAULT true,
+  PRIMARY KEY (article_id, related_id)
+);
+
+CREATE TABLE article_versions (
+  id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  article_id  uuid NOT NULL REFERENCES articles(id) ON DELETE CASCADE,
+  version     int NOT NULL,
+  snapshot    jsonb NOT NULL,       -- copie complète de l'article
+  change_note text,
+  created_by  uuid REFERENCES users(id),
+  created_at  timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (article_id, version)
+);
+
+CREATE TABLE review_comments (
+  id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  article_id  uuid NOT NULL REFERENCES articles(id) ON DELETE CASCADE,
+  block_id    text,                 -- ancre sur un bloc du corps
+  text        text NOT NULL,
+  resolved    boolean NOT NULL DEFAULT false,
+  created_by  uuid REFERENCES users(id),
+  created_at  timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE article_locks (
+  article_id uuid PRIMARY KEY REFERENCES articles(id) ON DELETE CASCADE,
+  user_id    uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  locked_at  timestamptz NOT NULL DEFAULT now(),
+  expires_at timestamptz NOT NULL   -- 5 min, renouvelé par heartbeat
+);
+
+-- ═══════════════════════════════════════════════════════
+-- MODULES ÉDITORIAUX
+-- ═══════════════════════════════════════════════════════
+CREATE TABLE featured_slots (          -- composition de « À la une »
+  id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  zone        text NOT NULL,           -- home_lead, home_secondary, category:<id>
+  article_id  uuid NOT NULL REFERENCES articles(id) ON DELETE CASCADE,
+  position    int NOT NULL,
+  pinned      boolean NOT NULL DEFAULT false,
+  starts_at   timestamptz,
+  ends_at     timestamptz,
+  override_title text,                 -- titre alternatif pour la une
+  override_media_id uuid REFERENCES media(id),
+  created_by  uuid REFERENCES users(id),
+  created_at  timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (zone, position)
+);
+
+CREATE TABLE flash_news (
+  id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  text        text NOT NULL,
+  article_id  uuid REFERENCES articles(id) ON DELETE SET NULL,
+  external_url text,
+  priority    int NOT NULL DEFAULT 2,  -- 1 urgent (rouge) … 3 normal
+  published_at timestamptz NOT NULL DEFAULT now(),
+  expires_at  timestamptz NOT NULL DEFAULT (now() + interval '12 hours'),
+  created_by  uuid REFERENCES users(id),
+  deleted_at  timestamptz
+);
+CREATE INDEX idx_flash_active ON flash_news(published_at DESC)
+  WHERE deleted_at IS NULL;
+
+CREATE TABLE live_blogs (
+  id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  slug        text UNIQUE NOT NULL,
+  title       text NOT NULL,
+  summary     jsonb DEFAULT '[]',      -- "l'essentiel" : liste de points
+  status      live_status NOT NULL DEFAULT 'upcoming',
+  category_id uuid REFERENCES categories(id),
+  cover_media_id uuid REFERENCES media(id),
+  started_at  timestamptz,
+  ended_at    timestamptz,
+  entry_count int NOT NULL DEFAULT 0,
+  seo         jsonb DEFAULT '{}',
+  created_at  timestamptz NOT NULL DEFAULT now(),
+  updated_at  timestamptz NOT NULL DEFAULT now(),
+  deleted_at  timestamptz
+);
+CREATE TABLE live_entries (
+  id           uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  live_blog_id uuid NOT NULL REFERENCES live_blogs(id) ON DELETE CASCADE,
+  title        text,
+  body         jsonb NOT NULL DEFAULT '[]',
+  is_pinned    boolean NOT NULL DEFAULT false,
+  is_key       boolean NOT NULL DEFAULT false,
+  published_at timestamptz NOT NULL DEFAULT now(),
+  created_by   uuid REFERENCES users(id),
+  deleted_at   timestamptz
+);
+CREATE INDEX idx_live_entries ON live_entries(live_blog_id, published_at DESC);
+
+CREATE TABLE weather_cities (
+  id         uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  name       text NOT NULL,
+  country_code text NOT NULL DEFAULT 'GN',
+  latitude   numeric NOT NULL,
+  longitude  numeric NOT NULL,
+  position   int NOT NULL DEFAULT 0,
+  is_default boolean NOT NULL DEFAULT false,
+  is_visible boolean NOT NULL DEFAULT true
+);
+CREATE TABLE weather_cache (
+  city_id    uuid PRIMARY KEY REFERENCES weather_cities(id) ON DELETE CASCADE,
+  payload    jsonb NOT NULL,
+  fetched_at timestamptz NOT NULL DEFAULT now()
+);
+
+-- ═══════════════════════════════════════════════════════
+-- PAGES, MENUS, BLOCS D'ACCUEIL, RÉGLAGES
+-- ═══════════════════════════════════════════════════════
+CREATE TABLE pages (
+  id         uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  slug       text NOT NULL,
+  locale     text NOT NULL DEFAULT 'fr',
+  title      text NOT NULL,
+  body       jsonb NOT NULL DEFAULT '[]',
+  template   text NOT NULL DEFAULT 'default',  -- default|contact|about|advertising|legal
+  is_published boolean NOT NULL DEFAULT false,
+  seo        jsonb NOT NULL DEFAULT '{}',
+  updated_by uuid REFERENCES users(id),
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  deleted_at timestamptz,
+  UNIQUE (locale, slug)
+);
+
+CREATE TABLE menus (
+  id       uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  key      text UNIQUE NOT NULL,   -- main, secondary, footer_1..4, mobile, utility
+  label    text NOT NULL
+);
+CREATE TABLE menu_items (
+  id         uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  menu_id    uuid NOT NULL REFERENCES menus(id) ON DELETE CASCADE,
+  parent_id  uuid REFERENCES menu_items(id) ON DELETE CASCADE,
+  label      text NOT NULL,
+  target_type text NOT NULL,       -- category|page|dossier|tag|url|home|section
+  target_id  uuid,
+  target_url text,
+  icon       text,
+  open_new_tab boolean NOT NULL DEFAULT false,
+  highlight  boolean NOT NULL DEFAULT false,   -- style rouge / CTA
+  position   int NOT NULL DEFAULT 0,
+  is_visible boolean NOT NULL DEFAULT true,
+  locale     text NOT NULL DEFAULT 'fr'
+);
+
+CREATE TABLE homepage_blocks (
+  id         uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  code       text NOT NULL,          -- Z-03, Z-07a…
+  type       text NOT NULL,          -- alert|flash|lead|live|latest|section|video|
+                                      -- newsletter|weather|dossier|world|opinion|ad|most_read|custom_html
+  variant    text,                   -- gabarit du bloc
+  title      text,
+  subtitle   text,
+  source_type text,                  -- category|dossier|tag|manual|auto|format
+  source_id  uuid,
+  manual_article_ids uuid[] DEFAULT '{}',
+  item_count int NOT NULL DEFAULT 6,
+  settings   jsonb NOT NULL DEFAULT '{}',
+  position   int NOT NULL,
+  is_active  boolean NOT NULL DEFAULT true,
+  starts_at  timestamptz,
+  ends_at    timestamptz,
+  locale     text NOT NULL DEFAULT 'fr',
+  updated_by uuid REFERENCES users(id),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE homepage_layouts (       -- versions sauvegardées / rollback
+  id         uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  name       text NOT NULL,
+  snapshot   jsonb NOT NULL,
+  is_current boolean NOT NULL DEFAULT false,
+  created_by uuid REFERENCES users(id),
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE settings (
+  key        text PRIMARY KEY,
+  value      jsonb NOT NULL,
+  group_key  text NOT NULL,          -- identity|contact|social|seo|ads|email|features|legal
+  label      text,
+  updated_by uuid REFERENCES users(id),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE translations (
+  key        text NOT NULL,
+  locale     text NOT NULL,
+  value      text NOT NULL,
+  context    text,
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (key, locale)
+);
+
+CREATE TABLE site_banners (
+  id         uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  message    text NOT NULL,
+  link_url   text,
+  link_label text,
+  style      text NOT NULL DEFAULT 'alert',  -- alert|info|promo
+  is_dismissible boolean NOT NULL DEFAULT true,
+  target_paths text[] DEFAULT '{"/*"}',
+  starts_at  timestamptz,
+  ends_at    timestamptz,
+  is_active  boolean NOT NULL DEFAULT false
+);
+
+CREATE TABLE redirects (
+  id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  source_path text UNIQUE NOT NULL,
+  target_path text NOT NULL,
+  status_code int NOT NULL DEFAULT 301,
+  hit_count   int NOT NULL DEFAULT 0,
+  is_auto     boolean NOT NULL DEFAULT false,
+  created_at  timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE not_found_log (
+  path       text PRIMARY KEY,
+  hit_count  int NOT NULL DEFAULT 1,
+  referrer   text,
+  last_seen  timestamptz NOT NULL DEFAULT now()
+);
+
+-- ═══════════════════════════════════════════════════════
+-- COMMENTAIRES ET MESSAGES ENTRANTS
+-- ═══════════════════════════════════════════════════════
+CREATE TABLE comments (
+  id         uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  article_id uuid NOT NULL REFERENCES articles(id) ON DELETE CASCADE,
+  parent_id  uuid REFERENCES comments(id) ON DELETE CASCADE,
+  author_name text NOT NULL,
+  author_email citext,
+  body       text NOT NULL,
+  status     comment_status NOT NULL DEFAULT 'pending',
+  is_staff   boolean NOT NULL DEFAULT false,
+  ip_hash    text,
+  moderated_by uuid REFERENCES users(id),
+  moderated_at timestamptz,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE inbox_messages (
+  id         uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  kind       text NOT NULL,    -- contact|tip|right_of_reply|advertising|correction|job
+  department text,
+  name       text, email citext, phone text,
+  subject    text, body text NOT NULL,
+  attachments jsonb DEFAULT '[]',
+  is_anonymous boolean NOT NULL DEFAULT false,
+  status     text NOT NULL DEFAULT 'new',  -- new|read|assigned|closed|spam
+  assigned_to uuid REFERENCES users(id),
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+-- ═══════════════════════════════════════════════════════
+-- AUDIT
+-- ═══════════════════════════════════════════════════════
+CREATE TABLE audit_log (
+  id           bigserial PRIMARY KEY,
+  user_id      uuid REFERENCES users(id),
+  action       text NOT NULL,        -- article.publish, settings.update…
+  resource_type text NOT NULL,
+  resource_id  uuid,
+  before       jsonb,
+  after        jsonb,
+  ip_hash      text,
+  user_agent   text,
+  created_at   timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX idx_audit_resource ON audit_log(resource_type, resource_id, created_at DESC);
+CREATE INDEX idx_audit_user ON audit_log(user_id, created_at DESC);
+```
+
+## 06.3 Schéma SQL — publicité, newsletter, SEO, analytics
+
+```sql
+-- ═══════════════════════════════════════════════════════
+-- RÉGIE PUBLICITAIRE
+-- ═══════════════════════════════════════════════════════
+CREATE TABLE ad_slots (
+  code        text PRIMARY KEY,      -- AD-01 … AD-19
+  name        text NOT NULL,
+  description text,
+  placement   text NOT NULL,         -- header|hero|sidebar|in_read|footer…
+  sizes       jsonb NOT NULL,        -- [{w,h,label}] par breakpoint
+  pages       text[] NOT NULL,       -- home|article|category|search|live|all
+  is_active   boolean NOT NULL DEFAULT true,
+  max_creative_kb int NOT NULL DEFAULT 150,
+  allows_third_party boolean NOT NULL DEFAULT false,
+  refresh_sec int,                   -- null = pas de rafraîchissement
+  max_refresh int NOT NULL DEFAULT 5,
+  base_cpm    numeric,
+  position    int NOT NULL DEFAULT 0
+);
+
+CREATE TABLE advertisers (
+  id         uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  name       text NOT NULL,
+  agency     text,
+  sector     text,                   -- pour exclusions concurrentielles
+  contact_name text, contact_email citext, contact_phone text,
+  address    text,
+  notes      text,
+  report_token text UNIQUE,          -- accès lecture seule aux rapports
+  created_at timestamptz NOT NULL DEFAULT now(),
+  deleted_at timestamptz
+);
+
+CREATE TABLE ad_campaigns (
+  id            uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  advertiser_id uuid NOT NULL REFERENCES advertisers(id) ON DELETE RESTRICT,
+  name          text NOT NULL,
+  status        campaign_status NOT NULL DEFAULT 'draft',
+  starts_at     timestamptz NOT NULL,
+  ends_at       timestamptz NOT NULL,
+  goal_type     text NOT NULL DEFAULT 'impressions',  -- impressions|clicks|sponsorship
+  goal_value    bigint,
+  budget        numeric,
+  currency      text NOT NULL DEFAULT 'GNF',
+  priority      int NOT NULL DEFAULT 5,   -- 1 (garanti) … 9 (remplissage)
+  weight        int NOT NULL DEFAULT 1,   -- rotation pondérée
+  frequency_cap int,                      -- impressions / visiteur / jour
+  targeting     jsonb NOT NULL DEFAULT '{}',
+  -- targeting: {categories:[],tags:[],formats:[],countries:[],cities:[],
+  --             devices:[],languages:[],hours:[0-23],weekdays:[1-7],
+  --             visitor:"new"|"returning"|"all",
+  --             exclude_keywords:[], exclude_sensitive:true}
+  created_by    uuid REFERENCES users(id),
+  created_at    timestamptz NOT NULL DEFAULT now(),
+  updated_at    timestamptz NOT NULL DEFAULT now(),
+  deleted_at    timestamptz
+);
+CREATE INDEX idx_campaigns_active ON ad_campaigns(status, starts_at, ends_at);
+
+CREATE TABLE ad_creatives (
+  id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  campaign_id uuid NOT NULL REFERENCES ad_campaigns(id) ON DELETE CASCADE,
+  slot_code   text NOT NULL REFERENCES ad_slots(code),
+  type        creative_type NOT NULL,
+  media_id    uuid REFERENCES media(id),
+  html        text,
+  script_tag  text,
+  -- champs pour les formats natifs
+  native_title text, native_text text, native_cta text, native_brand text,
+  click_url   text NOT NULL,
+  alt_text    text NOT NULL,
+  width int, height int, file_size_kb int,
+  weight      int NOT NULL DEFAULT 1,
+  is_active   boolean NOT NULL DEFAULT true,
+  created_at  timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE ad_events (
+  id           bigserial,
+  creative_id  uuid NOT NULL,
+  campaign_id  uuid NOT NULL,
+  slot_code    text NOT NULL,
+  event_type   text NOT NULL,       -- impression|viewable|click
+  page_path    text,
+  country      text, device text,
+  visitor_hash text,
+  occurred_at  timestamptz NOT NULL DEFAULT now()
+) PARTITION BY RANGE (occurred_at);
+-- créer une partition par mois via tâche planifiée
+
+CREATE TABLE ad_daily_stats (        -- agrégat, alimenté par cron horaire
+  date        date NOT NULL,
+  campaign_id uuid NOT NULL,
+  creative_id uuid NOT NULL,
+  slot_code   text NOT NULL,
+  impressions bigint NOT NULL DEFAULT 0,
+  viewable    bigint NOT NULL DEFAULT 0,
+  clicks      bigint NOT NULL DEFAULT 0,
+  PRIMARY KEY (date, campaign_id, creative_id, slot_code)
+);
+
+-- ═══════════════════════════════════════════════════════
+-- NEWSLETTER
+-- ═══════════════════════════════════════════════════════
+CREATE TABLE newsletter_lists (
+  id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  key         text UNIQUE NOT NULL,   -- morning|breaking|weekly|economy|diaspora
+  name        text NOT NULL,
+  description text,
+  cadence     text,                   -- daily|weekly|biweekly|event
+  send_time   time,
+  is_active   boolean NOT NULL DEFAULT true,
+  is_public   boolean NOT NULL DEFAULT true,
+  auto_compose boolean NOT NULL DEFAULT false,
+  template_key text NOT NULL DEFAULT 'default',
+  position    int NOT NULL DEFAULT 0
+);
+
+CREATE TABLE subscribers (
+  id           uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  email        citext UNIQUE NOT NULL,
+  first_name   text,
+  country      text,
+  locale       text NOT NULL DEFAULT 'fr',
+  interests    text[] DEFAULT '{}',
+  status       subscriber_status NOT NULL DEFAULT 'pending',
+  confirm_token text,
+  unsubscribe_token text UNIQUE NOT NULL,
+  source       text,                  -- home_inline|article_inline|footer|exit|page
+  source_url   text,
+  consent_at   timestamptz,
+  consent_ip_hash text,
+  last_open_at timestamptz,
+  last_click_at timestamptz,
+  engagement_score int NOT NULL DEFAULT 0,
+  bounce_count int NOT NULL DEFAULT 0,
+  created_at   timestamptz NOT NULL DEFAULT now(),
+  unsubscribed_at timestamptz
+);
+CREATE TABLE subscriber_lists (
+  subscriber_id uuid REFERENCES subscribers(id) ON DELETE CASCADE,
+  list_id       uuid REFERENCES newsletter_lists(id) ON DELETE CASCADE,
+  subscribed_at timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (subscriber_id, list_id)
+);
+
+CREATE TABLE email_campaigns (
+  id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  list_id     uuid NOT NULL REFERENCES newsletter_lists(id),
+  subject     text NOT NULL,
+  subject_b   text,                  -- test A/B
+  preheader   text,
+  blocks      jsonb NOT NULL DEFAULT '[]',
+  html_cache  text,
+  text_cache  text,
+  segment     jsonb DEFAULT '{}',    -- filtres de ciblage
+  status      email_campaign_status NOT NULL DEFAULT 'draft',
+  scheduled_at timestamptz,
+  sent_at     timestamptz,
+  recipients_count int NOT NULL DEFAULT 0,
+  sponsor_creative_id uuid REFERENCES ad_creatives(id),
+  created_by  uuid REFERENCES users(id),
+  created_at  timestamptz NOT NULL DEFAULT now()
+);
+CREATE TABLE email_events (
+  id            bigserial,
+  campaign_id   uuid NOT NULL,
+  subscriber_id uuid NOT NULL,
+  event_type    text NOT NULL,      -- sent|delivered|open|click|bounce|complaint|unsubscribe
+  link_url      text,
+  occurred_at   timestamptz NOT NULL DEFAULT now()
+) PARTITION BY RANGE (occurred_at);
+
+-- ═══════════════════════════════════════════════════════
+-- SEO / MOTS-CLÉS
+-- ═══════════════════════════════════════════════════════
+CREATE TABLE seo_keywords (
+  id            uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  term          text NOT NULL,
+  term_normalized text NOT NULL,     -- minuscules, sans accents
+  locale        text NOT NULL DEFAULT 'fr',
+  country       text NOT NULL DEFAULT 'GN',
+  word_count    int NOT NULL,
+  tail_type     text NOT NULL,       -- short|medium|long
+  intent        text,                -- informational|navigational|transactional|news
+  cluster_id    uuid REFERENCES keyword_clusters(id) ON DELETE SET NULL,
+  is_tracked    boolean NOT NULL DEFAULT false,
+  created_at    timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (term_normalized, locale, country)
+);
+CREATE TABLE keyword_metrics (
+  keyword_id     uuid NOT NULL REFERENCES seo_keywords(id) ON DELETE CASCADE,
+  source         text NOT NULL,      -- gsc|trends|provider|autocomplete|llm
+  search_volume  int,
+  volume_weighted int,               -- volume pondéré par coefficient régional
+  difficulty     numeric,            -- 0-100
+  cpc            numeric,
+  trend          keyword_trend,
+  trend_series   jsonb,              -- 12 derniers mois
+  serp_features  text[],
+  collected_at   timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (keyword_id, source, collected_at)
+);
+CREATE TABLE keyword_clusters (
+  id         uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  label      text NOT NULL,
+  centroid   jsonb,                  -- vecteur d'embedding
+  coverage   text NOT NULL DEFAULT 'none',  -- none|partial|covered|cannibalized
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE TABLE article_keywords (
+  article_id uuid REFERENCES articles(id) ON DELETE CASCADE,
+  keyword_id uuid REFERENCES seo_keywords(id) ON DELETE CASCADE,
+  role       text NOT NULL,          -- focus|secondary|longtail|question
+  opportunity_score numeric,
+  was_suggested boolean NOT NULL DEFAULT true,
+  was_accepted  boolean NOT NULL DEFAULT false,
+  PRIMARY KEY (article_id, keyword_id)
+);
+CREATE TABLE seo_rankings (
+  keyword_id uuid REFERENCES seo_keywords(id) ON DELETE CASCADE,
+  date       date NOT NULL,
+  position   numeric,
+  impressions int,
+  clicks     int,
+  ctr        numeric,
+  url        text,
+  PRIMARY KEY (keyword_id, date)
+);
+CREATE TABLE seo_provider_usage (    -- maîtrise des coûts d'API
+  date       date PRIMARY KEY,
+  provider   text NOT NULL,
+  calls      int NOT NULL DEFAULT 0,
+  estimated_cost numeric NOT NULL DEFAULT 0
+);
+
+-- ═══════════════════════════════════════════════════════
+-- ANALYTICS INTERNE
+-- ═══════════════════════════════════════════════════════
+CREATE TABLE page_views (
+  id          bigserial,
+  path        text NOT NULL,
+  article_id  uuid,
+  referrer_host text,
+  country     text, device text,
+  visitor_hash text,
+  scroll_depth int,
+  dwell_sec   int,
+  occurred_at timestamptz NOT NULL DEFAULT now()
+) PARTITION BY RANGE (occurred_at);
+
+CREATE TABLE article_daily_stats (
+  date       date NOT NULL,
+  article_id uuid NOT NULL REFERENCES articles(id) ON DELETE CASCADE,
+  views      bigint NOT NULL DEFAULT 0,
+  uniques    bigint NOT NULL DEFAULT 0,
+  avg_dwell  int NOT NULL DEFAULT 0,
+  completion_rate numeric,
+  shares     int NOT NULL DEFAULT 0,
+  newsletter_signups int NOT NULL DEFAULT 0,
+  PRIMARY KEY (date, article_id)
+);
+
+CREATE TABLE search_queries (
+  id         bigserial PRIMARY KEY,
+  query      text NOT NULL,
+  results_count int NOT NULL,
+  clicked_article_id uuid,
+  occurred_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE push_subscriptions (
+  id         uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  endpoint   text UNIQUE NOT NULL,
+  keys       jsonb NOT NULL,
+  topics     text[] DEFAULT '{}',
+  locale     text DEFAULT 'fr',
+  created_at timestamptz NOT NULL DEFAULT now(),
+  last_sent_at timestamptz
+);
+```
+
+## 06.4 Format des blocs de contenu (`articles.body`)
+
+Le corps est un **tableau JSON de blocs**. Jamais de HTML brut en base.
+
+```ts
+type Block =
+  | { id: string; type: "paragraph"; text: RichText }
+  | { id: string; type: "heading"; level: 2 | 3 | 4; text: string; anchor?: string }
+  | { id: string; type: "list"; style: "bullet" | "number"; items: RichText[] }
+  | { id: string; type: "quote"; text: string; author?: string; role?: string }
+  | { id: string; type: "pullquote"; text: string; author?: string }
+  | { id: string; type: "keypoints"; title?: string; items: string[] }   // "À retenir"
+  | { id: string; type: "image"; mediaId: string; size: "inline"|"wide"|"full"; caption?: string }
+  | { id: string; type: "gallery"; mediaIds: string[]; layout: "grid"|"carousel"|"mosaic" }
+  | { id: string; type: "video"; mediaId?: string; provider?: "mux"|"youtube"; playbackId?: string; caption?: string; autoplayMuted?: boolean }
+  | { id: string; type: "audio"; mediaId: string; title?: string }
+  | { id: string; type: "table"; headers: string[]; rows: string[][]; caption?: string; source?: string }
+  | { id: string; type: "embed"; provider: "x"|"facebook"|"instagram"|"youtube"|"tiktok"|"iframe"; url: string; html?: string }
+  | { id: string; type: "chart"; chartType: "line"|"bar"|"pie"|"area"; data: unknown; source: string; updatedAt: string }
+  | { id: string; type: "map"; lat: number; lng: number; zoom: number; markers?: unknown[] }
+  | { id: string; type: "timeline"; events: { date: string; title: string; text?: string }[] }
+  | { id: string; type: "beforeafter"; beforeMediaId: string; afterMediaId: string; labels?: [string,string] }
+  | { id: string; type: "definition"; term: string; definition: string }
+  | { id: string; type: "readmore"; articleIds: string[] }
+  | { id: string; type: "qa"; question: string; answer: RichText }        // interviews
+  | { id: string; type: "factcheck"; claim: string; verdict: "true"|"misleading"|"false"|"unverifiable"; explanation: string; sources: {label:string;url:string}[] }
+  | { id: string; type: "divider" }
+  | { id: string; type: "code"; language: string; code: string }
+  | { id: string; type: "newsletter"; listKey: string }
+  | { id: string; type: "ad"; slotCode: string };
+
+// RichText : tableau de fragments avec marques
+type RichText = { text: string; marks?: ("bold"|"italic"|"underline"|"strike"|"code"|"sup"|"sub")[]; link?: { href: string; external?: boolean } }[];
+```
+
+**Règles :**
+- Chaque bloc porte un `id` stable (nanoid 10) servant d'ancre aux commentaires de relecture et au sommaire d'article.
+- `plain_text` est régénéré à chaque enregistrement par concaténation des textes, et sert au comptage de mots, à la recherche et au calcul de densité de mots-clés.
+- Les blocs `ad` sont insérés **automatiquement** au rendu (après le 3ᵉ et le 7ᵉ paragraphe) si aucun bloc `ad` manuel n'existe.
+
+---
+
+# 07. API ET SERVER ACTIONS
+
+## 07.1 API publique — `/api/v1/*`
+
+Lecture seule, sans authentification, mise en cache en périphérie. Réponses JSON, enveloppe `{ data, meta }`. Rate limit : 120 requêtes/minute/IP.
+
+| Méthode | Route | Paramètres | Cache | Description |
+|---|---|---|---|---|
+| GET | `/api/v1/articles` | `category, tag, dossier, format, author, geo, q, from, to, page, limit, sort` | 60 s | Liste paginée d'articles publiés |
+| GET | `/api/v1/articles/:slug` | — | 300 s + tag | Article complet avec relations |
+| GET | `/api/v1/articles/:id/related` | `limit` | 600 s | Articles liés (manuels puis automatiques) |
+| GET | `/api/v1/featured` | `zone` | 60 s | Composition de la une |
+| GET | `/api/v1/homepage` | `locale` | 60 s | Blocs d'accueil résolus avec leur contenu |
+| GET | `/api/v1/flash` | `limit` | 30 s | Flashs actifs non expirés |
+| GET | `/api/v1/live/:slug` | `since` | 15 s | Live blog + entrées depuis un horodatage |
+| GET | `/api/v1/categories` | `tree=true` | 3600 s | Arborescence des rubriques |
+| GET | `/api/v1/tags/:slug` | — | 3600 s | Mot-clé + articles |
+| GET | `/api/v1/authors/:slug` | — | 3600 s | Auteur + articles |
+| GET | `/api/v1/dossiers/:slug` | — | 600 s | Dossier + articles ordonnés |
+| GET | `/api/v1/search` | `q, filters, page` | 60 s | Recherche Meilisearch |
+| GET | `/api/v1/search/suggest` | `q` | 300 s | Autocomplétion |
+| GET | `/api/v1/weather` | `city` | 900 s | Météo d'une ville |
+| GET | `/api/v1/most-read` | `window=1h\|24h\|7d` | 300 s | Classement des plus lus |
+| GET | `/api/v1/menus/:key` | `locale` | 3600 s | Structure d'un menu |
+| GET | `/api/v1/settings/public` | — | 3600 s | Réglages publics (identité, contacts, social) |
+| GET | `/api/v1/ads/serve` | `slot, path, ctx` | **no-store** | Sélection d'une création |
+| POST | `/api/v1/ads/event` | `{creativeId, type}` | — | Impression / vue / clic |
+| POST | `/api/v1/newsletter/subscribe` | `{email, lists, source}` | — | Inscription (double opt-in) |
+| GET | `/api/v1/newsletter/confirm` | `token` | — | Confirmation |
+| GET | `/api/v1/newsletter/unsubscribe` | `token` | — | Désinscription 1 clic |
+| POST | `/api/v1/newsletter/preferences` | `token, payload` | — | Centre de préférences |
+| POST | `/api/v1/contact` | `{kind, name, email, subject, body, turnstile}` | — | Formulaire de contact |
+| POST | `/api/v1/tip` | `{body, attachments, anonymous}` | — | Alerte info (pas de log IP) |
+| POST | `/api/v1/comments` | `{articleId, name, email, body}` | — | Dépôt de commentaire |
+| POST | `/api/v1/analytics/view` | `{path, articleId, ...}` | — | Comptage de vue (beacon) |
+| POST | `/api/v1/push/subscribe` | `{endpoint, keys, topics}` | — | Abonnement push |
+
+## 07.2 API d'administration
+
+Préférer les **Server Actions** Next.js pour les formulaires du back-office, avec :
+- vérification de session + permission **au début de chaque action**,
+- validation Zod de l'entrée,
+- écriture dans `audit_log`,
+- invalidation de cache ciblée (`revalidateTag`).
+
+Routes REST `/api/admin/*` uniquement pour : téléversement de médias, exports, webhooks, appels longue durée.
+
+```ts
+// Modèle obligatoire de toute Server Action
+"use server";
+export async function publishArticle(input: unknown) {
+  const session = await requireSession();
+  const data = publishArticleSchema.parse(input);
+  await requirePermission(session, "article.publish", { categoryId: data.categoryId });
+
+  const before = await repo.articles.findById(data.id);
+  const after  = await services.articles.publish(data, session.user.id);
+
+  await audit.log({ userId: session.user.id, action: "article.publish",
+                    resourceType: "article", resourceId: data.id, before, after });
+
+  revalidateTag(`article:${after.slug}`);
+  revalidateTag(`category:${after.categoryId}`);
+  revalidateTag("homepage");
+  await search.index(after);
+  return { ok: true, data: after };
+}
+```
+
+## 07.3 Tâches planifiées — `/api/cron/*`
+
+Protégées par l'en-tête `Authorization: Bearer ${CRON_SECRET}`.
+
+| Route | Fréquence | Rôle |
+|---|---|---|
+| `/api/cron/publish-scheduled` | 1 min | Publie les articles `scheduled` dont l'heure est atteinte |
+| `/api/cron/expire-content` | 5 min | Expire flashs et articles arrivés à `expires_at` |
+| `/api/cron/flush-views` | 1 min | Transfère les compteurs Redis vers `articles.view_count` |
+| `/api/cron/weather-refresh` | 15 min | Rafraîchit `weather_cache` |
+| `/api/cron/aggregate-stats` | 1 h | Alimente `article_daily_stats` et `ad_daily_stats` |
+| `/api/cron/seo-gsc-sync` | 6 h | Importe les données Search Console |
+| `/api/cron/seo-rankings` | 24 h | Met à jour `seo_rankings` |
+| `/api/cron/keyword-refresh` | 24 h | Rafraîchit les métriques des mots-clés suivis |
+| `/api/cron/newsletter-auto` | selon liste | Compose et envoie les newsletters automatiques |
+| `/api/cron/email-warmup` | 1 h | Gère l'envoi progressif des gros volumes |
+| `/api/cron/sitemap-rebuild` | 30 min | Régénère les sitemaps, ping IndexNow |
+| `/api/cron/broken-links` | 7 j | Vérifie les liens sortants |
+| `/api/cron/orphan-media` | 7 j | Signale les médias non utilisés |
+| `/api/cron/partitions` | 30 j | Crée les partitions du mois suivant |
+| `/api/cron/backup-verify` | 7 j | Vérifie l'intégrité des sauvegardes |
+| `/api/cron/cleanup-trash` | 24 h | Purge définitive après 30 jours |
+
+---
+
+# 08. AUTHENTIFICATION, RÔLES ET PERMISSIONS
+
+## 08.1 Chaînes de permission
+
+Format : `<ressource>.<action>`. Liste exhaustive à implémenter dans `lib/permissions.ts` :
+
+```
+article.create        article.read.all      article.read.own
+article.update.all    article.update.own    article.publish
+article.unpublish     article.delete        article.schedule
+article.feature       article.lock.override
+
+live.manage           flash.manage          weather.manage
+
+media.upload          media.update          media.delete
+
+taxonomy.manage       dossier.manage        entity.manage
+
+page.manage           menu.manage           homepage.compose
+banner.manage         redirect.manage
+
+seo.read              seo.manage            seo.keywords.query
+
+ads.read              ads.manage            ads.reports
+
+newsletter.read       newsletter.compose    newsletter.send
+subscriber.manage     subscriber.export
+
+comment.moderate      inbox.read            inbox.assign
+
+analytics.read        analytics.export
+
+user.read             user.manage           role.manage
+settings.manage       integrations.manage   audit.read
+system.purge_cache    system.export
+```
+
+## 08.2 Rôles système (à créer dans le seed)
+
+| `key` | Label | Permissions |
+|---|---|---|
+| `admin` | Administrateur | **Toutes** |
+| `publisher` | Directeur de publication | Tout sauf `user.manage`, `role.manage`, `settings.manage`, `integrations.manage` ; a `audit.read` complet |
+| `chief_editor` | Rédacteur en chef | `article.*`, `live.manage`, `flash.manage`, `homepage.compose`, `taxonomy.manage`, `dossier.manage`, `seo.*`, `newsletter.*`, `comment.moderate`, `analytics.read`, `media.*` |
+| `section_editor` | Chef de rubrique | Idem `chief_editor` mais **restreint à `user_roles.category_ids`** |
+| `journalist` | Journaliste | `article.create`, `article.read.own`, `article.update.own`, `media.upload`, `seo.read`, `seo.keywords.query` ; `article.publish` **paramétrable** via `settings.editorial.journalist_can_publish` |
+| `copy_editor` | Correcteur | `article.read.all`, `article.update.all` (texte uniquement), pas de publication |
+| `contributor` | Contributeur externe | `article.create`, `article.read.own`, `article.update.own` (état `draft` et `in_review` seulement) |
+| `ad_manager` | Régie publicitaire | `ads.*`, `analytics.read` |
+| `newsletter_manager` | Gestionnaire newsletter | `newsletter.*`, `subscriber.manage`, `analytics.read` |
+| `moderator` | Modérateur | `comment.moderate`, `inbox.read` |
+| `analyst` | Analyste | `analytics.read`, `analytics.export`, `seo.read` |
+
+L'administrateur peut créer des rôles personnalisés en combinant librement les permissions élémentaires.
+
+## 08.3 Règles d'authentification
+
+- Mot de passe : 12 caractères minimum, vérifié contre une base de mots de passe compromis (API k-anonymat HIBP), haché en **Argon2id**.
+- **2FA TOTP obligatoire** pour `admin`, `publisher`, `chief_editor`, `ad_manager`. Codes de secours à usage unique générés à l'activation.
+- Session : 8 h d'inactivité, 30 jours maximum avec « se souvenir de moi ». Cookie `httpOnly`, `secure`, `sameSite=lax`.
+- Verrouillage du compte après 5 échecs pendant 15 minutes (`failed_attempts`, `locked_until`).
+- Liste des sessions actives visible par l'utilisateur, avec révocation.
+- Invitation par e-mail avec jeton expirant en 72 h. Pas d'auto-inscription.
+- Journalisation : connexion, échec, changement de mot de passe, activation 2FA, changement de rôle.
+
+---
+
+# 09. FRONT-OFFICE — SPÉCIFICATION PAR PAGE
+
+## 09.1 Page d'accueil — `/`
+
+**Rendu :** ISR, `revalidate = 60`, tag `homepage`.
+**Données :** `GET /api/v1/homepage` → blocs actifs résolus, dans l'ordre `position`.
+
+### Zoning par défaut (à insérer dans le seed `homepage_blocks`)
+
+| Code | Type | Contenu | Variante par défaut |
+|---|---|---|---|
+| `Z-00` | `alert` | Bandeau d'alerte majeure, rouge, fermable (mémorisé en session) | masqué |
+| `Z-01` | — | Barre utilitaire + masthead + navigation (hors blocs, dans le layout) | — |
+| `Z-02` | `ad` | `AD-02` leaderboard d'en-tête | — |
+| `Z-03` | `flash` | 5 derniers flashs, défilement, pastille rouge pulsante, refresh 60 s | `ticker` |
+| `Z-04` | `lead` | À la une : 1 article `hero` + 4 `medium` | `lead-1x4` |
+| `Z-05` | `live` | Direct en cours (conditionnel) | `banner` |
+| `Z-06` | `latest` | Fil chronologique 2 colonnes + `most_read` latéral + `AD-04` | `list-sidebar` |
+| `Z-07a…n` | `section` | Un bloc par rubrique majeure : 1 `large` + 4 `list` | `featured-list` |
+| `Z-08` | `video` | Carrousel reportages, fond sombre, preview au survol | `carousel-dark` |
+| `Z-09` | `newsletter` | Encart : promesse, périodicité, aperçu, champ e-mail | `inline-wide` |
+| `Z-10` | `weather` | Conakry + 4 villes, prévision 5 jours | `strip` |
+| `Z-11` | `dossier` | Dossier mis en avant, immersif | `immersive` |
+| `Z-12` | `world` | Onglets par continent | `tabs` |
+| `Z-13` | `opinion` | Fond alterné, portraits ronds des signataires | `authors` |
+| `Z-14` | `ad` | `AD-07` inter-bloc ou natif | — |
+| `Z-15` | — | Pied de page (layout) | — |
+
+**Gabarits alternatifs du bloc `lead`** (sélectionnables en back-office) : `lead-1x4` (1 grand + 4), `lead-2x3` (2 égaux + 3 listés), `lead-full` (1 seul plein écran, pour une actualité majeure).
+
+### Comportements
+- Masthead qui se compacte au défilement descendant, réapparaît au défilement ascendant.
+- Aucun bloc ne charge de JS avant d'entrer dans le champ de vision, sauf `Z-03` et `Z-04`.
+- Le bloc `Z-05` est rendu côté serveur si un `live_blog.status = 'live'` existe, sinon il n'est pas émis du tout.
+
+## 09.2 Page article — `/{category}/{slug}`
+
+**Rendu :** `generateStaticParams` sur les 500 derniers articles + ISR `revalidate = 300`, tag `article:{slug}`. Invalidation immédiate à la publication/modification.
+
+### Ordre de rendu
+1. `Breadcrumb` + `kicker` (rubrique)
+2. `h1` titre · `lede` chapô
+3. `AuthorByline` : portraits, noms liés, `dateline`, date de publication, date de mise à jour si `updated_content_at > published_at + 1h`, temps de lecture
+4. `CorrectionNotice` si `correction_note` non nul — encadré rouge en tête
+5. `SponsoredLabel` si `is_sponsored` — fond distinct, mention explicite, **aucune publicité tierce dans l'article**
+6. `ShareBar` persistante — **WhatsApp en premier**, puis Facebook, X, LinkedIn, Telegram, copier le lien, e-mail, imprimer
+7. Média principal + légende + crédit (crédit **obligatoire**, bloque la publication si absent)
+8. Corps : rendu des blocs, insertion automatique de `AD-06` après le 3ᵉ et le 7ᵉ paragraphe, `NewsletterInline` après le 3ᵉ paragraphe
+9. `TagList` + `EntityChip`
+10. `AuthorBox` développée
+11. `RelatedArticles` (3 à 6 : manuels d'abord, puis automatiques par similarité)
+12. « Dans ce dossier » si `dossier_id`
+13. `CommentThread` (si activé)
+14. `ContinuousReader` — chargement de l'article suivant, mise à jour de l'URL et du `<title>`
+
+### Colonne latérale (≥ 1024 px)
+`ArticleToc` collant (généré depuis les blocs `heading`) · `MostReadList` · `AD-05` collant (300×600) · dernières vidéos
+
+### Éléments transverses
+- `ReadingProgress` : barre rouge 2 px en haut de la fenêtre
+- Temps de lecture = `ceil(word_count / 220)`
+- Version imprimable propre (`@media print`) et export PDF
+- JSON-LD `NewsArticle` complet (voir §12.2)
+
+## 09.3 Autres pages
+
+| Route | Rendu | Contenu clé |
+|---|---|---|
+| `/{category}` | ISR 60 s | En-tête (nom, `intro_html`, chefs de rubrique), 1 article vedette, grille paginée 20/page, filtres sous-rubrique/format/période, RSS dédié |
+| `/{category}/page/{n}` | ISR 60 s | Pagination **indexable**, `rel=prev/next` logique |
+| `/rubriques` | Statique | Toutes les rubriques avec compteur et derniers articles |
+| `/a-la-une` | ISR 60 s | Fil enrichi de la sélection rédaction |
+| `/reportages` | ISR 300 s | Grille vidéo, filtres par série/playlist, lecteur intégré |
+| `/direct/{slug}` | SSR + polling 15 s | Live blog : « l'essentiel » épinglé, fil inversé horodaté, badge d'état |
+| `/dossiers/{slug}` | ISR 300 s | Chapô, chronologie, articles ordonnés manuellement |
+| `/monde/{zone}` | ISR 300 s | Édition géographique, sous-navigation par pays |
+| `/auteurs/{slug}` | ISR 3600 s | Bio, spécialités, réseaux, articles, `Person` JSON-LD |
+| `/tags/{slug}` | ISR 3600 s | `intro_html` éditorial + articles — **page SEO à part entière** |
+| `/entites/{slug}` | ISR 3600 s | Fiche personne/organisation + couverture |
+| `/recherche` | SSR | Suggestion dès 3 caractères, tolérance aux fautes, facettes (rubrique, auteur, format, période, zone), tri pertinence/date, surlignage, état vide utile |
+| `/meteo` | ISR 900 s | Prévisions détaillées multi-villes, alertes |
+| `/newsletters` | Statique | Catalogue, inscription, archives publiques indexables |
+| `/archives/{y}/{m}/{d}` | ISR 3600 s | Navigation calendaire complète |
+| `/a-propos`, `/contact`, `/publicite`, `/charte-editoriale`, `/mentions-legales`, `/confidentialite`, `/cgu`, `/cookies` | ISR 3600 s | Pages `pages` avec `template` dédié |
+| `/plan-du-site` | Statique | Plan HTML complet |
+
+## 09.4 Navigation
+
+- **Barre utilitaire** : date du jour (fuseau lecteur + mention heure de Conakry), météo condensée, sélecteur de langue, lien newsletter, recherche, bascule clair/sombre.
+- **Masthead** : logo, menu principal (8 entrées visibles max, débordement dans « Plus »), CTA rouge.
+- **Méga-menu** au survol : sous-rubriques + 3 derniers articles avec vignette + dossier en cours.
+- **Barre de rubriques** secondaire, défilement horizontal sur mobile.
+- **Menu mobile** plein écran, accordéons, recherche prioritaire.
+- **Fil d'Ariane** partout, avec `BreadcrumbList`.
+- **Pied de page** 4 colonnes, intégralement administrable (ordre et libellé de chaque lien).
+
+---
+
+# 10. ANIMATIONS ET INTERACTIONS
+
+## 10.1 Grammaire
+
+| Catégorie | Durée | Courbe | Exemples |
+|---|---|---|---|
+| Micro-interaction | 120–200 ms | `ease-out` | Soulignement qui se déploie, bouton enfoncé, icône de partage qui pivote, label flottant, coche tracée |
+| Transition d'état | 200–320 ms | `--ease-signal` | Méga-menu, accordéon, bascule de thème en fondu croisé, suggestions de recherche |
+| Entrée de contenu | 280–420 ms | `ease-out`, décalage 40 ms | Fondu + translation 12 px à l'entrée dans le viewport, cascade de grille |
+| Macro-animation | 400–700 ms | ressort amorti | Transition d'image partagée vignette→article, menu mobile plein écran, entrée de long format |
+| Boucle d'état | continue | linéaire | Pastille « direct », bandeau flash, squelettes |
+| Lié au défilement | — | linéaire | Compactage du masthead, barre de progression, parallaxe **max 15 %** |
+
+## 10.2 Règles strictes (bloquantes en revue de code)
+
+1. **Seules `transform` et `opacity` sont animées.** Toute animation de `width`, `height`, `top`, `left`, `margin` ou `box-shadow` est refusée.
+2. 60 fps visés, **plancher 50 fps** sur Android d'entrée de gamme.
+3. **CLS < 0,1** : aucune animation ne provoque de décalage de mise en page.
+4. `prefers-reduced-motion: reduce` → fondus de 100 ms uniquement, suppression des parallaxes, des défilements automatiques et des translations.
+5. **Le contenu est peint d'abord, animé ensuite.** Aucun contenu au-dessus de la ligne de flottaison masqué en attente d'apparition au défilement.
+6. Une animation d'entrée se déclenche **une seule fois** par élément et par session de page.
+7. Maximum **3 animations simultanées** dans le viewport ; maximum 8 % du thread principal.
+8. Toute animation > 5 s ou en boucle est interruptible par l'utilisateur.
+
+## 10.3 Interactions à implémenter
+
+- Masthead rétractable au défilement, transition fluide vers barre compacte.
+- Transition d'image partagée entre carte et article (`layoutId` Framer Motion).
+- Recherche en surcouche ouvrable au clavier (`/` ou `Ctrl+K`), fond assombri, résultats en cascade.
+- Preview vidéo muette de 4 s au survol d'une vignette — **désactivée** si `navigator.connection.saveData` ou mode données réduites.
+- Compteurs de vues et de mises à jour du direct avec incrémentation animée.
+- Visionneuse plein écran : navigation clavier, gestes tactiles, zoom.
+- Squelettes calqués sur la forme réelle du contenu — **jamais de spinner générique**.
+- Retour haptique léger (`navigator.vibrate(10)`) sur partage et inscription, mobile uniquement.
+
+---
+
+# 11. BACK-OFFICE — SPÉCIFICATION PAR ÉCRAN
+
+## 11.1 Principes
+
+- Interface **en français**, terminologie de presse.
+- Recherche globale + palette de commandes (`Ctrl+K`).
+- **Enregistrement automatique toutes les 20 s**, récupération après coupure réseau, avertissement avant sortie non enregistrée.
+- Prévisualisation fidèle en un clic, dans 3 tailles d'écran, sur l'état brouillon (route `/admin/preview/{id}?token=`).
+- Tolérance aux connexions lentes : formulaires optimistes, file d'attente locale.
+- **Aucune suppression immédiate** : corbeille avec rétention 30 jours.
+- Aide contextuelle sur chaque champ.
+
+## 11.2 Écrans
+
+### `/admin` — Tableau de bord
+- Indicateurs du jour : lecteurs en temps réel, pages vues, articles publiés, top 10 des articles, sources de trafic.
+- File de travail personnelle : brouillons, à relire, programmés, retours de relecture.
+- Agenda éditorial : vue calendaire des publications programmées, marronniers, événements à couvrir.
+- Alertes système : erreurs d'envoi, campagnes arrivant à terme, quotas d'API, incidents.
+- Widgets réorganisables par utilisateur (persistés en `settings` utilisateur).
+
+### `/admin/articles` — Liste
+Colonnes : titre, rubrique, auteur(s), statut, date, vues, score SEO.
+Filtres : statut, rubrique, auteur, format, période, score SEO, « sans image », « sans mot-clé cible ».
+Actions groupées : changer de rubrique, ajouter un mot-clé, programmer, archiver, supprimer.
+Vues enregistrées par utilisateur.
+
+### `/admin/articles/{id}` — Éditeur
+
+**Zone centrale :** éditeur TipTap par blocs. Insertion par `/`, glisser-déposer, duplication, verrouillage de bloc. Collage intelligent depuis Word/Google Docs avec conversion propre en blocs.
+
+**Panneaux latéraux (onglets) :**
+
+| Onglet | Champs |
+|---|---|
+| **Publication** | Statut, date/heure de programmation, date d'expiration, visibilité, importance (1–5), épinglage, « article majeur », envoi push, inclusion newsletter, texte social |
+| **Classement** | Rubrique principale, sous-rubrique, rubriques secondaires, mots-clés (combobox avec création), dossier, zones géographiques, format éditorial, entités citées |
+| **Signature** | Auteurs et rôles (auteur, co-auteur, photographe, traducteur), agence source, dateline |
+| **Médias** | Image principale + recadrages 16:9 / 4:3 / 1:1 / 21:9 avec point focal, `alt` **obligatoire**, légende, crédit **obligatoire**, image sociale spécifique |
+| **SEO** | Slug (gelé après publication → redirection auto), méta-titre, méta-description, canonique, robots, mot-clé cible, **score SEO en direct**, mots-clés suggérés (voir §12) |
+| **Relecture** | Commentaires ancrés, historique des versions avec diff visuel et restauration, note de correction, sources |
+
+**Contrôles de publication (bloquants) :**
+- titre non vide, rubrique choisie, chapô ≥ 80 caractères
+- image principale avec `alt` **et** crédit
+- au moins 1 mot-clé
+- pas de lien cassé interne détecté
+- si `is_sponsored` : `sponsor_name` renseigné
+
+**Contrôles d'avertissement (non bloquants) :** score SEO < 60, méta-description absente, aucun lien interne, titre dupliqué, longueur < 200 mots pour un format ≠ `brief`.
+
+**Publication d'urgence :** bouton « Publier en flash » qui crée un `flash_news` + un article `brief` en 2 champs, enrichissable ensuite.
+
+### `/admin/une` — Composeur de la une
+Glisser-déposer entre une liste d'articles candidats (recherche, filtres) et les zones de la une. Épinglage, programmation horaire, titre et image alternatifs pour la une, prévisualisation avant publication, historique et retour arrière.
+
+### `/admin/homepage` — Composeur de page d'accueil
+Liste verticale des `homepage_blocks` réordonnable par glisser-déposer. Pour chaque bloc : activer/désactiver, dupliquer, choisir le gabarit, définir la source (rubrique, dossier, mot-clé, sélection manuelle, automatique), le nombre d'éléments, le titre affiché, la période d'affichage. **Prévisualisation en direct** dans un cadre à côté. Enregistrement de configurations nommées (`homepage_layouts`) et restauration.
+
+### `/admin/flash`, `/admin/direct`
+Saisie d'un flash en une ligne (texte, priorité, lien, expiration). Live blog : création, gestion des entrées en temps réel, épinglage, « l'essentiel », contributeurs simultanés, passage en `ended`.
+
+### `/admin/medias` — Médiathèque
+Téléversement multiple par glisser-déposer. Métadonnées obligatoires à l'import (titre, `alt`, crédit, licence). Recadrage intégré avec points focaux. Conversion automatique AVIF/WebP + 6 largeurs (`320, 640, 960, 1280, 1600, 2000`). Suppression des EXIF sensibles (GPS). Recherche et filtres. **Affichage des contenus utilisant le média avant suppression.** Détection de doublons par `checksum`. Purge des orphelins.
+
+### `/admin/taxonomies`
+Onglets : Rubriques (arbre réordonnable, 3 niveaux), Mots-clés (fusion, synonymes), Dossiers, Zones géographiques, Entités.
+**Règles :**
+- Renommer une rubrique ou un mot-clé → **redirection 301 automatique** créée dans `redirects`.
+- Supprimer une rubrique contenant des articles → **bloqué** tant qu'une cible de réaffectation n'est pas choisie.
+- Fusion journalisée et **réversible pendant 30 jours**.
+
+### `/admin/pages`, `/admin/menus`
+Pages : même éditeur par blocs, choix du `template`, SEO. Menus : arborescence par glisser-déposer, cible (rubrique, page, dossier, mot-clé, URL externe), icône, nouvel onglet, style « CTA rouge », visibilité.
+
+### `/admin/parametres` — Autonomie totale
+Groupes de `settings` administrables :
+
+| Groupe | Clés |
+|---|---|
+| `identity` | nom, baseline, logos (clair/sombre/icône/favicon), image sociale par défaut, couleur d'accent, fuseau, langues actives |
+| `contact` | adresse, téléphones, WhatsApp, e-mails par service, horaires, coordonnées GPS, destinataires des formulaires |
+| `social` | liste ordonnée `[{platform, url, label, showInHeader, showInFooter}]` |
+| `editorial` | `journalist_can_publish`, `comments_enabled`, `comments_moderation` (pre/post), délai d'expiration des flashs, mots bloqués |
+| `seo` | titre par défaut, séparateur, suffixe, vérification Search Console, robots par défaut |
+| `ads` | activation globale, densité maximale, mots-clés sensibles excluant la publicité |
+| `email` | expéditeur, nom d'expéditeur, pied de page légal, adresse postale (obligation CAN-SPAM) |
+| `features` | drapeaux d'activation de chaque module (météo, direct, commentaires, push, dons) |
+| `legal` | éditeur, directeur de publication, hébergeur, numéro d'enregistrement |
+
+**Écran « Textes d'interface » :** table `translations` éditable — tous les libellés du site (boutons, messages, mentions de consentement, erreurs) modifiables sans développeur.
+
+### `/admin/moderation`
+Boîte unifiée : commentaires, contacts, alertes info, droits de réponse. Filtrage automatique haine/spam, file d'attente, actions groupées, listes de mots bloqués, bannissement, réponse officielle identifiée visuellement, traçabilité des décisions.
+
+### `/admin/audit`
+Journal horodaté filtrable par utilisateur, action, ressource et période. Diff avant/après. Export CSV.
+
+---
+
+# 12. MODULE SEO ET MOTEUR DE MOTS-CLÉS
+
+## 12.1 Principe
+
+Le SEO n'est pas une couche ajoutée en fin de projet : il est intégré au socle technique (§12.2), puis prolongé par un **moteur de suggestion de mots-clés** qui propose au journaliste, **avant publication**, les termes de courte et longue traîne les plus pertinents pour son sujet.
+
+## 12.2 Socle technique obligatoire
+
+| Domaine | Exigence |
+|---|---|
+| Rendu | RSC/ISR : le HTML servi contient le contenu intégral. **Aucune dépendance au JS pour l'indexation.** |
+| Balises | Un seul `h1`, hiérarchie stricte, `<title>` ≤ 60 caractères, meta description 140–160, canonique systématique, `robots` par page |
+| Données structurées | `NewsArticle`, `Article`, `VideoObject`, `LiveBlogPosting`, `ClaimReview`, `BreadcrumbList`, `Organization`, `Person`, `WebSite`+`SearchAction`, `FAQPage` — générées automatiquement et **validées dans les tests** |
+| Sitemaps | Index segmenté : `sitemap-articles-{n}.xml` (50 000 URL max), `sitemap-categories`, `sitemap-tags`, `sitemap-authors`, `sitemap-videos`, `sitemap-images`. **`sitemap-news.xml` limité aux 48 dernières heures.** Régénération à chaque publication + ping IndexNow |
+| Flux | RSS **et** Atom par rubrique, mot-clé, auteur, dossier ; MRSS pour les vidéos |
+| International | `hreflang` réciproques entre versions linguistiques + `x-default`, URL localisées |
+| Partage | Open Graph et Twitter Cards complets ; image sociale **générée automatiquement** (`opengraph-image.tsx`) si absente |
+| Google News / Discover | Pages auteur, transparence éditoriale, politique de corrections publiée, images ≥ 1200 px de large |
+| Hygiène | 404 et 410 corrects, 301 permanentes, **aucune chaîne de redirection**, pagination indexable, contrôle du contenu dupliqué et de la cannibalisation |
+
+### Exemple de JSON-LD `NewsArticle` à générer
+
+```json
+{
+  "@context": "https://schema.org",
+  "@type": "NewsArticle",
+  "headline": "{title, ≤110 car.}",
+  "description": "{lede}",
+  "datePublished": "{published_at ISO8601}",
+  "dateModified": "{updated_content_at ISO8601}",
+  "articleSection": "{category.name}",
+  "keywords": "{tags joints par virgule}",
+  "wordCount": "{word_count}",
+  "inLanguage": "{locale}",
+  "image": [ "{cover 16:9 ≥1200px}", "{cover 4:3}", "{cover 1:1}" ],
+  "author": [{ "@type": "Person", "name": "...", "url": "/auteurs/{slug}" }],
+  "publisher": {
+    "@type": "NewsMediaOrganization",
+    "name": "INFOSPRO",
+    "logo": { "@type": "ImageObject", "url": "...", "width": 600, "height": 60 }
+  },
+  "mainEntityOfPage": { "@type": "WebPage", "@id": "{url canonique}" },
+  "isAccessibleForFree": true
+}
+```
+
+## 12.3 Moteur de suggestion — architecture
+
+Service dans `lib/seo/keyword-engine/`. Invoqué depuis l'éditeur via Server Action `suggestKeywords(input)`.
+
+### Pipeline en 9 étapes
+
+```
+1. SAISIE
+   Entrée : { topic?: string, articleId?: string, draftText?: string,
+              locale: "fr", country: "GN", categoryId?: string }
+
+2. EXTRACTION SÉMANTIQUE
+   → entités nommées, thème principal, zone géographique, période,
+     intention dominante (informational | news | transactional | navigational)
+   → via LLM + règles ; sortie normalisée
+
+3. EXPANSION — génération large de candidats
+   a) autocomplétion : requêtes seed × [a–z] × préfixes interrogatifs
+      (comment, pourquoi, qui, quand, combien, où, quel, est-ce que)
+   b) recherches associées et "autres questions posées"
+   c) variantes morphologiques, singulier/pluriel, synonymes
+   d) traductions et translittérations (noms propres guinéens)
+   e) formulations locales (dictionnaire interne, voir 12.5)
+   f) expansion LLM sur le thème
+   → 200 à 800 candidats bruts
+
+4. ENRICHISSEMENT
+   Pour chaque candidat : volume, tendance, difficulté, saisonnalité, CPC
+   Sources par ordre de priorité : GSC > autocomplete > Trends > provider payant
+   → mise en cache 30 jours dans keyword_metrics ; ne jamais réinterroger
+     un terme déjà collecté récemment (maîtrise du coût)
+
+5. ANALYSE SERP (sur les 10 meilleurs candidats seulement)
+   → type de contenu dominant, longueur moyenne, structure,
+     présence de blocs enrichis, concurrents présents
+
+6. CLUSTERING
+   → embeddings des candidats, regroupement par similarité cosinus (seuil 0,82)
+   → un cluster = une intention = un article
+   → confrontation aux clusters déjà couverts par le site
+
+7. SCORING
+   opportunity =
+       (volume_weighted ^ 0.5)
+     * trend_factor          // spiking 1.6 | rising 1.3 | stable 1.0
+                             // seasonal 1.1 si en saison | declining 0.7
+     * affinity_factor       // 1.0 à 1.5 selon l'autorité du site sur le cluster
+     / (1 + difficulty / 100)
+   Les coefficients sont stockés dans settings.seo.scoring et modifiables
+   par un administrateur SANS redéploiement.
+
+8. RESTITUTION
+   {
+     focusKeyword:     { term, volume, difficulty, score, rationale },
+     secondary:        Keyword[],   // 3 à 6, moyenne traîne
+     longTail:         Keyword[],   // 8 à 15
+     questions:        string[],    // à traiter en intertitres
+     titles:           string[],    // 3 propositions ≤ 60 car.
+     metaDescriptions: string[],    // 3 propositions 140-160 car.
+     outline:          { heading: string; keywords: string[] }[],
+     internalLinks:    { articleId, title, suggestedAnchor }[],
+     cannibalization:  { articleId, title, sharedIntent, recommendation }[],
+     cluster:          { id, label, coverage }
+   }
+
+9. CONTRÔLE AVANT PUBLICATION
+   → recalcul du score SEO à chaque frappe (debounce 1500 ms)
+   → checklist affichée ; blocage doux si critères majeurs manquants
+```
+
+## 12.4 Sources de données
+
+| Source | Rôle | Coût | Priorité |
+|---|---|---|---|
+| **Google Search Console** (API) | Requêtes réelles du domaine, impressions, clics, positions | Gratuit | **1 — la plus fiable** |
+| **Autocomplétion** moteurs/plateformes | Reflet direct des recherches locales | Gratuit | **2** |
+| **Google Trends** | Dynamique, saisonnalité, filtré Guinée + pays cibles | Gratuit | 3 |
+| **Fournisseur payant** (DataForSEO / Semrush / Ahrefs) | Volumes, difficulté | Payant — **quotas surveillés** | 4 |
+| **Corpus interne** | Articles publiés, performances passées, autorité thématique | Gratuit | 2 |
+| **LLM** | Expansion sémantique, variantes locales, titres | Payant faible | 3 |
+
+**Architecture d'adaptateur obligatoire :**
+```ts
+interface KeywordProvider {
+  name: string;
+  getMetrics(terms: string[], opts: { locale: string; country: string }): Promise<KeywordMetric[]>;
+  getSuggestions(seed: string, opts: ProviderOpts): Promise<string[]>;
+  estimateCost(callCount: number): number;
+}
+```
+Changer de fournisseur ne doit demander **aucune** réécriture hors du dossier `providers/`. Un provider `none` doit exister, fonctionnant uniquement sur GSC + autocomplete + LLM.
+
+## 12.5 Spécificité guinéenne — exigence forte
+
+Les données de volume de recherche sont **notoirement pauvres pour la Guinée**. Le moteur doit donc :
+
+1. **Pondérer les volumes** par un coefficient régional paramétrable (`settings.seo.region_weight`, défaut : ×3,5 pour une requête francophone ouest-africaine par rapport au volume mondial affiché).
+2. **Privilégier GSC et l'autocomplétion**, qui reflètent la réalité locale, plutôt que les estimations des outils commerciaux.
+3. Maintenir un **dictionnaire local** (`lib/seo/dictionaries/gn.ts`) : patronymes guinéens et leurs graphies alternatives (Condé/Conde, Diallo, Camara, Bah/Ba, Sylla, Touré/Toure), toponymes (Conakry, Kankan, N'Zérékoré/Nzerekore, Labé/Labe, Kindia, Boké/Boke, Siguiri), sigles institutionnels (CNRD, CENI, RTG, BCRG, SMB, CBG, ANSS), et les variantes sans accents et sans apostrophes.
+4. **Ne jamais présenter une absence de données comme une absence d'intérêt.** Quand aucun volume n'est disponible, afficher « volume non mesuré » et se reposer sur la fraîcheur et l'affinité.
+
+## 12.6 Classification des mots-clés
+
+| Type | Définition | Nombre par article | Emplacement |
+|---|---|---|---|
+| Courte traîne | 1–2 mots, intention large, forte concurrence | **1 seul** | Titre, `h1`, URL |
+| Moyenne traîne | 3–4 mots, intention précisée | 3–6 | Intertitres, chapô, meta description |
+| Longue traîne | ≥ 5 mots, souvent interrogative | 8–15 | Sous-sections, questions traitées, encadrés |
+
+## 12.7 Assistant dans l'éditeur — panneau SEO
+
+Permanent, non bloquant, rafraîchi pendant la frappe (debounce 1,5 s).
+
+### Score sur 100 — critères vérifiés en direct
+
+| Critère | Poids | Règle |
+|---|---|---|
+| Mot-clé cible dans le titre | 12 | Présent, de préférence dans les 60 premiers caractères |
+| Mot-clé cible dans le `h1` | 8 | Présent |
+| Mot-clé dans le 1er paragraphe | 10 | Dans les 150 premiers mots |
+| Mot-clé dans l'URL | 8 | Slug contient le terme normalisé |
+| Mot-clé dans la meta description | 6 | Présent |
+| Mot-clé dans ≥ 1 intertitre | 6 | Présent |
+| Longueur du titre | 6 | 45–60 caractères |
+| Longueur de la meta description | 6 | 140–160 caractères |
+| Densité du mot-clé | 8 | **entre 0,8 % et 2,5 %** — pénalité au-delà |
+| Mots-clés secondaires présents | 8 | ≥ 3 des suggérés |
+| Nombre de mots | 6 | ≥ 300 (hors `brief`) |
+| Liens internes | 6 | ≥ 2 |
+| Liens externes sourcés | 4 | ≥ 1 |
+| `alt` sur toutes les images | 4 | 100 % |
+| Lisibilité | 2 | Phrases ≤ 25 mots en moyenne |
+
+### Autres fonctions du panneau
+
+- **3 propositions de titres** et **3 meta descriptions**, avec aperçu du rendu dans les résultats Google **et** dans un partage social.
+- **Plan d'intertitres suggéré** depuis les questions associées, insérable en un clic dans le brouillon.
+- **Suggestions de liens internes** : articles existants pertinents + ancre proposée. **Suggestion inverse** : anciens articles qui gagneraient à pointer vers le nouveau.
+- **Détection de cannibalisation** : alerte si un article publié cible la même intention, avec recommandation « mettre à jour l'existant » plutôt que « créer ».
+- **Optimisation pour moteurs génératifs (GEO/AEO)** : contrôle de la présence d'une réponse synthétique en tête, de définitions claires, de données citables et de sources nommées.
+
+> **L'assistant conseille, il ne contraint pas.** Il n'impose jamais un vocabulaire qui dénaturerait l'écriture journalistique. Le rédacteur en chef peut publier en passant outre — l'action est journalisée.
+
+## 12.8 Écran `/admin/seo`
+
+| Onglet | Contenu |
+|---|---|
+| **Positions** | Suivi des mots-clés `is_tracked`, historique, alerte de décrochage (> 5 places perdues) |
+| **Opportunités** | Articles positionnés **entre la 5ᵉ et la 20ᵉ place** — à mettre à jour en priorité, tri par impressions |
+| **Couverture** | Cartographie des clusters : traités, vides, redondants ; suggestions de sujets |
+| **Santé technique** | Pages non indexées, erreurs de données structurées, 404 entrantes (depuis `not_found_log`), liens cassés, pages orphelines, temps de chargement par gabarit |
+| **Recherche interne** | Requêtes des visiteurs, notamment **celles sans résultat** — source directe d'idées éditoriales |
+| **Coûts** | Appels par fournisseur, quota restant, coût estimé du mois (`seo_provider_usage`) |
+
+Rapport mensuel exportable en PDF et CSV.
+
+---
+
+# 13. RÉGIE PUBLICITAIRE
+
+## 13.1 Inventaire des emplacements (seed obligatoire dans `ad_slots`)
+
+| Code | Emplacement | Formats | Pages | Attention |
+|---|---|---|---|---|
+| `AD-01` | Habillage de page (skin) | fond latéral + 1800×1000 | accueil, rubriques | Très forte — exclusivité journée |
+| `AD-02` | Leaderboard d'en-tête | 970×250, 970×90, 728×90 · mobile 320×100 | toutes | Forte |
+| `AD-03` | Billboard sous la une | 970×250 | accueil | Très forte |
+| `AD-04` | Pavé latéral haut | 300×250, 300×600 | article, rubrique | Forte |
+| `AD-05` | Pavé latéral collant | 300×600 demi-page | article | Très forte — durée d'exposition |
+| `AD-06` | In-read (dans le texte) | 300×250, natif responsive | article, après 3ᵉ et 7ᵉ § | Très forte |
+| `AD-07` | Inter-bloc accueil | 728×90, natif | accueil | Moyenne à forte |
+| `AD-08` | Natif dans le fil | carte au gabarit éditorial + mention « Publicité » | accueil, rubriques, recherche | Forte |
+| `AD-09` | Sponsoring de rubrique | logo « en partenariat avec » + bandeau | une rubrique entière | Forte — vente au mois |
+| `AD-10` | Sponsoring de newsletter | 600×150 + encart texte | e-mails | Très forte |
+| `AD-11` | Pré-roll vidéo | 6–15 s, skippable après 5 s | reportages | Très forte |
+| `AD-12` | Bandeau collant mobile | 320×50, 320×100 — fermable | toutes, mobile | Forte |
+| `AD-13` | Interstitiel de transition | plein écran, fermable, **1×/session max** | inter-articles | Très forte — usage limité |
+| `AD-14` | Bas d'article | 728×90, 970×250 | article | Moyenne |
+| `AD-15` | Pied de page | 728×90 | toutes | Faible — remplissage |
+| `AD-16` | Widget météo sponsorisé | logo + « Météo présentée par » | accueil, météo | Forte |
+| `AD-17` | Bandeau de direct | bandeau fin sous le titre du live | directs | Très forte en événement |
+| `AD-18` | Contenu de marque | article complet, gabarit distinct, hors flux classé | rubrique dédiée | Forte |
+| `AD-19` | Auto-promotion | newsletter, dossiers, appel à témoignages | inventaire invendu | Remplissage |
+
+## 13.2 Algorithme de sélection (`lib/ads/serve.ts`)
+
+```
+Entrée : slotCode, contexte { path, categoryId, tags[], format, country,
+                              city, device, locale, hour, weekday,
+                              visitorType, visitorHash, isSensitive }
+
+1. Filtrer ad_slots : code actif
+2. Récupérer les créations éligibles :
+   - campagne status='running' ET now() ENTRE starts_at ET ends_at
+   - creative.slot_code = slotCode ET is_active
+3. Appliquer le ciblage (targeting JSONB) :
+   catégories, tags, formats, pays, villes, devices, langues,
+   heures, jours, type de visiteur
+4. EXCLUSIONS OBLIGATOIRES :
+   - si contexte.isSensitive (deuil, catastrophe, fait divers grave,
+     détecté par settings.ads.sensitive_keywords) → ne rien servir
+   - exclusion concurrentielle : pas deux annonceurs du même `sector`
+     sur la même page
+   - article.is_sponsored → AUCUNE publicité tierce dans cet article
+5. Plafonnement : compteur Redis `cap:{campaignId}:{visitorHash}:{yyyymmdd}`
+   → écarter si >= frequency_cap
+6. Trier par priority ASC, puis tirage aléatoire pondéré par `weight`
+7. Si aucune création → servir AD-19 (auto-promotion)
+8. Journaliser l'impression de façon asynchrone (POST /api/v1/ads/event)
+```
+
+## 13.3 Règles de qualité (bloquantes)
+
+- **Espace réservé en CSS avant chargement** : aucun format ne provoque de décalage (CLS = 0 sur les emplacements).
+- Chargement différé de tous les emplacements sous la ligne de flottaison (`IntersectionObserver`, marge 200 px).
+- Rafraîchissement possible toutes les 30 s pour les formats collants, **maximum 5 rafraîchissements**.
+- **Aucun format sonore en lecture automatique. Aucun interstitiel avant le premier affichage du contenu. Aucun format masquant le contenu sur mobile hors bandeau fermable.**
+- Poids maximum : 150 Ko (image), 2 Mo (HTML5). Contrôlé à l'upload.
+- Contenus sponsorisés visuellement distincts et **explicitement étiquetés**.
+- Détection de bloqueur de publicité → message courtois, **non bloquant**.
+- `ads.txt` et `sellers.json` publiés et maintenus (`/ads.txt` servi depuis `settings`).
+
+## 13.4 Écrans `/admin/publicite`
+
+Annonceurs (contacts, contrats, historique, `report_token`) · Campagnes (période, budget, objectif, emplacements, poids, priorité, ciblage complet, capping) · Créations (upload, prévisualisation dans le vrai emplacement, contrôle du poids) · **Calendrier d'occupation** de l'inventaire par emplacement et par semaine · Statistiques (impressions, clics, CTR, visibilité, par emplacement et par jour) · Rapport par annonceur exportable PDF/CSV · Accès annonceur en lecture via `/rapport/{report_token}`.
+
+**Compatibilité régie externe :** Google Ad Manager / AdSense en complément, arbitrage par priorité, remplissage automatique des invendus.
+
+---
+
+# 14. NEWSLETTER ET RELATION LECTEUR
+
+## 14.1 Catalogue (seed `newsletter_lists`)
+
+| `key` | Titre | Rythme | Contenu | Composition |
+|---|---|---|---|---|
+| `morning` | L'Essentiel du matin | quotidien 06:00 GMT | 5–7 infos clés, météo, agenda | **Auto** avec édition avant envoi |
+| `breaking` | Flash — Alerte | événementiel | Information majeure | Déclenchée depuis l'article, 1 clic |
+| `weekly` | Le Récap de la semaine | samedi | Analyses, formats longs, vidéos | Éditorialisée |
+| `economy` | Économie & Mines | hebdomadaire | Indicateurs, appels d'offres, décryptages | Éditorialisée |
+| `diaspora` | Diaspora | bimensuel | Sélection pour les Guinéens de l'étranger | Éditorialisée |
+| `dossier:{slug}` | Newsletter de dossier | variable | Suivi d'un sujet | Créée à la demande |
+
+## 14.2 Collecte et conformité
+
+- Points de collecte : encart d'accueil, encart **dans l'article après le 3ᵉ paragraphe**, pied de page, fenêtre d'intention de sortie (**1×/mois maximum**), page dédiée, fin d'article.
+- **Double opt-in obligatoire.** Consentement horodaté + source + IP hachée conservés comme preuve.
+- Champs : e-mail obligatoire ; prénom, pays, langue, centres d'intérêt facultatifs.
+- **Centre de préférences sans connexion**, via lien signé : choix des listes, rythme, langue, pause temporaire, désinscription en 1 clic.
+- En-tête `List-Unsubscribe` + `List-Unsubscribe-Post` dans tous les envois.
+- Segmentation : intérêts, pays, engagement (actifs / dormants), ancienneté, source d'acquisition.
+- Hygiène : gestion automatique des rebonds durs et souples, retrait des plaintes, campagne de réengagement puis **suppression des inactifs à 12 mois**.
+
+## 14.3 Production et envoi
+
+- Éditeur de campagne par blocs, avec récupération automatique des articles sélectionnés (titre, image, chapô, **lien tracé**).
+- Gabarits HTML responsives testés sur les principaux clients de messagerie ; **version texte brut générée automatiquement** ; mode sombre géré.
+- Test A/B sur l'objet, envoi test à une liste de contrôle, planification, **envoi progressif** (montée en charge par lots pour préserver la réputation).
+- Personnalisation par variables, contenu conditionnel par segment.
+- SPF, DKIM, DMARC configurés, domaine d'envoi dédié, surveillance de la réputation.
+- Statistiques : envois, délivrés, ouvertures, clics par lien, désinscriptions, plaintes, revenus du sponsoring ; carte de chaleur des clics.
+- **Archives publiques indexables** des numéros — contenu SEO additionnel.
+
+## 14.4 E-mails transactionnels (gabarits administrables)
+
+Confirmation d'inscription · accusé de réception de formulaire · notification de réponse à un commentaire · invitation utilisateur · réinitialisation de mot de passe · alertes internes à la rédaction · rapport hebdomadaire automatique aux annonceurs.
+
+---
+
+# 15. MÉTÉO, DIRECT, PUSH ET AUTRES MODULES
+
+## 15.1 Météo
+- Fournisseur configurable (`WEATHER_API_PROVIDER`). Cache serveur 15 min dans `weather_cache` — **ne jamais appeler l'API depuis le navigateur du visiteur**.
+- Widget d'accueil : ville par défaut (Conakry) + 4 villes configurables ; température, ressenti, conditions, prévision 5 jours.
+- Détection de la ville du visiteur par en-tête géographique du CDN, avec repli sur la ville par défaut.
+- Page `/meteo` : prévisions détaillées, alertes météorologiques, sponsoring `AD-16`.
+
+## 15.2 Direct (live blog)
+- Fil inversé d'entrées horodatées, épinglage, bloc « l'essentiel », contributeurs simultanés.
+- Actualisation **sans rechargement** : polling `GET /api/v1/live/:slug?since=` toutes les 15 s (SSE en option si la plateforme le permet).
+- Badge d'état : `upcoming` / `live` (pastille rouge pulsante) / `ended`.
+- JSON-LD `LiveBlogPosting`. Partage à horodatage (ancre sur une entrée).
+
+## 15.3 Notifications push
+- Web Push VAPID, abonnement par sujet (rubriques).
+- Plafonnement : **maximum 3 notifications par jour et par abonné**, configurable.
+- Envoi depuis l'article (`send_push`) ou depuis `/admin/flash`.
+- Segmentation par sujet et par langue ; planification.
+
+## 15.4 Alerte info (protection des sources)
+- Formulaire `/contact` onglet « Alerte info » : texte, pièces jointes (quarantaine + analyse antivirus), option **anonyme**.
+- **L'IP n'est pas journalisée** pour ce formulaire. Aucun traceur analytique sur cette page.
+- Boîte de réception dédiée dans `/admin/moderation`.
+
+---
+
+# 16. PERFORMANCE — BUDGETS BLOQUANTS
+
+| Indicateur | Cible | Mesure |
+|---|---|---|
+| LCP | < 2,0 s (max 2,5 s) | Terrain, p75, mobile |
+| INP | < 200 ms | Terrain, p75 |
+| CLS | < 0,1 | Terrain, p75 |
+| TTFB | < 400 ms depuis Conakry | Laboratoire |
+| Lighthouse Performance | ≥ 90 mobile, ≥ 95 desktop | Accueil + article |
+| Poids page article | < 700 Ko au premier affichage utile (hors pub) | Laboratoire |
+| JS initial | **< 180 Ko compressé** | Laboratoire |
+| Requêtes initiales | < 45 | Laboratoire |
+| Lisible en 3G simulée | < 4 s | « Slow 4G », CPU ×4 |
+| Domaines tiers | **≤ 4** | Audit |
+
+## 16.1 Moyens obligatoires
+
+- Images AVIF avec repli WebP, `srcset`/`sizes`, `loading="lazy"` hors ligne de flottaison, `priority` explicite sur l'image LCP, **dimensions toujours déclarées**.
+- Polices WOFF2, sous-ensemble latin, 2 graisses préchargées max, `font-display: swap` + `size-adjust` pour CLS = 0.
+- Découpage du JS par route, RSC par défaut, hydratation sélective, `dynamic()` pour commentaires, carrousels, lecteur vidéo, widgets tiers.
+- CSS critique en ligne, reste différé.
+- Scripts tiers chargés **après interaction ou après stabilisation** ; aucun script tiers bloquant le rendu.
+- `preconnect` aux domaines critiques, `preload` des ressources essentielles.
+- **Mode données réduites** : détecté (`Save-Data`) ou activable manuellement — images allégées, pas de preview vidéo, animations réduites.
+- PWA avec cache hors ligne des derniers articles consultés.
+
+## 16.2 Surveillance continue
+- Mesure terrain des Core Web Vitals segmentée par pays, appareil et gabarit.
+- Audit Lighthouse à chaque déploiement : **échec du pipeline si régression > 10 %** sur un indicateur clé.
+- Test de charge avant lancement : 10 000 utilisateurs simultanés, pic à 50 000, TTFB ≤ 800 ms maintenu.
+- Surveillance synthétique toutes les 5 min depuis Conakry, Dakar, Paris, New York.
+
+## 16.3 Stratégie de cache
+
+| Ressource | Stratégie |
+|---|---|
+| Article | ISR 300 s + invalidation immédiate par tag à la publication/modification |
+| Accueil, rubrique | ISR 60 s + tag |
+| Flash, direct, météo | API cachée 15–60 s |
+| Médias | `Cache-Control: public, max-age=31536000, immutable` + empreinte dans le nom |
+| Compteurs de vues | Redis, agrégés en base toutes les minutes |
+| Publicité | `no-store` |
+
+Bouton de **purge manuelle** du cache dans `/admin/parametres`, global ou ciblé.
+
+---
+
+# 17. SÉCURITÉ ET CONFORMITÉ
+
+## 17.1 Sécurité applicative
+
+- HTTPS strict + HSTS (`max-age=63072000; includeSubDomains; preload`).
+- En-têtes : CSP restrictive (nonce sur les scripts en ligne), `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, `Permissions-Policy`, `X-Frame-Options: SAMEORIGIN`.
+- Contrôle d'accès **vérifié côté serveur pour chaque opération**.
+- Requêtes paramétrées exclusivement (ORM). Assainissement des contenus HTML riches (blocs `embed`) via liste blanche.
+- Rate limiting Redis : authentification (5/15 min), formulaires (3/min), recherche (30/min), API publique (120/min).
+- Turnstile invisible sur tous les formulaires publics.
+- Téléversements : vérification du type **réel** (magic bytes), taille max, analyse antivirus, stockage hors du domaine applicatif, noms assainis, **suppression des EXIF GPS**.
+- Journalisation des accès et actions sensibles, conservation 12 mois, alertes sur comportement anormal.
+- Mises à jour de sécurité des dépendances **mensuelles**, analyse automatisée (`pnpm audit`, Dependabot).
+- **Test d'intrusion externe avant mise en production.** Correction obligatoire des vulnérabilités critiques et élevées avant lancement.
+
+## 17.2 Sauvegardes et continuité
+
+| Élément | Politique |
+|---|---|
+| Base — PITR | Restauration à un instant donné sur **30 jours** |
+| Base — instantané quotidien | Conservation 90 jours |
+| Base — copie mensuelle | Conservation 12 mois, **région distincte** |
+| Médias | Versionnage + verrouillage contre la suppression |
+| RPO | ≤ 15 minutes |
+| RTO | ≤ 2 heures |
+| Test de restauration | **Complet et documenté, 2×/an minimum** |
+
+Page d'état publique (`status.infospro.net`) et procédure d'incident écrite avec niveaux de gravité et chaîne d'escalade.
+
+## 17.3 Données personnelles
+
+- RGPD (visiteurs européens) + législation guinéenne sur la cybersécurité et la protection des données. Point de contact responsable désigné.
+- **Bandeau de consentement conforme** : refus aussi simple que l'acceptation, granularité par finalité (mesure d'audience, publicité, personnalisation), **aucun traceur non essentiel avant consentement**, consentement révocable et horodaté.
+- Registre des traitements, durées de conservation par catégorie, minimisation.
+- Droits des personnes outillés dans le back-office : recherche d'un abonné, export, anonymisation, effacement.
+- Contrats de sous-traitance, cartographie des transferts, chiffrement au repos et en transit.
+- Procédure de notification de violation sous **72 h**.
+- **IP jamais stockée en clair** : uniquement hachée avec sel (`ip_hash`).
+
+## 17.4 Conformité éditoriale
+
+- Mentions légales complètes : éditeur, directeur de publication, hébergeur, numéro d'enregistrement auprès de l'autorité de régulation.
+- Procédure de droit de réponse et de correction accessible **depuis chaque article**.
+- Droits sur les médias : champ licence obligatoire, **publication bloquée si le crédit est absent**.
+- Protection des sources : le formulaire d'alerte info ne journalise pas l'IP et propose l'envoi anonyme.
+
+---
+
+# 18. ACCESSIBILITÉ ET INTERNATIONALISATION
+
+## 18.1 Accessibilité — WCAG 2.2 niveau AA
+
+- Navigation complète au clavier, ordre de tabulation logique, **focus visible et contrasté**, liens d'évitement.
+- Structure sémantique : repères ARIA, titres hiérarchisés, listes réelles, tableaux avec en-têtes associés.
+- **`alt` obligatoire à l'enregistrement d'une image** ; images décoratives explicitement marquées `alt=""`.
+- Contrastes vérifiés **automatiquement dans le pipeline** ; texte redimensionnable à 200 % sans perte de fonction.
+- Vidéos sous-titrées ; **transcription textuelle** fournie pour les reportages (champ `media.transcript`, indexable).
+- Respect de `prefers-reduced-motion` et `prefers-contrast`.
+- Formulaires : libellés associés, messages d'erreur explicites, **jamais d'indication par la seule couleur**.
+- Audit d'accessibilité externe avant lancement + déclaration d'accessibilité publiée.
+- Tests automatisés `axe-core` intégrés aux tests E2E, **échec du pipeline sur violation sérieuse**.
+
+## 18.2 Internationalisation
+
+- **Architecture multilingue native dès la conception**, même avec un lancement en français seul. Toutes les chaînes d'interface dans `translations`, administrables.
+- Langues : `fr` (principale), `en` (phase 2), `ar` RTL (prévu — le CSS doit utiliser les propriétés logiques `margin-inline`, `padding-block`, etc., **dès maintenant**).
+- Lien entre versions d'un article via `translation_of_id` ; statut de traduction visible en back-office.
+- Éditions géographiques : la page d'accueil peut mettre en avant des blocs différents selon la zone détectée, **sans jamais bloquer l'accès au contenu national**.
+- Formats localisés : dates, heures, nombres, devises (`Intl`). Horodatages dans le fuseau du lecteur **avec mention de l'heure de Conakry**.
+- Rubrique « Monde » structurée par continent et pays, extensible sans refonte.
+- **Aucune restriction d'accès par pays.**
+
+---
+
+# 19. ANALYTICS ET TESTS
+
+## 19.1 Mesure
+- Socle respectueux de la vie privée (Plausible/Matomo/Umami), + GA4 **sous consentement** si souhaité.
+- Search Console et Bing Webmaster connectés, données rapatriées dans `/admin/seo`.
+- Tableau de bord éditorial intégré : lecteurs en direct, top 1 h / 24 h / 7 j, temps de lecture moyen, **taux d'achèvement**, profondeur de défilement, sources, performance par auteur et par rubrique.
+- Événements : inscription newsletter, partage, clic publicitaire, lecture vidéo **par quartile**, recherche interne (dont requêtes sans résultat), clic sur article recommandé, activation du mode sombre.
+- Rapports automatiques : quotidien (rédaction), hebdomadaire (direction), mensuel consolidé.
+- Conservation des données brutes d'audience : **25 mois maximum**.
+
+## 19.2 Tests
+
+| Type | Outil | Exigence |
+|---|---|---|
+| Unitaires | Vitest | **≥ 70 %** de couverture sur publication, permissions, publicité, e-mail, scoring SEO |
+| Intégration | Vitest + base de test | API et accès données |
+| E2E | Playwright | Publication d'article, composition de la une, inscription newsletter, création de campagne, recherche, changement de langue, connexion 2FA |
+| Régression visuelle | Playwright screenshots | Composants du design system |
+| Accessibilité | axe-core | Échec sur violation sérieuse |
+| Performance | Lighthouse CI | Budgets §16 |
+| Charge | k6 / Artillery | 10 000 concurrents, pic 50 000 |
+| Sécurité | `pnpm audit` + pentest externe | Aucune vulnérabilité critique/élevée |
+
+**Matrice navigateurs :** Chrome, Safari, Firefox, Edge (2 dernières versions) · Safari iOS · Chrome Android · **Android d'entrée de gamme obligatoire**.
+
+---
+
+# 20. PLAN D'EXÉCUTION PAR PHASES
+
+Chaque phase se termine par ses **critères d'acceptation**. Ne passe pas à la suivante tant qu'ils ne sont pas tous satisfaits.
+
+## PHASE 1 — Socle technique
+
+**Tâches**
+1. Initialiser le monorepo, Next.js 15, TypeScript strict, Tailwind 4, ESLint, Prettier.
+2. Écrire `tokens.css` et `tailwind.config.ts` à partir de §05.
+3. Écrire `prisma/schema.prisma` complet à partir de §06. Générer la migration initiale.
+4. Écrire les triggers SQL (`search_vector`, compteurs dénormalisés, `updated_at`).
+5. Implémenter `lib/db.ts`, `lib/redis.ts`, `lib/cache.ts`.
+6. Auth.js : credentials, Argon2id, TOTP 2FA, sessions, verrouillage.
+7. `lib/permissions.ts` : `requireSession`, `requirePermission`, helper de restriction par rubrique.
+8. `audit.log()` et middleware d'audit.
+9. `prisma/seed.ts` : rôles système, utilisateur admin, rubriques, `ad_slots`, `newsletter_lists`, `menus`, `homepage_blocks`, `settings`, `translations`, `weather_cities`.
+10. Layout `/admin` : navigation latérale, en-tête, palette de commandes, thème.
+
+**Critères d'acceptation**
+- [ ] `pnpm db:migrate && pnpm db:seed` s'exécute sans erreur sur une base vierge.
+- [ ] Connexion admin avec 2FA fonctionnelle ; 3 comptes de test de rôles différents.
+- [ ] Une action interdite renvoie 403 **côté serveur**, même en forçant la requête.
+- [ ] Chaque action d'écriture crée une entrée `audit_log`.
+
+## PHASE 2 — Back-office éditorial
+
+**Tâches**
+1. CRUD articles : liste avec filtres et vues enregistrées, éditeur TipTap par blocs (§06.4).
+2. Tous les panneaux latéraux de §11.2.
+3. Autosave 20 s, verrou d'édition avec heartbeat, versions + diff visuel + restauration.
+4. Workflow de statuts avec transitions et notifications.
+5. Médiathèque complète : upload, variantes AVIF/WebP ×6 largeurs, recadrages, point focal, EXIF strip, doublons, usages.
+6. Taxonomies : arbre de rubriques réordonnable, tags avec fusion, dossiers, zones géo, entités. **Redirection 301 automatique au renommage.**
+7. Pages, menus (drag & drop), bannières, redirections.
+8. Composeur de page d'accueil + composeur de la une, avec prévisualisation.
+9. Écran `/admin/parametres` avec tous les groupes, + écran « Textes d'interface ».
+10. Import Word/Google Docs → blocs.
+
+**Critères d'acceptation**
+- [ ] Un journaliste crée, enregistre, soumet et fait publier un article **sans aucune intervention technique**.
+- [ ] Renommer une rubrique crée la redirection et l'ancienne URL répond 301.
+- [ ] Supprimer une rubrique avec articles est bloqué tant qu'aucune cible n'est choisie.
+- [ ] Toutes les valeurs de §11.2 (« Autonomie totale ») sont modifiables depuis l'interface.
+- [ ] La publication est **refusée** si `alt` ou crédit de l'image principale manque.
+
+## PHASE 3 — API publique et recherche
+
+**Tâches**
+1. Tous les endpoints `/api/v1/*` de §07.1 avec cache et rate limiting.
+2. Indexation Meilisearch : index `articles` (titre A, chapô B, corps C), synonymes, tolérance aux fautes, facettes.
+3. Réindexation incrémentale à la publication, réindexation complète en tâche planifiée.
+4. Toutes les tâches `/api/cron/*` de §07.3.
+
+**Critères d'acceptation**
+- [ ] Une recherche avec faute de frappe (« Conacry ») renvoie les bons résultats.
+- [ ] Un article programmé est publié automatiquement à la minute prévue.
+- [ ] Les réponses d'API portent les bons en-têtes de cache.
+
+## PHASE 4 — Front-office
+
+**Tâches**
+1. Design system complet : tous les composants de §05.4 avec leurs états, documentés en atelier isolé.
+2. Layout public : barre utilitaire, masthead, méga-menu, menu mobile, recherche en surcouche, pied de page.
+3. Page d'accueil pilotée par `homepage_blocks`.
+4. Page article complète (§09.2) et tous les composants de rendu de blocs.
+5. Toutes les pages de §09.3.
+6. Mode sombre, mode données réduites.
+7. Animations de §10 avec respect strict des règles.
+
+**Critères d'acceptation**
+- [ ] Lighthouse mobile ≥ 90 sur accueil et article.
+- [ ] CLS = 0 mesuré sur accueil, article, rubrique.
+- [ ] 50 fps minimum au profileur sur les 5 parcours critiques, terminal Android d'entrée de gamme.
+- [ ] `prefers-reduced-motion` supprime effectivement toutes les translations et parallaxes.
+- [ ] Aucun texte affiché n'est écrit en dur dans le code (vérifié par recherche).
+
+## PHASE 5 — Modules éditoriaux
+
+Flash info (bandeau + admin + expiration), live blog (temps réel, épinglage, « l'essentiel »), météo (cache serveur, multi-villes, détection), reportages vidéo (Mux, HLS, sous-titres, transcription, chapitrage), notifications push, alerte info.
+
+**Critères d'acceptation**
+- [ ] Une entrée de live apparaît chez un lecteur en moins de 20 s sans rechargement.
+- [ ] L'API météo n'est **jamais** appelée depuis le navigateur.
+- [ ] Un flash publié apparaît dans le bandeau en moins de 60 s et disparaît à expiration.
+
+## PHASE 6 — SEO
+
+Socle technique (§12.2), puis moteur de mots-clés (§12.3–12.6), assistant d'éditeur (§12.7), écran `/admin/seo` (§12.8), dictionnaire guinéen (§12.5).
+
+**Critères d'acceptation**
+- [ ] Le Rich Results Test valide `NewsArticle`, `BreadcrumbList`, `Organization`, `VideoObject`, `LiveBlogPosting`.
+- [ ] `sitemap-news.xml` ne contient que les articles des 48 dernières heures.
+- [ ] `suggestKeywords` renvoie une réponse complète en **moins de 8 s** pour un sujet donné.
+- [ ] Le score SEO se recalcule pendant la frappe sans dégrader l'éditeur.
+- [ ] Changer `KEYWORD_PROVIDER` en `none` laisse le moteur fonctionnel (GSC + autocomplete + LLM).
+- [ ] Le compteur de coût d'API est alimenté et un quota dépassé bloque les appels payants.
+
+## PHASE 7 — Monétisation
+
+Régie complète (§13), newsletter complète (§14), e-mails transactionnels.
+
+**Critères d'acceptation**
+- [ ] Les 19 emplacements sont servis et journalisés correctement.
+- [ ] Un article sensible (mot-clé de la liste) ne reçoit **aucune** publicité.
+- [ ] Un article sponsorisé ne contient **aucune** publicité tierce.
+- [ ] Le capping par visiteur fonctionne (vérifié sur 24 h simulées).
+- [ ] Double opt-in complet ; désinscription en 1 clic ; `List-Unsubscribe` présent.
+- [ ] Un e-mail test arrive en boîte principale (pas en indésirable) sur Gmail, Outlook, Yahoo.
+
+## PHASE 8 — Finition et lancement
+
+i18n complet, accessibilité AA, budgets de performance tenus, jeu de tests complet, Sentry, page d'état, documentation (`/docs`), manuel utilisateur en français, 6 tutoriels vidéo courts, test de charge, pentest, liste de contrôle de lancement.
+
+### Liste de contrôle avant lancement
+- [ ] Sitemaps générés et soumis · Search Console vérifiée · `robots.txt` correct · **aucun `noindex` résiduel**
+- [ ] Redirections en place et testées · aucune chaîne de redirection
+- [ ] SPF, DKIM, DMARC validés · e-mail test délivré hors indésirables
+- [ ] Sauvegardes vérifiées par une **restauration réelle** · supervision et alertes actives
+- [ ] Mentions légales, confidentialité, cookies, charte éditoriale publiées
+- [ ] Comptes créés, rôles attribués, mots de passe initiaux changés, 2FA activé
+- [ ] Emplacements publicitaires testés avec créations réelles · `ads.txt` en ligne
+- [ ] Test de charge passé · page d'état opérationnelle · procédure d'incident diffusée
+- [ ] Formation réalisée · documentation remise
+
+---
+
+# 21. DONNÉES DE DÉPART (SEED)
+
+## 21.1 Rubriques à créer
+
+| Slug | Nom | Sous-rubriques |
+|---|---|---|
+| `politique` | Politique | `institutions`, `partis`, `elections`, `gouvernance` |
+| `economie` | Économie | `mines`, `energie`, `agriculture`, `finance`, `emploi`, `entreprises` |
+| `societe` | Société | `education`, `sante`, `justice`, `religion`, `faits-divers` |
+| `international` | International | `afrique`, `europe`, `ameriques`, `asie`, `moyen-orient`, `oceanie` |
+| `sport` | Sport | `football`, `syli-national`, `athletisme`, `autres-sports` |
+| `culture` | Culture | `musique`, `cinema`, `litterature`, `patrimoine`, `mode` |
+| `environnement` | Environnement | `climat`, `biodiversite`, `pollution` |
+| `tech` | Tech & Innovation | `numerique`, `telecoms`, `startups` |
+| `opinions` | Opinions | `editorial`, `tribunes`, `analyses`, `chroniques` |
+| `reportages` | Reportages | `videos`, `grands-formats`, `portraits` |
+| `verification` | Vérification | — |
+| `diaspora` | Diaspora | — |
+
+## 21.2 Zones géographiques
+Continents (Afrique, Europe, Amériques, Asie, Moyen-Orient, Océanie) → pays (au minimum : Guinée, Sénégal, Mali, Côte d'Ivoire, Sierra Leone, Liberia, Guinée-Bissau, France, États-Unis, Chine) → régions de Guinée (Basse-Guinée, Moyenne-Guinée, Haute-Guinée, Guinée forestière) → villes (Conakry, Kankan, Nzérékoré, Labé, Kindia, Boké, Siguiri, Mamou, Faranah, Kissidougou).
+
+## 21.3 Villes météo par défaut
+Conakry (défaut), Kankan, Labé, Nzérékoré, Boké.
+
+## 21.4 Menus
+- `main` : Accueil, Politique, Économie, Société, International, Sport, Culture, Reportages, [Plus]
+- `utility` : Newsletter (CTA rouge), Contact, Publicité
+- `footer_1` (Rubriques), `footer_2` (Le média : À propos, Équipe, Charte, Recrutement), `footer_3` (Services : Newsletters, Flux RSS, Météo, Archives, Plan du site), `footer_4` (Légal : Mentions légales, Confidentialité, Cookies, CGU, Droit de réponse)
+
+## 21.5 Pages statiques à créer
+`a-propos`, `contact`, `publicite`, `charte-editoriale`, `politique-de-corrections`, `droit-de-reponse`, `mentions-legales`, `confidentialite`, `cookies`, `cgu`, `recrutement`, `plan-du-site`.
+
+## 21.6 Contenu de démonstration
+Générer **30 articles** répartis sur les rubriques, avec images, auteurs variés, formats variés (dont 1 live blog, 2 vidéos, 1 vérification, 2 long formats), 10 flashs, 3 dossiers, 1 campagne publicitaire de test couvrant 5 emplacements, 50 abonnés newsletter fictifs. Ce contenu doit être supprimable par `pnpm db:seed:clean`.
+
+---
+
+# 22. COMMANDES ATTENDUES
+
+```jsonc
+{
+  "scripts": {
+    "dev":             "next dev --turbo",
+    "build":           "next build",
+    "start":           "next start",
+    "lint":            "eslint . && tsc --noEmit",
+    "format":          "prettier --write .",
+    "test":            "vitest run",
+    "test:watch":      "vitest",
+    "test:e2e":        "playwright test",
+    "test:a11y":       "playwright test --grep @a11y",
+    "db:migrate":      "prisma migrate deploy",
+    "db:migrate:dev":  "prisma migrate dev",
+    "db:seed":         "tsx prisma/seed.ts",
+    "db:seed:clean":   "tsx prisma/seed-clean.ts",
+    "db:studio":       "prisma studio",
+    "search:reindex":  "tsx scripts/reindex.ts",
+    "sitemap:rebuild": "tsx scripts/sitemap.ts",
+    "export:full":     "tsx scripts/export-all.ts",
+    "lighthouse":      "lhci autorun",
+    "analyze":         "ANALYZE=true next build"
+  }
+}
+```
+
+---
+
+# 23. DOCUMENTATION À PRODUIRE
+
+| Fichier | Contenu |
+|---|---|
+| `README.md` | Installation, prérequis, démarrage, structure |
+| `docs/DECISIONS.md` | **Journal de chaque choix technique fait par l'agent**, avec justification |
+| `docs/DEPLOYMENT.md` | Environnements, variables, pipeline, rollback |
+| `docs/OPERATIONS.md` | Sauvegardes, restauration, incidents, supervision, purge de cache |
+| `docs/DATA-DICTIONARY.md` | Chaque table, chaque colonne, chaque énumération |
+| `docs/API.md` | Tous les endpoints, paramètres, réponses, codes d'erreur |
+| `docs/USER-MANUAL.md` | **En français**, illustré : publier un article, composer la une, créer une campagne, envoyer une newsletter, gérer les rubriques, utiliser l'assistant SEO |
+| `docs/SEO-ENGINE.md` | Fonctionnement du moteur, sources, coûts, réglage des coefficients |
+| `docs/AD-SLOTS.md` | Catalogue des emplacements avec dimensions — sert de base au kit média |
+
+---
+
+# 24. POINTS À FAIRE CONFIRMER PAR LE CLIENT
+
+Ces éléments ne bloquent pas le développement (utilise les valeurs par défaut indiquées), mais doivent être signalés dans `docs/DECISIONS.md` :
+
+1. Logo vectoriel définitif et validation finale de la palette. *Défaut : logotype typographique INFOS**PRO**.net, rouge `#C8102E`.*
+2. Liste définitive des rubriques. *Défaut : §21.1.*
+3. Site ou archives à reprendre, et volume. *Défaut : aucun, base vierge.*
+4. Calendrier de la version anglaise. *Défaut : architecture prête, contenu `fr` seul.*
+5. Fournisseur de données mots-clés et budget mensuel. *Défaut : `none` — GSC + autocomplete + LLM.*
+6. Grille tarifaire publicitaire. *Défaut : champs vides, `base_cpm` null.*
+7. Ouverture des commentaires et niveau de modération. *Défaut : activés, modération **a priori**.*
+8. Coordonnées légales et directeur de publication. *Défaut : champs à remplir, signalés en rouge dans `/admin/parametres`.*
+9. Moyens de paiement pour les dons (Orange Money, MTN MoMo, carte). *Défaut : module non activé.*
+10. Budget d'exploitation mensuel cible. *Défaut : configuration économique (Neon free/pro, Vercel Pro, R2, Resend).*
+
+---
+
+# 25. GLOSSAIRE
+
+| Terme | Définition |
+|---|---|
+| **Serverless** | Exécution de code sans serveur à administrer, facturée à l'usage, mise à l'échelle automatique |
+| **RSC** | React Server Components — composants rendus sur le serveur, n'envoyant pas leur JS au navigateur |
+| **ISR** | Incremental Static Regeneration — page pré-générée puis rafraîchie automatiquement |
+| **LCP / INP / CLS** | Core Web Vitals : vitesse d'affichage du contenu principal / réactivité / stabilité visuelle |
+| **Courte traîne** | Requête courte (1–2 mots), volume élevé, forte concurrence |
+| **Longue traîne** | Requête longue (≥ 5 mots), volume faible mais nombreuse et peu concurrentielle |
+| **Cannibalisation** | Plusieurs pages d'un même site se concurrençant sur la même intention de recherche |
+| **Clustering sémantique** | Regroupement de mots-clés par proximité de sens — un cluster = un article |
+| **GEO / AEO** | Optimisation pour les moteurs génératifs et les réponses d'IA |
+| **Double opt-in** | Inscription confirmée par un clic dans un e-mail de validation |
+| **Above the fold** | Partie visible sans défilement — zone d'attention maximale |
+| **Native ad** | Publicité adoptant l'apparence du contenu éditorial, obligatoirement signalée |
+| **Capping** | Plafonnement du nombre d'affichages d'une publicité par visiteur et par période |
+| **Dateline** | Mention de lieu en tête d'article (« Conakry, envoyé spécial ») |
+| **Chapô** | Paragraphe de résumé placé sous le titre |
+| **Surtitre (kicker)** | Courte mention au-dessus du titre, souvent la rubrique |
+| **Live blog** | Couverture d'un événement en fil d'entrées horodatées actualisées en direct |
+| **PITR** | Point-In-Time Recovery — restauration de la base à un instant précis |
+| **RPO / RTO** | Perte de données maximale acceptée / durée maximale d'interruption acceptée |
+
+---
+
+**FIN DE LA SPÉCIFICATION**
+
+*Ce document est normatif. En cas d'ambiguïté, applique le principe directeur : **ce qui se ferait sur BBC News, The Economist ou Le Monde**, et consigne ton choix dans `docs/DECISIONS.md`.*
