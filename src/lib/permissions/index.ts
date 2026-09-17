@@ -1,5 +1,5 @@
 import { db } from "@/lib/db";
-import { parseJsonArray } from "@/lib/json";
+import { parseJsonArray, parseJsonArrayOrNull } from "@/lib/json";
 import {
   expandPermissionToken,
   PERMISSIONS,
@@ -87,7 +87,7 @@ export async function loadSessionUser(userId: string): Promise<SessionUser | nul
 
   const roles = user.userRoles.map((ur) => ({
     key: ur.role.key,
-    categoryIds: parseJsonArray(ur.category_ids),
+    categoryIds: parseJsonArrayOrNull(ur.category_ids),
     explicitPermissions: parseJsonArray(ur.role.permissions),
   }));
 
@@ -103,6 +103,15 @@ export async function loadSessionUser(userId: string): Promise<SessionUser | nul
   };
 }
 
+/** Règle paramétrable §08.2 : les journalistes peuvent-ils publier ? */
+async function getJournalistCanPublish(): Promise<boolean> {
+  const setting = await db.setting.findUnique({
+    where: { key: "editorial.journalist_can_publish" },
+    select: { value: true },
+  });
+  return setting?.value === "true";
+}
+
 /** Permissions effectives : union des rôles + permissions explicites de rôles personnalisés. */
 export async function getEffectivePermissions(
   user: SessionUser
@@ -115,6 +124,12 @@ export async function getEffectivePermissions(
     for (const token of role.explicitPermissions) {
       for (const p of expandPermissionToken(token)) set.add(p);
     }
+  }
+  // Règle paramétrable §08.2 : « article.publish paramétrable via
+  // settings.editorial.journalist_can_publish » — le réglage ACCORDE la
+  // permission au journaliste (elle ne figure pas dans sa matrice).
+  if (!set.has("article.publish") && user.roles.some((r) => r.key === "journalist")) {
+    if (await getJournalistCanPublish()) set.add("article.publish");
   }
   return set;
 }
@@ -183,19 +198,15 @@ export async function hasPermission(
   const effective = await getEffectivePermissions(user);
   if (!effective.has(permission)) return false;
 
-  // Règle paramétrable du journaliste (§08.2)
-  if (permission === "article.publish" && user.roles.some((r) => r.key === "journalist")) {
-    const setting = await db.setting.findUnique({
-      where: { key: "editorial.journalist_can_publish" },
-      select: { value: true },
-    });
-    if (!setting || setting.value !== "true") {
-      // La permission ne vient que de la matrice journaliste → refus
-      const onlyJournalist = user.roles.every(
-        (r) => r.key === "journalist" || !roleHasPermission(r, "article.publish")
-      );
-      if (onlyJournalist) return false;
-    }
+  // Permission accordée globalement par le réglage journalist_can_publish
+  // (§08.2, D-13) : le réglage est global, la restriction par rubrique ne
+  // s'applique pas à lui.
+  if (
+    permission === "article.publish" &&
+    user.roles.some((r) => r.key === "journalist") &&
+    (await getJournalistCanPublish())
+  ) {
+    return true;
   }
 
   if (opts?.categoryId !== undefined) {

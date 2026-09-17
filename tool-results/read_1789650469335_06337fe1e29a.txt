@@ -1,0 +1,1502 @@
+     1→"use client";
+     2→
+     3→import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+     4→import {
+     5→  ArrowRight,
+     6→  ChevronDown,
+     7→  ChevronUp,
+     8→  CornerDownRight,
+     9→  Eye,
+    10→  EyeOff,
+    11→  ExternalLink,
+    12→  Info,
+    13→  ListTree,
+    14→  Loader2,
+    15→  Pencil,
+    16→  Plus,
+    17→  RotateCw,
+    18→  Save,
+    19→  Trash2,
+    20→} from "lucide-react";
+    21→
+    22→import { apiFetch, errorMessage } from "@/lib/api/client";
+    23→import { useToast } from "@/hooks/use-toast";
+    24→
+    25→import {
+    26→  AlertDialog,
+    27→  AlertDialogAction,
+    28→  AlertDialogCancel,
+    29→  AlertDialogContent,
+    30→  AlertDialogDescription,
+    31→  AlertDialogFooter,
+    32→  AlertDialogHeader,
+    33→  AlertDialogTitle,
+    34→} from "@/components/ui/alert-dialog";
+    35→import { Badge } from "@/components/ui/badge";
+    36→import { Button } from "@/components/ui/button";
+    37→import {
+    38→  Dialog,
+    39→  DialogContent,
+    40→  DialogDescription,
+    41→  DialogFooter,
+    42→  DialogHeader,
+    43→  DialogTitle,
+    44→} from "@/components/ui/dialog";
+    45→import { Input } from "@/components/ui/input";
+    46→import { Label } from "@/components/ui/label";
+    47→import {
+    48→  Select,
+    49→  SelectContent,
+    50→  SelectItem,
+    51→  SelectTrigger,
+    52→  SelectValue,
+    53→} from "@/components/ui/select";
+    54→import { Skeleton } from "@/components/ui/skeleton";
+    55→import { Switch } from "@/components/ui/switch";
+    56→import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+    57→import { cn } from "@/lib/utils";
+    58→
+    59→/**
+    60→ * Écran « Menus & redirections » (§11.2, Phase 2) :
+    61→ * - onglet Menus : sélection d'une zone (main, secondary, footer_1..4,
+    62→ *   mobile, utility), arborescence deux niveaux avec réordonnancement
+    63→ *   flèches, visibilité, CTA rouge ; l'enregistrement envoie la liste plate
+    64→ *   complète (sans id) et le serveur reconstruit l'arbre ;
+    65→ * - onglet Redirections : création 301/302 (chemins commençant par « / »),
+    66→ *   compteur d'accès, badge « Auto » pour les redirections de renommage.
+    67→ */
+    68→
+    69→interface MenuItem {
+    70→  id: string;
+    71→  parent_id: string | null;
+    72→  label: string;
+    73→  target_type: string;
+    74→  target_id: string | null;
+    75→  target_url: string | null;
+    76→  icon: string | null;
+    77→  open_new_tab: boolean;
+    78→  highlight: boolean;
+    79→  position: number;
+    80→  is_visible: boolean;
+    81→  locale?: string;
+    82→}
+    83→
+    84→interface MenuRow {
+    85→  id: string;
+    86→  key: string;
+    87→  label: string;
+    88→  items: MenuItem[];
+    89→}
+    90→
+    91→/** Élément envoyé au serveur : sans id (l'arbre est reconstruit côté API). */
+    92→interface MenuItemPayload {
+    93→  parent_id: string | null;
+    94→  label: string;
+    95→  target_type: string;
+    96→  target_id: string | null;
+    97→  target_url: string | null;
+    98→  icon: string | null;
+    99→  open_new_tab: boolean;
+   100→  highlight: boolean;
+   101→  position: number;
+   102→  is_visible: boolean;
+   103→}
+   104→
+   105→interface RedirectRow {
+   106→  id: string;
+   107→  source_path: string;
+   108→  target_path: string;
+   109→  status_code: number;
+   110→  hit_count: number;
+   111→  is_auto: boolean;
+   112→  created_at: string;
+   113→}
+   114→
+   115→interface RefItem {
+   116→  id: string;
+   117→  label: string;
+   118→  hint?: string;
+   119→}
+   120→
+   121→type RefKind = "categories" | "pages" | "dossiers" | "tags";
+   122→
+   123→interface RefState {
+   124→  status: "idle" | "loading" | "ready" | "error";
+   125→  items: RefItem[];
+   126→}
+   127→
+   128→interface ItemFormState {
+   129→  label: string;
+   130→  target_type: TargetType;
+   131→  target_id: string;
+   132→  target_url: string;
+   133→  icon: string;
+   134→  open_new_tab: boolean;
+   135→  highlight: boolean;
+   136→  is_visible: boolean;
+   137→  /** "root" = racine du menu (sentinelle, SelectItem n'accepte pas ""). */
+   138→  parent_id: string;
+   139→}
+   140→
+   141→interface FlatRow {
+   142→  item: MenuItem;
+   143→  depth: 0 | 1;
+   144→  sibIndex: number;
+   145→  sibCount: number;
+   146→}
+   147→
+   148→const TARGET_TYPES = [
+   149→  { value: "category", label: "Rubrique" },
+   150→  { value: "page", label: "Page" },
+   151→  { value: "dossier", label: "Dossier" },
+   152→  { value: "tag", label: "Tag" },
+   153→  { value: "url", label: "URL externe / lien" },
+   154→  { value: "home", label: "Accueil" },
+   155→  { value: "section", label: "Section" },
+   156→] as const;
+   157→
+   158→type TargetType = (typeof TARGET_TYPES)[number]["value"];
+   159→
+   160→type RefTarget = "category" | "page" | "dossier" | "tag";
+   161→
+   162→const REF_SOURCES: Record<RefTarget, { kind: RefKind; url: string }> = {
+   163→  category: { kind: "categories", url: "/api/admin/taxonomies/categories" },
+   164→  page: { kind: "pages", url: "/api/admin/pages" },
+   165→  dossier: {
+   166→    kind: "dossiers",
+   167→    url: "/api/admin/taxonomies/annexes?kind=dossiers",
+   168→  },
+   169→  tag: { kind: "tags", url: "/api/admin/taxonomies/tags" },
+   170→};
+   171→
+   172→const REF_TARGET_LABELS: Record<RefTarget, string> = {
+   173→  category: "rubrique",
+   174→  page: "page",
+   175→  dossier: "dossier",
+   176→  tag: "tag",
+   177→};
+   178→
+   179→function isRefTarget(value: TargetType): value is RefTarget {
+   180→  return (
+   181→    value === "category" ||
+   182→    value === "page" ||
+   183→    value === "dossier" ||
+   184→    value === "tag"
+   185→  );
+   186→}
+   187→
+   188→const EMPTY_ITEM_FORM: ItemFormState = {
+   189→  label: "",
+   190→  target_type: "category",
+   191→  target_id: "",
+   192→  target_url: "",
+   193→  icon: "",
+   194→  open_new_tab: false,
+   195→  highlight: false,
+   196→  is_visible: true,
+   197→  parent_id: "root",
+   198→};
+   199→
+   200→const DATE_FORMAT = new Intl.DateTimeFormat("fr-FR", {
+   201→  day: "2-digit",
+   202→  month: "short",
+   203→  year: "numeric",
+   204→});
+   205→
+   206→function formatDate(iso: string | null | undefined): string {
+   207→  if (!iso) return "—";
+   208→  const date = new Date(iso);
+   209→  return Number.isNaN(date.getTime()) ? "—" : DATE_FORMAT.format(date);
+   210→}
+   211→
+   212→function genId(): string {
+   213→  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+   214→    return crypto.randomUUID();
+   215→  }
+   216→  return `tmp-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+   217→}
+   218→
+   219→function firstString(record: Record<string, unknown>, keys: string[]): string {
+   220→  for (const key of keys) {
+   221→    const value = record[key];
+   222→    if (typeof value === "string" && value.trim().length > 0) return value.trim();
+   223→    if (typeof value === "number") return String(value);
+   224→  }
+   225→  return "";
+   226→}
+   227→
+   228→/** Normalise une liste de référentiel (rubriques, pages, dossiers, tags). */
+   229→function toRefList(raw: unknown, kind: RefKind): RefItem[] {
+   230→  if (!Array.isArray(raw)) return [];
+   231→  const out: RefItem[] = [];
+   232→  for (const entry of raw) {
+   233→    if (typeof entry !== "object" || entry === null) continue;
+   234→    const record = entry as Record<string, unknown>;
+   235→    const id = firstString(record, ["id", "key", "slug", "code"]);
+   236→    if (!id) continue;
+   237→    const label = firstString(
+   238→      record,
+   239→      kind === "pages" ? ["title", "name", "label"] : ["name", "title", "label"]
+   240→    );
+   241→    if (!label) continue;
+   242→    const slug = firstString(record, ["slug"]);
+   243→    out.push({
+   244→      id,
+   245→      label,
+   246→      hint: slug && slug !== label ? slug : undefined,
+   247→    });
+   248→  }
+   249→  return out;
+   250→}
+   251→
+   252→const positionOf = (item: MenuItem): number =>
+   253→  Number.isFinite(item.position) ? item.position : 0;
+   254→
+   255→/**
+   256→ * Remet l'arbre à plat dans un ordre canonique : racines triées par
+   257→ * position puis enfants triés par position ; les orphelins (parent supprimé)
+   258→ * sont remontés à la racine ; les positions sont renumérotées par groupe.
+   259→ */
+   260→function normalizeItems(raw: MenuItem[]): MenuItem[] {
+   261→  const ids = new Set(raw.map((item) => item.id));
+   262→  const roots = raw
+   263→    .filter((item) => !item.parent_id || !ids.has(item.parent_id))
+   264→    .sort((a, b) => positionOf(a) - positionOf(b));
+   265→
+   266→  const seen = new Set<string>();
+   267→  const out: MenuItem[] = [];
+   268→  roots.forEach((root, ri) => {
+   269→    seen.add(root.id);
+   270→    out.push({ ...root, parent_id: null, position: ri });
+   271→    raw
+   272→      .filter((item) => item.parent_id === root.id)
+   273→      .sort((a, b) => positionOf(a) - positionOf(b))
+   274→      .forEach((child, ci) => {
+   275→        seen.add(child.id);
+   276→        out.push({ ...child, position: ci });
+   277→      });
+   278→  });
+   279→  raw
+   280→    .filter((item) => !seen.has(item.id))
+   281→    .sort((a, b) => positionOf(a) - positionOf(b))
+   282→    .forEach((lost, li) => {
+   283→      out.push({ ...lost, parent_id: null, position: roots.length + li });
+   284→    });
+   285→  return out;
+   286→}
+   287→
+   288→/** Aplatit pour l'affichage avec index/compte de fratrie (flèches). */
+   289→function flattenItems(items: MenuItem[]): FlatRow[] {
+   290→  const normalized = normalizeItems(items);
+   291→  const roots = normalized.filter((item) => !item.parent_id);
+   292→  const rows: FlatRow[] = [];
+   293→  roots.forEach((root, ri) => {
+   294→    rows.push({ item: root, depth: 0, sibIndex: ri, sibCount: roots.length });
+   295→    const children = normalized.filter((item) => item.parent_id === root.id);
+   296→    children.forEach((child, ci) => {
+   297→      rows.push({
+   298→        item: child,
+   299→        depth: 1,
+   300→        sibIndex: ci,
+   301→        sibCount: children.length,
+   302→      });
+   303→    });
+   304→  });
+   305→  return rows;
+   306→}
+   307→
+   308→/** Liste plate à envoyer au serveur (sans id, positions par fratrie). */
+   309→function buildPayload(items: MenuItem[]): MenuItemPayload[] {
+   310→  return normalizeItems(items).map((item) => ({
+   311→    parent_id: item.parent_id,
+   312→    label: item.label,
+   313→    target_type: item.target_type,
+   314→    target_id: item.target_id,
+   315→    target_url: item.target_url,
+   316→    icon: item.icon,
+   317→    open_new_tab: item.open_new_tab,
+   318→    highlight: item.highlight,
+   319→    position: item.position,
+   320→    is_visible: item.is_visible,
+   321→  }));
+   322→}
+   323→
+   324→function ListSkeleton() {
+   325→  return (
+   326→    <div className="space-y-0" aria-hidden>
+   327→      {[0, 1, 2, 3, 4].map((i) => (
+   328→        <div
+   329→          key={i}
+   330→          className="flex items-center gap-4 border-b border-rule px-4 py-3.5"
+   331→        >
+   332→          <Skeleton className="h-8 w-8" />
+   333→          <div className="min-w-0 flex-1 space-y-2">
+   334→            <Skeleton className="h-4 w-1/4 max-w-48" />
+   335→            <Skeleton className="h-3 w-1/3 max-w-64" />
+   336→          </div>
+   337→          <Skeleton className="h-5 w-16" />
+   338→        </div>
+   339→      ))}
+   340→    </div>
+   341→  );
+   342→}
+   343→
+   344→function LoadErrorCard({ onRetry }: { onRetry: () => void }) {
+   345→  return (
+   346→    <div className="flex flex-col items-center gap-3 px-4 py-10 text-center">
+   347→      <p className="text-sm text-ink-soft">
+   348→        Chargement impossible. Vérifiez votre connexion puis réessayez.
+   349→      </p>
+   350→      <Button variant="outline" size="sm" onClick={onRetry}>
+   351→        <RotateCw className="mr-1.5 h-3.5 w-3.5" aria-hidden />
+   352→        Réessayer
+   353→      </Button>
+   354→    </div>
+   355→  );
+   356→}
+   357→
+   358→export function MenusClient() {
+   359→  const { toast } = useToast();
+   360→
+   361→  const [tab, setTab] = useState("menus");
+   362→
+   363→  // ── Menus ────────────────────────────────────────────────────────────────
+   364→  const [menus, setMenus] = useState<MenuRow[] | null>(null);
+   365→  const [menusError, setMenusError] = useState(false);
+   366→  const [selectedKey, setSelectedKey] = useState("");
+   367→  const [items, setItems] = useState<MenuItem[]>([]);
+   368→  const [snapshot, setSnapshot] = useState("");
+   369→  const [saving, setSaving] = useState(false);
+   370→
+   371→  // Référentiels (chargés en arrière-plan, sans id bloquant).
+   372→  const [refs, setRefs] = useState<Record<RefKind, RefState>>({
+   373→    categories: { status: "idle", items: [] },
+   374→    pages: { status: "idle", items: [] },
+   375→    dossiers: { status: "idle", items: [] },
+   376→    tags: { status: "idle", items: [] },
+   377→  });
+   378→  const refsRequested = useRef<Set<RefKind>>(new Set());
+   379→
+   380→  // Dialogue d'édition d'élément.
+   381→  const [dialogOpen, setDialogOpen] = useState(false);
+   382→  const [dialogMode, setDialogMode] = useState<"create" | "edit">("create");
+   383→  const [dialogItemId, setDialogItemId] = useState<string | null>(null);
+   384→  const [itemForm, setItemForm] = useState<ItemFormState>(EMPTY_ITEM_FORM);
+   385→  const [itemError, setItemError] = useState("");
+   386→
+   387→  // ── Redirections ─────────────────────────────────────────────────────────
+   388→  const [redirects, setRedirects] = useState<RedirectRow[] | null>(null);
+   389→  const [redirectsError, setRedirectsError] = useState(false);
+   390→  const redirectsRequested = useRef(false);
+   391→  const [redirectForm, setRedirectForm] = useState({
+   392→    source_path: "",
+   393→    target_path: "",
+   394→    status_code: "301",
+   395→  });
+   396→  const [redirectError, setRedirectError] = useState("");
+   397→  const [redirectSaving, setRedirectSaving] = useState(false);
+   398→  const [redirectDeleting, setRedirectDeleting] = useState<RedirectRow | null>(
+   399→    null
+   400→  );
+   401→  const [redirectDeleteBusy, setRedirectDeleteBusy] = useState(false);
+   402→
+   403→  const selectedMenu = useMemo(
+   404→    () => menus?.find((menu) => menu.key === selectedKey) ?? null,
+   405→    [menus, selectedKey]
+   406→  );
+   407→
+   408→  const currentPayload = useMemo(() => JSON.stringify(buildPayload(items)), [items]);
+   409→  const dirty = currentPayload !== snapshot;
+   410→
+   411→  const ensureRef = useCallback(async (target: RefTarget) => {
+   412→    const source = REF_SOURCES[target];
+   413→    if (refsRequested.current.has(source.kind)) return;
+   414→    refsRequested.current.add(source.kind);
+   415→    setRefs((prev) => ({
+   416→      ...prev,
+   417→      [source.kind]: { ...prev[source.kind], status: "loading" },
+   418→    }));
+   419→    try {
+   420→      const { data } = await apiFetch<unknown>(source.url);
+   421→      setRefs((prev) => ({
+   422→        ...prev,
+   423→        [source.kind]: { status: "ready", items: toRefList(data, source.kind) },
+   424→      }));
+   425→    } catch {
+   426→      setRefs((prev) => ({
+   427→        ...prev,
+   428→        [source.kind]: { ...prev[source.kind], status: "error" },
+   429→      }));
+   430→    }
+   431→  }, []);
+   432→
+   433→  const applyMenu = useCallback((menu: MenuRow | null) => {
+   434→    const normalized = normalizeItems(menu?.items ?? []);
+   435→    setSelectedKey(menu?.key ?? "");
+   436→    setItems(normalized);
+   437→    setSnapshot(JSON.stringify(buildPayload(normalized)));
+   438→  }, []);
+   439→
+   440→  const loadMenus = useCallback(
+   441→    async (selectKey?: string) => {
+   442→      setMenusError(false);
+   443→      try {
+   444→        const { data } = await apiFetch<MenuRow[]>("/api/admin/menus");
+   445→        const list = Array.isArray(data) ? data : [];
+   446→        setMenus(list);
+   447→        const next =
+   448→          list.find((menu) => menu.key === (selectKey ?? selectedKey)) ??
+   449→          list[0] ??
+   450→          null;
+   451→        applyMenu(next);
+   452→      } catch (error) {
+   453→        setMenusError(true);
+   454→        toast({
+   455→          title: "Chargement des menus impossible",
+   456→          description: errorMessage(error),
+   457→          variant: "destructive",
+   458→        });
+   459→      }
+   460→    },
+   461→    [applyMenu, selectedKey, toast]
+   462→  );
+   463→
+   464→  useEffect(() => {
+   465→    void loadMenus();
+   466→    // eslint-disable-next-line react-hooks/exhaustive-deps
+   467→  }, []);
+   468→
+   469→  // Préchargement des référentiels pour les résumés de cible des lignes.
+   470→  useEffect(() => {
+   471→    if (menus !== null) {
+   472→      void ensureRef("category");
+   473→      void ensureRef("page");
+   474→      void ensureRef("dossier");
+   475→      void ensureRef("tag");
+   476→    }
+   477→  }, [menus, ensureRef]);
+   478→
+   479→  function selectMenu(key: string) {
+   480→    const menu = menus?.find((m) => m.key === key) ?? null;
+   481→    applyMenu(menu);
+   482→  }
+   483→
+   484→  async function saveMenu() {
+   485→    const menu = selectedMenu;
+   486→    if (!menu) return;
+   487→    setSaving(true);
+   488→    try {
+   489→      await apiFetch(`/api/admin/menus?id=${encodeURIComponent(menu.id)}`, {
+   490→        method: "PUT",
+   491→        json: { items: buildPayload(items) },
+   492→      });
+   493→      toast({ title: "Menu enregistré." });
+   494→      await loadMenus(menu.key);
+   495→    } catch (error) {
+   496→      toast({
+   497→        title: "Enregistrement impossible",
+   498→        description: errorMessage(error),
+   499→        variant: "destructive",
+   500→      });
+   501→    } finally {
+   502→      setSaving(false);
+   503→    }
+   504→  }
+   505→
+   506→  // ── Édition d'élément ────────────────────────────────────────────────────
+   507→
+   508→  function preloadRefs() {
+   509→    void ensureRef("category");
+   510→    void ensureRef("page");
+   511→    void ensureRef("dossier");
+   512→    void ensureRef("tag");
+   513→  }
+   514→
+   515→  function openItemCreate() {
+   516→    setDialogMode("create");
+   517→    setDialogItemId(null);
+   518→    setItemForm(EMPTY_ITEM_FORM);
+   519→    setItemError("");
+   520→    setDialogOpen(true);
+   521→    preloadRefs();
+   522→  }
+   523→
+   524→  function openItemEdit(item: MenuItem) {
+   525→    setDialogMode("edit");
+   526→    setDialogItemId(item.id);
+   527→    setItemForm({
+   528→      label: item.label,
+   529→      target_type: (TARGET_TYPES.find((t) => t.value === item.target_type)
+   530→        ?.value ?? "url") as TargetType,
+   531→      target_id: item.target_id ?? "",
+   532→      target_url: item.target_url ?? "",
+   533→      icon: item.icon ?? "",
+   534→      open_new_tab: Boolean(item.open_new_tab),
+   535→      highlight: Boolean(item.highlight),
+   536→      is_visible: Boolean(item.is_visible),
+   537→      parent_id: item.parent_id ?? "root",
+   538→    });
+   539→    setItemError("");
+   540→    setDialogOpen(true);
+   541→    preloadRefs();
+   542→  }
+   543→
+   544→  const editingHasChildren =
+   545→    dialogMode === "edit" &&
+   546→    dialogItemId !== null &&
+   547→    items.some((candidate) => candidate.parent_id === dialogItemId);
+   548→
+   549→  const parentOptions = useMemo(() => {
+   550→    const roots = normalizeItems(items).filter((item) => !item.parent_id);
+   551→    if (dialogMode === "edit" && dialogItemId !== null) {
+   552→      return roots.filter((root) => root.id !== dialogItemId);
+   553→    }
+   554→    return roots;
+   555→  }, [items, dialogMode, dialogItemId]);
+   556→
+   557→  function saveItem() {
+   558→    const label = itemForm.label.trim();
+   559→    if (!label) {
+   560→      setItemError("Le libellé est obligatoire.");
+   561→      return;
+   562→    }
+   563→    if (itemForm.target_type === "url" && itemForm.target_url.trim().length === 0) {
+   564→      setItemError("L'URL de destination est obligatoire pour un lien.");
+   565→      return;
+   566→    }
+   567→    if (isRefTarget(itemForm.target_type) && !itemForm.target_id) {
+   568→      setItemError(
+   569→        `Sélectionnez une ${REF_TARGET_LABELS[itemForm.target_type]} de destination.`
+   570→      );
+   571→      return;
+   572→    }
+   573→
+   574→    const common = {
+   575→      parent_id: itemForm.parent_id === "root" ? null : itemForm.parent_id,
+   576→      label,
+   577→      target_type: itemForm.target_type,
+   578→      target_id: isRefTarget(itemForm.target_type) ? itemForm.target_id : null,
+   579→      target_url:
+   580→        itemForm.target_type === "url" ? itemForm.target_url.trim() : null,
+   581→      icon: itemForm.icon.trim() || null,
+   582→      open_new_tab: itemForm.open_new_tab,
+   583→      highlight: itemForm.highlight,
+   584→      is_visible: itemForm.is_visible,
+   585→    };
+   586→
+   587→    if (dialogMode === "edit" && dialogItemId !== null) {
+   588→      setItems((prev) =>
+   589→        normalizeItems(
+   590→          prev.map((item) =>
+   591→            item.id === dialogItemId ? { ...item, ...common } : item
+   592→          )
+   593→        )
+   594→      );
+   595→    } else {
+   596→      setItems((prev) =>
+   597→        normalizeItems([...prev, { id: genId(), position: 9999, ...common }])
+   598→      );
+   599→    }
+   600→    setDialogOpen(false);
+   601→  }
+   602→
+   603→  function moveItem(id: string, direction: -1 | 1) {
+   604→    setItems((prev) => {
+   605→      const target = prev.find((item) => item.id === id);
+   606→      if (!target) return prev;
+   607→      const siblings = prev
+   608→        .filter((item) => item.parent_id === target.parent_id)
+   609→        .sort((a, b) => positionOf(a) - positionOf(b));
+   610→      const index = siblings.findIndex((item) => item.id === id);
+   611→      const other = siblings[index + direction];
+   612→      if (!other) return prev;
+   613→      return normalizeItems(
+   614→        prev.map((item) => {
+   615→          if (item.id === id) return { ...item, position: other.position };
+   616→          if (item.id === other.id) return { ...item, position: target.position };
+   617→          return item;
+   618→        })
+   619→      );
+   620→    });
+   621→  }
+   622→
+   623→  function toggleVisible(id: string) {
+   624→    setItems((prev) =>
+   625→      prev.map((item) =>
+   626→        item.id === id ? { ...item, is_visible: !item.is_visible } : item
+   627→      )
+   628→    );
+   629→  }
+   630→
+   631→  function removeItem(id: string) {
+   632→    const hasChildren = items.some((item) => item.parent_id === id);
+   633→    setItems((prev) => normalizeItems(prev.filter((item) => item.id !== id)));
+   634→    toast({
+   635→      title: "Élément retiré.",
+   636→      description: hasChildren
+   637→        ? "Ses sous-éléments ont été remontés à la racine. Cliquez sur « Enregistrer » pour confirmer."
+   638→        : "Cliquez sur « Enregistrer » pour confirmer la suppression.",
+   639→    });
+   640→  }
+   641→
+   642→  // ── Résumé de cible (ligne) ──────────────────────────────────────────────
+   643→
+   644→  function refLabel(kind: RefKind, id: string | null, fallback: string): string {
+   645→    if (!id) return fallback;
+   646→    const found = refs[kind].items.find((option) => option.id === id);
+   647→    return found ? found.label : `${fallback} (${id.slice(0, 8)}…)`;
+   648→  }
+   649→
+   650→  function targetSummary(item: MenuItem): string {
+   651→    const type = item.target_type;
+   652→    if (type === "home") return "Page d'accueil";
+   653→    if (type === "section") return "Section de page";
+   654→    if (type === "url") return item.target_url ?? "Lien";
+   655→    if (type === "category") return refLabel("categories", item.target_id, "Rubrique");
+   656→    if (type === "page") return refLabel("pages", item.target_id, "Page");
+   657→    if (type === "dossier") return refLabel("dossiers", item.target_id, "Dossier");
+   658→    if (type === "tag") return refLabel("tags", item.target_id, "Tag");
+   659→    return type;
+   660→  }
+   661→
+   662→  // ── Redirections ─────────────────────────────────────────────────────────
+   663→
+   664→  const loadRedirects = useCallback(async () => {
+   665→    setRedirectsError(false);
+   666→    try {
+   667→      const { data } = await apiFetch<RedirectRow[]>(
+   668→        "/api/admin/banners?kind=redirects"
+   669→      );
+   670→      setRedirects(Array.isArray(data) ? data : []);
+   671→    } catch (error) {
+   672→      setRedirectsError(true);
+   673→      toast({
+   674→        title: "Chargement des redirections impossible",
+   675→        description: errorMessage(error),
+   676→        variant: "destructive",
+   677→      });
+   678→    }
+   679→  }, [toast]);
+   680→
+   681→  function handleTabChange(value: string) {
+   682→    setTab(value);
+   683→    if (value === "redirects" && !redirectsRequested.current) {
+   684→      redirectsRequested.current = true;
+   685→      void loadRedirects();
+   686→    }
+   687→  }
+   688→
+   689→  function submitRedirect(event: React.FormEvent<HTMLFormElement>) {
+   690→    event.preventDefault();
+   691→    const source = redirectForm.source_path.trim();
+   692→    const target = redirectForm.target_path.trim();
+   693→    if (!source.startsWith("/") || source.length < 2) {
+   694→      setRedirectError("Le chemin source doit commencer par « / ».");
+   695→      return;
+   696→    }
+   697→    if (!target.startsWith("/") || target.length < 2) {
+   698→      setRedirectError("Le chemin cible doit commencer par « / ».");
+   699→      return;
+   700→    }
+   701→    if (source === target) {
+   702→      setRedirectError("Le chemin cible doit différer du chemin source.");
+   703→      return;
+   704→    }
+   705→    setRedirectError("");
+   706→    void createRedirect(source, target);
+   707→  }
+   708→
+   709→  async function createRedirect(source: string, target: string) {
+   710→    setRedirectSaving(true);
+   711→    try {
+   712→      await apiFetch("/api/admin/banners", {
+   713→        method: "POST",
+   714→        json: {
+   715→          kind: "redirect",
+   716→          source_path: source,
+   717→          target_path: target,
+   718→          status_code: Number(redirectForm.status_code),
+   719→        },
+   720→      });
+   721→      toast({ title: "Redirection créée." });
+   722→      setRedirectForm((f) => ({
+   723→        ...f,
+   724→        source_path: "",
+   725→        target_path: "",
+   726→      }));
+   727→      await loadRedirects();
+   728→    } catch (error) {
+   729→      toast({
+   730→        title: "Création impossible",
+   731→        description: errorMessage(error),
+   732→        variant: "destructive",
+   733→      });
+   734→    } finally {
+   735→      setRedirectSaving(false);
+   736→    }
+   737→  }
+   738→
+   739→  async function confirmDeleteRedirect() {
+   740→    if (!redirectDeleting) return;
+   741→    setRedirectDeleteBusy(true);
+   742→    try {
+   743→      await apiFetch(
+   744→        `/api/admin/banners?kind=redirect&id=${encodeURIComponent(redirectDeleting.id)}`,
+   745→        { method: "DELETE" }
+   746→      );
+   747→      toast({ title: "Redirection supprimée." });
+   748→      setRedirectDeleting(null);
+   749→      await loadRedirects();
+   750→    } catch (error) {
+   751→      toast({
+   752→        title: "Suppression impossible",
+   753→        description: errorMessage(error),
+   754→        variant: "destructive",
+   755→      });
+   756→    } finally {
+   757→      setRedirectDeleteBusy(false);
+   758→    }
+   759→  }
+   760→
+   761→  // ── Rendu ────────────────────────────────────────────────────────────────
+   762→
+   763→  const refTarget: RefTarget | null = isRefTarget(itemForm.target_type)
+   764→    ? itemForm.target_type
+   765→    : null;
+   766→  const refState = refTarget ? refs[REF_SOURCES[refTarget].kind] : null;
+   767→  const refOptions = useMemo<RefItem[]>(() => {
+   768→    if (!refState) return [];
+   769→    const options = [...refState.items];
+   770→    if (
+   771→      itemForm.target_id &&
+   772→      !options.some((option) => option.id === itemForm.target_id)
+   773→    ) {
+   774→      options.unshift({ id: itemForm.target_id, label: "Valeur actuelle" });
+   775→    }
+   776→    return options;
+   777→  }, [refState, itemForm.target_id]);
+   778→
+   779→  const rows = useMemo(() => flattenItems(items), [items]);
+   780→
+   781→  return (
+   782→    <>
+   783→      <Tabs value={tab} onValueChange={handleTabChange} className="space-y-4">
+   784→        <TabsList aria-label="Sections de l'écran">
+   785→          <TabsTrigger value="menus">Menus</TabsTrigger>
+   786→          <TabsTrigger value="redirects">Redirections</TabsTrigger>
+   787→        </TabsList>
+   788→
+   789→        {/* ── Onglet Menus ─────────────────────────────────────────────── */}
+   790→        <TabsContent value="menus" className="space-y-4">
+   791→          {menus === null ? (
+   792→            menusError ? (
+   793→              <section className="border border-rule bg-paper">
+   794→                <LoadErrorCard onRetry={() => void loadMenus()} />
+   795→              </section>
+   796→            ) : (
+   797→              <ListSkeleton />
+   798→            )
+   799→          ) : menus.length === 0 ? (
+   800→            <section className="border border-rule bg-paper">
+   801→              <div className="flex flex-col items-center gap-3 px-4 py-12 text-center">
+   802→                <ListTree className="h-8 w-8 text-ink-faint" aria-hidden />
+   803→                <p className="text-sm text-ink-soft">
+   804→                  Aucun menu configuré. Exécutez le jeu de données initial pour
+   805→                  créer les zones de navigation.
+   806→                </p>
+   807→              </div>
+   808→            </section>
+   809→          ) : (
+   810→            <section
+   811→              aria-label="Édition du menu"
+   812→              className="border border-rule bg-paper"
+   813→            >
+   814→              <div className="flex flex-col gap-3 border-b border-rule px-4 py-3 lg:flex-row lg:items-center lg:justify-between">
+   815→                <div className="flex flex-wrap items-center gap-3">
+   816→                  <Select value={selectedKey} onValueChange={selectMenu}>
+   817→                    <SelectTrigger
+   818→                      className="w-full sm:w-64"
+   819→                      aria-label="Menu à éditer"
+   820→                    >
+   821→                      <SelectValue placeholder="Choisir un menu" />
+   822→                    </SelectTrigger>
+   823→                    <SelectContent>
+   824→                      {menus.map((menu) => (
+   825→                        <SelectItem key={menu.key} value={menu.key}>
+   826→                          {menu.label}
+   827→                        </SelectItem>
+   828→                      ))}
+   829→                    </SelectContent>
+   830→                  </Select>
+   831→                  <code className="font-mono text-xs text-ink-faint">
+   832→                    {selectedMenu?.key}
+   833→                  </code>
+   834→                </div>
+   835→                <div className="flex flex-wrap items-center gap-3">
+   836→                  <span
+   837→                    className="inline-flex items-center gap-1.5 text-xs"
+   838→                    role="status"
+   839→                  >
+   840→                    {dirty ? (
+   841→                      <>
+   842→                        <span
+   843→                          className="h-1.5 w-1.5 rounded-full bg-warning"
+   844→                          aria-hidden
+   845→                        />
+   846→                        <span className="font-medium text-warning">
+   847→                          Modifications non enregistrées
+   848→                        </span>
+   849→                      </>
+   850→                    ) : (
+   851→                      <span className="text-ink-faint">À jour</span>
+   852→                    )}
+   853→                  </span>
+   854→                  <Button
+   855→                    size="sm"
+   856→                    variant="outline"
+   857→                    onClick={openItemCreate}
+   858→                    disabled={saving}
+   859→                  >
+   860→                    <Plus aria-hidden />
+   861→                    Élément
+   862→                  </Button>
+   863→                  <Button
+   864→                    size="sm"
+   865→                    onClick={() => void saveMenu()}
+   866→                    disabled={saving || !dirty}
+   867→                  >
+   868→                    {saving ? (
+   869→                      <Loader2 className="animate-spin" aria-hidden />
+   870→                    ) : (
+   871→                      <Save aria-hidden />
+   872→                    )}
+   873→                    Enregistrer
+   874→                  </Button>
+   875→                </div>
+   876→              </div>
+   877→
+   878→              {rows.length === 0 ? (
+   879→                <div className="flex flex-col items-center gap-3 px-4 py-12 text-center">
+   880→                  <ListTree className="h-8 w-8 text-ink-faint" aria-hidden />
+   881→                  <p className="text-sm text-ink-soft">
+   882→                    Ce menu est vide. Ajoutez un premier élément de navigation.
+   883→                  </p>
+   884→                  <Button size="sm" variant="outline" onClick={openItemCreate}>
+   885→                    <Plus className="mr-1.5 h-4 w-4" aria-hidden />
+   886→                    Élément
+   887→                  </Button>
+   888→                </div>
+   889→              ) : (
+   890→                <div className="max-h-[30rem] overflow-y-auto">
+   891→                  <ol className="divide-y divide-rule">
+   892→                    {rows.map(({ item, depth, sibIndex, sibCount }) => (
+   893→                      <li
+   894→                        key={item.id}
+   895→                        className={cn(
+   896→                          "flex items-center gap-2 px-3 py-2.5 transition-colors hover:bg-paper-alt",
+   897→                          depth === 1 && "bg-paper-alt/60"
+   898→                        )}
+   899→                      >
+   900→                        <span
+   901→                          className="flex w-6 shrink-0 justify-center"
+   902→                          aria-hidden
+   903→                        >
+   904→                          {depth === 1 ? (
+   905→                            <CornerDownRight className="h-4 w-4 text-ink-faint" />
+   906→                          ) : null}
+   907→                        </span>
+   908→                        <div className="min-w-0 flex-1">
+   909→                          <div className="flex flex-wrap items-center gap-2">
+   910→                            <span
+   911→                              className={cn(
+   912→                                "truncate text-sm",
+   913→                                depth === 0
+   914→                                  ? "font-semibold"
+   915→                                  : "font-normal text-ink-soft"
+   916→                              )}
+   917→                            >
+   918→                              {item.label}
+   919→                            </span>
+   920→                            {item.highlight ? (
+   921→                              <Badge className="border-red-bright/30 bg-red-wash text-brand-red">
+   922→                                CTA
+   923→                              </Badge>
+   924→                            ) : null}
+   925→                            {!item.is_visible ? (
+   926→                              <Badge
+   927→                                variant="outline"
+   928→                                className="text-ink-faint"
+   929→                              >
+   930→                                <EyeOff className="mr-1 h-3 w-3" aria-hidden />
+   931→                                Masqué
+   932→                              </Badge>
+   933→                            ) : null}
+   934→                            {item.icon ? (
+   935→                              <code className="font-mono text-[10px] text-ink-faint">
+   936→                                {item.icon}
+   937→                              </code>
+   938→                            ) : null}
+   939→                          </div>
+   940→                          <p className="truncate text-xs text-ink-faint">
+   941→                            {targetSummary(item)}
+   942→                            {item.open_new_tab ? " · nouvel onglet" : ""}
+   943→                          </p>
+   944→                        </div>
+   945→                        <div className="flex shrink-0 items-center">
+   946→                          <Button
+   947→                            variant="ghost"
+   948→                            size="icon"
+   949→                            className="h-8 w-8"
+   950→                            onClick={() => moveItem(item.id, -1)}
+   951→                            disabled={sibIndex === 0}
+   952→                            aria-label={`Monter « ${item.label} »`}
+   953→                          >
+   954→                            <ChevronUp aria-hidden />
+   955→                          </Button>
+   956→                          <Button
+   957→                            variant="ghost"
+   958→                            size="icon"
+   959→                            className="h-8 w-8"
+   960→                            onClick={() => moveItem(item.id, 1)}
+   961→                            disabled={sibIndex === sibCount - 1}
+   962→                            aria-label={`Descendre « ${item.label} »`}
+   963→                          >
+   964→                            <ChevronDown aria-hidden />
+   965→                          </Button>
+   966→                          <Button
+   967→                            variant="ghost"
+   968→                            size="icon"
+   969→                            className="h-8 w-8"
+   970→                            onClick={() => toggleVisible(item.id)}
+   971→                            aria-label={
+   972→                              item.is_visible
+   973→                                ? `Masquer « ${item.label} »`
+   974→                                : `Rendre visible « ${item.label} »`
+   975→                            }
+   976→                          >
+   977→                            {item.is_visible ? (
+   978→                              <Eye aria-hidden />
+   979→                            ) : (
+   980→                              <EyeOff className="text-ink-faint" aria-hidden />
+   981→                            )}
+   982→                          </Button>
+   983→                          <Button
+   984→                            variant="ghost"
+   985→                            size="icon"
+   986→                            className="h-8 w-8"
+   987→                            onClick={() => openItemEdit(item)}
+   988→                            aria-label={`Modifier « ${item.label} »`}
+   989→                          >
+   990→                            <Pencil aria-hidden />
+   991→                          </Button>
+   992→                          <Button
+   993→                            variant="ghost"
+   994→                            size="icon"
+   995→                            className="h-8 w-8 text-danger hover:bg-red-wash hover:text-danger"
+   996→                            onClick={() => removeItem(item.id)}
+   997→                            aria-label={`Supprimer « ${item.label} »`}
+   998→                          >
+   999→                            <Trash2 aria-hidden />
+  1000→                          </Button>
+  1001→                        </div>
+  1002→                      </li>
+  1003→                    ))}
+  1004→                  </ol>
+  1005→                </div>
+  1006→              )}
+  1007→            </section>
+  1008→          )}
+  1009→        </TabsContent>
+  1010→
+  1011→        {/* ── Onglet Redirections ──────────────────────────────────────── */}
+  1012→        <TabsContent value="redirects" className="space-y-4">
+  1013→          <section
+  1014→            aria-label="Créer une redirection"
+  1015→            className="border border-rule bg-paper p-4 lg:p-6"
+  1016→          >
+  1017→            <h2 className="font-serif text-lg font-semibold">
+  1018→              Nouvelle redirection
+  1019→            </h2>
+  1020→            <p className="mt-1 flex items-start gap-1.5 text-xs text-ink-faint">
+  1021→              <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
+  1022→              Les renommages de rubriques créent automatiquement des
+  1023→              redirections 301.
+  1024→            </p>
+  1025→            <form
+  1026→              className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_auto_auto]"
+  1027→              onSubmit={submitRedirect}
+  1028→              noValidate
+  1029→            >
+  1030→              <div className="space-y-1.5">
+  1031→                <Label htmlFor="redirect-source">
+  1032→                  Chemin source <span className="text-brand-red">*</span>
+  1033→                </Label>
+  1034→                <Input
+  1035→                  id="redirect-source"
+  1036→                  value={redirectForm.source_path}
+  1037→                  onChange={(e) =>
+  1038→                    setRedirectForm((f) => ({
+  1039→                      ...f,
+  1040→                      source_path: e.target.value,
+  1041→                    }))
+  1042→                  }
+  1043→                  placeholder="/ancienne-adresse"
+  1044→                  className="font-mono"
+  1045→                  autoComplete="off"
+  1046→                />
+  1047→              </div>
+  1048→              <div className="space-y-1.5">
+  1049→                <Label htmlFor="redirect-target">
+  1050→                  Chemin cible <span className="text-brand-red">*</span>
+  1051→                </Label>
+  1052→                <Input
+  1053→                  id="redirect-target"
+  1054→                  value={redirectForm.target_path}
+  1055→                  onChange={(e) =>
+  1056→                    setRedirectForm((f) => ({
+  1057→                      ...f,
+  1058→                      target_path: e.target.value,
+  1059→                    }))
+  1060→                  }
+  1061→                  placeholder="/nouvelle-adresse"
+  1062→                  className="font-mono"
+  1063→                  autoComplete="off"
+  1064→                />
+  1065→              </div>
+  1066→              <div className="space-y-1.5">
+  1067→                <Label htmlFor="redirect-status">Type</Label>
+  1068→                <Select
+  1069→                  value={redirectForm.status_code}
+  1070→                  onValueChange={(value) =>
+  1071→                    setRedirectForm((f) => ({ ...f, status_code: value }))
+  1072→                  }
+  1073→                >
+  1074→                  <SelectTrigger
+  1075→                    id="redirect-status"
+  1076→                    className="w-full lg:w-40"
+  1077→                    aria-label="Type de redirection"
+  1078→                  >
+  1079→                    <SelectValue />
+  1080→                  </SelectTrigger>
+  1081→                  <SelectContent>
+  1082→                    <SelectItem value="301">301 — Permanente</SelectItem>
+  1083→                    <SelectItem value="302">302 — Temporaire</SelectItem>
+  1084→                  </SelectContent>
+  1085→                </Select>
+  1086→              </div>
+  1087→              <div className="flex items-end">
+  1088→                <Button
+  1089→                  type="submit"
+  1090→                  disabled={redirectSaving}
+  1091→                  className="w-full lg:w-auto"
+  1092→                >
+  1093→                  {redirectSaving ? (
+  1094→                    <Loader2 className="animate-spin" aria-hidden />
+  1095→                  ) : (
+  1096→                    <Plus aria-hidden />
+  1097→                  )}
+  1098→                  Créer
+  1099→                </Button>
+  1100→              </div>
+  1101→            </form>
+  1102→            {redirectError ? (
+  1103→              <p role="alert" className="mt-2 text-sm text-danger">
+  1104→                {redirectError}
+  1105→              </p>
+  1106→            ) : null}
+  1107→          </section>
+  1108→
+  1109→          <section
+  1110→            aria-label="Liste des redirections"
+  1111→            className="border border-rule bg-paper"
+  1112→          >
+  1113→            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-rule px-4 py-3">
+  1114→              <div>
+  1115→                <h2 className="font-serif text-lg font-semibold">
+  1116→                  Redirections actives
+  1117→                </h2>
+  1118→                <p className="text-xs text-ink-faint">
+  1119→                  {redirects === null
+  1120→                    ? "Chargement…"
+  1121→                    : `${redirects.length} redirection${redirects.length > 1 ? "s" : ""}`}
+  1122→                </p>
+  1123→              </div>
+  1124→            </div>
+  1125→
+  1126→            {redirects === null ? (
+  1127→              redirectsError ? (
+  1128→                <LoadErrorCard onRetry={() => void loadRedirects()} />
+  1129→              ) : (
+  1130→                <ListSkeleton />
+  1131→              )
+  1132→            ) : redirects.length === 0 ? (
+  1133→              <div className="flex flex-col items-center gap-3 px-4 py-12 text-center">
+  1134→                <ArrowRight className="h-8 w-8 text-ink-faint" aria-hidden />
+  1135→                <p className="text-sm text-ink-soft">
+  1136→                  Aucune redirection. Créez-en une pour préserver le référencement
+  1137→                  des adresses déplacées.
+  1138→                </p>
+  1139→              </div>
+  1140→            ) : (
+  1141→              <div className="max-h-[30rem] overflow-y-auto">
+  1142→                <ul className="divide-y divide-rule">
+  1143→                  {redirects.map((redirect) => (
+  1144→                    <li
+  1145→                      key={redirect.id}
+  1146→                      className="flex flex-col gap-2 px-4 py-3 transition-colors hover:bg-paper-alt sm:flex-row sm:items-center sm:gap-4"
+  1147→                    >
+  1148→                      <p className="min-w-0 flex-1 truncate font-mono text-sm">
+  1149→                        <span>{redirect.source_path}</span>
+  1150→                        <ArrowRight
+  1151→                          className="mx-2 inline h-3.5 w-3.5 text-ink-faint"
+  1152→                          aria-hidden
+  1153→                        />
+  1154→                        <span className="text-ink-soft">
+  1155→                          {redirect.target_path}
+  1156→                        </span>
+  1157→                      </p>
+  1158→                      <div className="flex flex-wrap items-center gap-2">
+  1159→                        <Badge variant="outline" className="font-mono">
+  1160→                          {redirect.status_code}
+  1161→                        </Badge>
+  1162→                        <span className="text-xs tabular-nums text-ink-faint">
+  1163→                          {Number(redirect.hit_count).toLocaleString("fr-FR")}{" "}
+  1164→                          accès
+  1165→                        </span>
+  1166→                        {redirect.is_auto ? (
+  1167→                          <Badge className="border-rule bg-paper-sunk text-ink-soft">
+  1168→                            Auto
+  1169→                          </Badge>
+  1170→                        ) : null}
+  1171→                        <span className="hidden text-xs text-ink-faint lg:inline">
+  1172→                          {formatDate(redirect.created_at)}
+  1173→                        </span>
+  1174→                        <Button
+  1175→                          variant="ghost"
+  1176→                          size="icon"
+  1177→                          className="text-danger hover:bg-red-wash hover:text-danger"
+  1178→                          onClick={() => setRedirectDeleting(redirect)}
+  1179→                          aria-label={`Supprimer la redirection ${redirect.source_path}`}
+  1180→                        >
+  1181→                          <Trash2 aria-hidden />
+  1182→                        </Button>
+  1183→                      </div>
+  1184→                    </li>
+  1185→                  ))}
+  1186→                </ul>
+  1187→              </div>
+  1188→            )}
+  1189→          </section>
+  1190→        </TabsContent>
+  1191→      </Tabs>
+  1192→
+  1193→      {/* ── Dialogue élément de menu (création / édition) ─────────────── */}
+  1194→      <Dialog
+  1195→        open={dialogOpen}
+  1196→        onOpenChange={(open) => {
+  1197→          if (!open) setDialogOpen(false);
+  1198→        }}
+  1199→      >
+  1200→        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-lg">
+  1201→          <DialogHeader>
+  1202→            <DialogTitle>
+  1203→              {dialogMode === "create"
+  1204→                ? "Ajouter un élément"
+  1205→                : "Modifier l'élément"}
+  1206→            </DialogTitle>
+  1207→            <DialogDescription>
+  1208→              Destination, apparence et visibilité dans le menu «{" "}
+  1209→              {selectedMenu?.label ?? ""} ».
+  1210→            </DialogDescription>
+  1211→          </DialogHeader>
+  1212→
+  1213→          <div className="grid gap-4 py-2">
+  1214→            <div className="space-y-1.5">
+  1215→              <Label htmlFor="item-label">
+  1216→                Libellé <span className="text-brand-red">*</span>
+  1217→              </Label>
+  1218→              <Input
+  1219→                id="item-label"
+  1220→                value={itemForm.label}
+  1221→                onChange={(e) =>
+  1222→                  setItemForm((f) => ({ ...f, label: e.target.value }))
+  1223→                }
+  1224→                placeholder="Ex. : Politique"
+  1225→                required
+  1226→              />
+  1227→            </div>
+  1228→
+  1229→            <div className="space-y-1.5">
+  1230→              <Label htmlFor="item-target-type">Type de destination</Label>
+  1231→              <Select
+  1232→                value={itemForm.target_type}
+  1233→                onValueChange={(value) =>
+  1234→                  setItemForm((f) => ({
+  1235→                    ...f,
+  1236→                    target_type: value as TargetType,
+  1237→                    target_id: "",
+  1238→                    target_url: "",
+  1239→                  }))
+  1240→                }
+  1241→              >
+  1242→                <SelectTrigger
+  1243→                  id="item-target-type"
+  1244→                  aria-label="Type de destination"
+  1245→                >
+  1246→                  <SelectValue />
+  1247→                </SelectTrigger>
+  1248→                <SelectContent>
+  1249→                  {TARGET_TYPES.map((type) => (
+  1250→                    <SelectItem key={type.value} value={type.value}>
+  1251→                      {type.label}
+  1252→                    </SelectItem>
+  1253→                  ))}
+  1254→                </SelectContent>
+  1255→              </Select>
+  1256→            </div>
+  1257→
+  1258→            {refTarget && refState ? (
+  1259→              refState.status === "loading" ? (
+  1260→                <div className="space-y-1.5">
+  1261→                  <Label htmlFor="item-target">Destination</Label>
+  1262→                  <div
+  1263→                    className="flex h-9 items-center gap-2 rounded-md border border-input px-3 text-sm text-ink-faint"
+  1264→                    aria-live="polite"
+  1265→                  >
+  1266→                    <Loader2
+  1267→                      className="h-3.5 w-3.5 animate-spin"
+  1268→                      aria-hidden
+  1269→                    />
+  1270→                    Chargement de la liste…
+  1271→                  </div>
+  1272→                </div>
+  1273→              ) : refState.status === "error" ? (
+  1274→                <div className="space-y-1.5">
+  1275→                  <Label htmlFor="item-target">Destination</Label>
+  1276→                  <div className="flex items-center justify-between gap-2 rounded-md border border-input px-3 py-2 text-sm">
+  1277→                    <span className="text-danger">
+  1278→                      Liste indisponible.
+  1279→                    </span>
+  1280→                    <Button
+  1281→                      variant="outline"
+  1282→                      size="sm"
+  1283→                      onClick={() => void ensureRef(refTarget)}
+  1284→                    >
+  1285→                      <RotateCw className="mr-1 h-3.5 w-3.5" aria-hidden />
+  1286→                      Réessayer
+  1287→                    </Button>
+  1288→                  </div>
+  1289→                </div>
+  1290→              ) : (
+  1291→                <div className="space-y-1.5">
+  1292→                  <Label htmlFor="item-target">
+  1293→                    Destination{" "}
+  1294→                    <span className="text-brand-red">*</span>
+  1295→                  </Label>
+  1296→                  <Select
+  1297→                    value={itemForm.target_id}
+  1298→                    onValueChange={(value) =>
+  1299→                      setItemForm((f) => ({ ...f, target_id: value }))
+  1300→                    }
+  1301→                  >
+  1302→                    <SelectTrigger
+  1303→                      id="item-target"
+  1304→                      aria-label={`Choisir la ${REF_TARGET_LABELS[refTarget]} de destination`}
+  1305→                    >
+  1306→                      <SelectValue placeholder="Sélectionner…" />
+  1307→                    </SelectTrigger>
+  1308→                    <SelectContent className="max-h-64">
+  1309→                      {refOptions.map((option) => (
+  1310→                        <SelectItem key={option.id} value={option.id}>
+  1311→                          {option.label}
+  1312→                          {option.hint ? ` · /${option.hint}` : ""}
+  1313→                        </SelectItem>
+  1314→                      ))}
+  1315→                    </SelectContent>
+  1316→                  </Select>
+  1317→                  {refOptions.length === 0 ? (
+  1318→                    <p className="text-xs text-ink-faint">
+  1319→                      Aucune {REF_TARGET_LABELS[refTarget]} disponible.
+  1320→                    </p>
+  1321→                  ) : null}
+  1322→                </div>
+  1323→              )
+  1324→            ) : null}
+  1325→
+  1326→            {itemForm.target_type === "url" ? (
+  1327→              <div className="space-y-1.5">
+  1328→                <Label htmlFor="item-url">
+  1329→                  URL de destination <span className="text-brand-red">*</span>
+  1330→                </Label>
+  1331→                <Input
+  1332→                  id="item-url"
+  1333→                  value={itemForm.target_url}
+  1334→                  onChange={(e) =>
+  1335→                    setItemForm((f) => ({ ...f, target_url: e.target.value }))
+  1336→                  }
+  1337→                  placeholder="https://exemple.com ou /chemin-interne"
+  1338→                  className="font-mono"
+  1339→                />
+  1340→              </div>
+  1341→            ) : null}
+  1342→
+  1343→            {itemForm.target_type === "section" ? (
+  1344→              <p className="text-xs text-ink-faint">
+  1345→                Cible gérée par le thème : section de la page d&apos;accueil.
+  1346→                Aucun champ supplémentaire requis.
+  1347→              </p>
+  1348→            ) : null}
+  1349→
+  1350→            <div className="space-y-1.5">
+  1351→              <Label htmlFor="item-parent">Emplacement</Label>
+  1352→              <Select
+  1353→                value={itemForm.parent_id}
+  1354→                onValueChange={(value) =>
+  1355→                  setItemForm((f) => ({ ...f, parent_id: value }))
+  1356→                }
+  1357→                disabled={editingHasChildren}
+  1358→              >
+  1359→                <SelectTrigger id="item-parent" aria-label="Élément parent">
+  1360→                  <SelectValue placeholder="Racine du menu" />
+  1361→                </SelectTrigger>
+  1362→                <SelectContent>
+  1363→                  <SelectItem value="root">Racine du menu</SelectItem>
+  1364→                  {parentOptions.map((option) => (
+  1365→                    <SelectItem key={option.id} value={option.id}>
+  1366→                      {option.label}
+  1367→                    </SelectItem>
+  1368→                  ))}
+  1369→                </SelectContent>
+  1370→              </Select>
+  1371→              {editingHasChildren ? (
+  1372→                <p className="text-xs text-ink-faint">
+  1373→                  Cet élément contient des sous-éléments : il doit rester à la
+  1374→                  racine (profondeur maximale : 2 niveaux).
+  1375→                </p>
+  1376→              ) : null}
+  1377→            </div>
+  1378→
+  1379→            <div className="space-y-1.5">
+  1380→              <Label htmlFor="item-icon">Icône (facultatif)</Label>
+  1381→              <Input
+  1382→                id="item-icon"
+  1383→                value={itemForm.icon}
+  1384→                onChange={(e) =>
+  1385→                  setItemForm((f) => ({ ...f, icon: e.target.value }))
+  1386→                }
+  1387→                placeholder="Ex. : house, newspaper, flame"
+  1388→              />
+  1389→              <p className="text-xs text-ink-faint">
+  1390→                Nom d&apos;icône Lucide, sans préfixe.
+  1391→              </p>
+  1392→            </div>
+  1393→
+  1394→            <div className="grid gap-3 sm:grid-cols-3">
+  1395→              <div className="flex items-center justify-between gap-2 rounded-md border border-rule p-3">
+  1396→                <Label
+  1397→                  htmlFor="item-new-tab"
+  1398→                  className="text-xs font-normal leading-tight"
+  1399→                >
+  1400→                  Nouvel onglet
+  1401→                </Label>
+  1402→                <Switch
+  1403→                  id="item-new-tab"
+  1404→                  checked={itemForm.open_new_tab}
+  1405→                  onCheckedChange={(checked) =>
+  1406→                    setItemForm((f) => ({ ...f, open_new_tab: checked }))
+  1407→                  }
+  1408→                />
+  1409→              </div>
+  1410→              <div className="flex items-center justify-between gap-2 rounded-md border border-rule p-3">
+  1411→                <Label
+  1412→                  htmlFor="item-highlight"
+  1413→                  className="text-xs font-normal leading-tight"
+  1414→                >
+  1415→                  Mise en avant (CTA rouge)
+  1416→                </Label>
+  1417→                <Switch
+  1418→                  id="item-highlight"
+  1419→                  checked={itemForm.highlight}
+  1420→                  onCheckedChange={(checked) =>
+  1421→                    setItemForm((f) => ({ ...f, highlight: checked }))
+  1422→                  }
+  1423→                />
+  1424→              </div>
+  1425→              <div className="flex items-center justify-between gap-2 rounded-md border border-rule p-3">
+  1426→                <Label
+  1427→                  htmlFor="item-visible"
+  1428→                  className="text-xs font-normal leading-tight"
+  1429→                >
+  1430→                  Visible
+  1431→                </Label>
+  1432→                <Switch
+  1433→                  id="item-visible"
+  1434→                  checked={itemForm.is_visible}
+  1435→                  onCheckedChange={(checked) =>
+  1436→                    setItemForm((f) => ({ ...f, is_visible: checked }))
+  1437→                  }
+  1438→                />
+  1439→              </div>
+  1440→            </div>
+  1441→
+  1442→            {itemError ? (
+  1443→              <p role="alert" className="text-sm text-danger">
+  1444→                {itemError}
+  1445→              </p>
+  1446→            ) : null}
+  1447→          </div>
+  1448→
+  1449→          <DialogFooter>
+  1450→            <Button
+  1451→              variant="outline"
+  1452→              onClick={() => setDialogOpen(false)}
+  1453→            >
+  1454→              Annuler
+  1455→            </Button>
+  1456→            <Button onClick={saveItem}>
+  1457→              {dialogMode === "create" ? "Ajouter" : "Appliquer"}
+  1458→            </Button>
+  1459→          </DialogFooter>
+  1460→        </DialogContent>
+  1461→      </Dialog>
+  1462→
+  1463→      {/* ── Confirmation de suppression (redirection) ─────────────────── */}
+  1464→      <AlertDialog
+  1465→        open={redirectDeleting !== null}
+  1466→        onOpenChange={(open) => {
+  1467→          if (!open) setRedirectDeleting(null);
+  1468→        }}
+  1469→      >
+  1470→        <AlertDialogContent>
+  1471→          <AlertDialogHeader>
+  1472→            <AlertDialogTitle>Supprimer cette redirection ?</AlertDialogTitle>
+  1473→            <AlertDialogDescription>
+  1474→              Les visiteurs qui suivront le lien «{" "}
+  1475→              {redirectDeleting?.source_path} » recevront à nouveau une erreur
+  1476→              404. Cette action est irréversible.
+  1477→            </AlertDialogDescription>
+  1478→          </AlertDialogHeader>
+  1479→          <AlertDialogFooter>
+  1480→            <AlertDialogCancel disabled={redirectDeleteBusy}>
+  1481→              Annuler
+  1482→            </AlertDialogCancel>
+  1483→            <AlertDialogAction
+  1484→              className="bg-danger text-white hover:bg-danger/90"
+  1485→              disabled={redirectDeleteBusy}
+  1486→              onClick={(e) => {
+  1487→                e.preventDefault();
+  1488→                void confirmDeleteRedirect();
+  1489→              }}
+  1490→            >
+  1491→              {redirectDeleteBusy ? (
+  1492→                <Loader2 className="animate-spin" aria-hidden />
+  1493→              ) : null}
+  1494→              Supprimer
+  1495→            </AlertDialogAction>
+  1496→          </AlertDialogFooter>
+  1497→        </AlertDialogContent>
+  1498→      </AlertDialog>
+  1499→    </>
+  1500→  );
+  1501→}
+  1502→

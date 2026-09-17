@@ -1,0 +1,772 @@
+     1→"use client";
+     2→
+     3→import { useState, useCallback, useMemo } from "react";
+     4→import {
+     5→  DndContext,
+     6→  closestCenter,
+     7→  KeyboardSensor,
+     8→  PointerSensor,
+     9→  useSensor,
+    10→  useSensors,
+    11→  type DragEndEvent,
+    12→} from "@dnd-kit/core";
+    13→import {
+    14→  SortableContext,
+    15→  sortableKeyboardCoordinates,
+    16→  verticalListSortingStrategy,
+    17→  useSortable,
+    18→} from "@dnd-kit/sortable";
+    19→import { CSS } from "@dnd-kit/utilities";
+    20→import { restrictToVerticalAxis } from "@dnd-kit/modifiers";
+    21→import { Button } from "@/components/ui/button";
+    22→import { Input } from "@/components/ui/input";
+    23→import { Textarea } from "@/components/ui/textarea";
+    24→import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+    25→import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+    26→import { MediaPicker, type MediaItem } from "@/components/admin/MediaPicker";
+    27→import { RichTextEditor } from "./RichTextEditor";
+    28→import {
+    29→  GripVertical, Plus, Copy, Trash2, ChevronUp, ChevronDown, Image as ImageIcon, Wrench,
+    30→} from "lucide-react";
+    31→import type { Block, RichText } from "@/types/blocks";
+    32→import { newBlockId } from "@/lib/blocks";
+    33→
+    34→/**
+    35→ * Éditeur de blocs (§06.4 + §11.2) : liste réordonnable (glisser-déposer),
+    36→ * insertion par menu (toujours accessible) ou « / » en tête de paragraphe,
+    37→ * duplication, verrouillage de bloc, suppression.
+    38→ * Chaque type de bloc dispose de son éditeur dédié.
+    39→ */
+    40→
+    41→const BLOCK_LABELS: Record<Block["type"], string> = {
+    42→  paragraph: "Paragraphe",
+    43→  heading: "Titre intermédiaire",
+    44→  list: "Liste",
+    45→  quote: "Citation",
+    46→  pullquote: "Citation mise en exergue",
+    47→  keypoints: "À retenir",
+    48→  image: "Image",
+    49→  gallery: "Galerie",
+    50→  video: "Vidéo",
+    51→  audio: "Audio",
+    52→  table: "Tableau",
+    53→  embed: "Intégration (réseaux)",
+    54→  chart: "Graphique",
+    55→  map: "Carte",
+    56→  timeline: "Chronologie",
+    57→  beforeafter: "Avant / Après",
+    58→  definition: "Définition",
+    59→  readmore: "À lire aussi",
+    60→  qa: "Question / Réponse",
+    61→  factcheck: "Vérification des faits",
+    62→  divider: "Séparateur",
+    63→  code: "Code",
+    64→  newsletter: "Bloc newsletter",
+    65→  ad: "Emplacement publicitaire",
+    66→};
+    67→
+    68→const INSERTABLE: Block["type"][] = [
+    69→  "paragraph", "heading", "list", "quote", "pullquote", "keypoints",
+    70→  "image", "gallery", "video", "audio", "table", "embed", "chart",
+    71→  "map", "timeline", "beforeafter", "definition", "readmore", "qa",
+    72→  "factcheck", "divider", "code", "newsletter", "ad",
+    73→];
+    74→
+    75→export function createEmptyBlock(type: Block["type"]): Block {
+    76→  const id = newBlockId();
+    77→  switch (type) {
+    78→    case "paragraph": return { id, type, text: [{ text: "" }] };
+    79→    case "heading": return { id, type, level: 2, text: "" };
+    80→    case "list": return { id, type, style: "bullet", items: [[{ text: "" }]] };
+    81→    case "quote": return { id, type, text: "", author: "", role: "" };
+    82→    case "pullquote": return { id, type, text: "", author: "" };
+    83→    case "keypoints": return { id, type, title: "À retenir", items: [""] };
+    84→    case "image": return { id, type, mediaId: "", size: "inline", caption: "" };
+    85→    case "gallery": return { id, type, mediaIds: [], layout: "grid" };
+    86→    case "video": return { id, type, provider: "youtube", playbackId: "", caption: "" };
+    87→    case "audio": return { id, type, mediaId: "", title: "" };
+    88→    case "table": return { id, type, headers: ["", ""], rows: [["", ""]], caption: "", source: "" };
+    89→    case "embed": return { id, type, provider: "youtube", url: "" };
+    90→    case "chart": return { id, type, chartType: "bar", data: [], source: "", updatedAt: new Date().toISOString().slice(0, 10) };
+    91→    case "map": return { id, type, lat: 9.6412, lng: -13.5784, zoom: 12 };
+    92→    case "timeline": return { id, type, events: [{ date: "", title: "" }] };
+    93→    case "beforeafter": return { id, type, beforeMediaId: "", afterMediaId: "", labels: ["Avant", "Après"] };
+    94→    case "definition": return { id, type, term: "", definition: "" };
+    95→    case "readmore": return { id, type, articleIds: [] };
+    96→    case "qa": return { id, type, question: "", answer: [{ text: "" }] };
+    97→    case "factcheck": return { id, type, claim: "", verdict: "unverifiable", explanation: "", sources: [] };
+    98→    case "divider": return { id, type };
+    99→    case "code": return { id, type, language: "text", code: "" };
+   100→    case "newsletter": return { id, type, listKey: "daily" };
+   101→    case "ad": return { id, type, slotCode: "AD-04" };
+   102→  }
+   103→}
+   104→
+   105→export interface BlockEditorProps {
+   106→  blocks: Block[];
+   107→  onChange: (blocks: Block[]) => void;
+   108→  lockedBlocks?: Set<string>;
+   109→  onToggleLock?: (blockId: string) => void;
+   110→}
+   111→
+   112→export function BlockEditor({ blocks, onChange, lockedBlocks, onToggleLock }: BlockEditorProps) {
+   113→  const [pickerState, setPickerState] = useState<
+   114→    | null
+   115→    | { kind: "image"; blockId: string }
+   116→    | { kind: "gallery"; blockId: string }
+   117→    | { kind: "video"; blockId: string }
+   118→    | { kind: "audio"; blockId: string }
+   119→    | { kind: "beforeafter"; blockId: string; side: "before" | "after" }
+   120→  >(null);
+   121→  const [insertOpen, setInsertOpen] = useState(false);
+   122→
+   123→  const sensors = useSensors(
+   124→    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+   125→    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+   126→  );
+   127→
+   128→  const update = useCallback(
+   129→    (blockId: string, patch: Partial<Block>) => {
+   130→      onChange(blocks.map((b) => (b.id === blockId ? ({ ...b, ...patch } as Block) : b)));
+   131→    },
+   132→    [blocks, onChange]
+   133→  );
+   134→
+   135→  const insert = useCallback(
+   136→    (type: Block["type"], afterIndex?: number) => {
+   137→      const block = createEmptyBlock(type);
+   138→      const idx = afterIndex === undefined ? blocks.length : afterIndex + 1;
+   139→      const next = [...blocks.slice(0, idx), block, ...blocks.slice(idx)];
+   140→      onChange(next);
+   141→      setInsertOpen(false);
+   142→    },
+   143→    [blocks, onChange]
+   144→  );
+   145→
+   146→  const remove = useCallback(
+   147→    (blockId: string) => onChange(blocks.filter((b) => b.id !== blockId)),
+   148→    [blocks, onChange]
+   149→  );
+   150→
+   151→  const duplicate = useCallback(
+   152→    (blockId: string) => {
+   153→      const idx = blocks.findIndex((b) => b.id === blockId);
+   154→      if (idx === -1) return;
+   155→      const source = blocks[idx];
+   156→      const copy: Block = JSON.parse(JSON.stringify(source));
+   157→      copy.id = newBlockId();
+   158→      onChange([...blocks.slice(0, idx + 1), copy, ...blocks.slice(idx + 1)]);
+   159→    },
+   160→    [blocks, onChange]
+   161→  );
+   162→
+   163→  const move = useCallback(
+   164→    (blockId: string, dir: -1 | 1) => {
+   165→      const idx = blocks.findIndex((b) => b.id === blockId);
+   166→      const target = idx + dir;
+   167→      if (idx === -1 || target < 0 || target >= blocks.length) return;
+   168→      const next = [...blocks];
+   169→      [next[idx], next[target]] = [next[target], next[idx]];
+   170→      onChange(next);
+   171→    },
+   172→    [blocks, onChange]
+   173→  );
+   174→
+   175→  const onDragEnd = useCallback(
+   176→    (event: DragEndEvent) => {
+   177→      const { active, over } = event;
+   178→      if (!over || active.id === over.id) return;
+   179→      const from = blocks.findIndex((b) => b.id === active.id);
+   180→      const to = blocks.findIndex((b) => b.id === over.id);
+   181→      if (from === -1 || to === -1) return;
+   182→      const next = [...blocks];
+   183→      const [moved] = next.splice(from, 1);
+   184→      next.splice(to, 0, moved);
+   185→      onChange(next);
+   186→    },
+   187→    [blocks, onChange]
+   188→  );
+   189→
+   190→  const picker = useMemo(() => {
+   191→    if (!pickerState) return null;
+   192→    const target = blocks.find((b) => b.id === pickerState.blockId);
+   193→    return (
+   194→      <MediaPicker
+   195→        open
+   196→        onOpenChange={(open) => !open && setPickerState(null)}
+   197→        onSelect={(media: MediaItem) => {
+   198→          if (!target) return;
+   199→          if (pickerState.kind === "image") update(target.id, { mediaId: media.id } as Partial<Block>);
+   200→          if (pickerState.kind === "audio") update(target.id, { mediaId: media.id } as Partial<Block>);
+   201→          if (pickerState.kind === "video") update(target.id, { mediaId: media.id } as Partial<Block>);
+   202→          if (pickerState.kind === "beforeafter") {
+   203→            update(target.id, {
+   204→              [pickerState.side === "before" ? "beforeMediaId" : "afterMediaId"]: media.id,
+   205→            } as Partial<Block>);
+   206→          }
+   207→          setPickerState(null);
+   208→        }}
+   209→        filterType={pickerState.kind === "gallery" ? undefined : pickerState.kind === "audio" ? "audio" : pickerState.kind === "video" ? "video" : "image"}
+   210→        title={pickerState.kind === "gallery" ? "Sélection multiple — composez la galerie" : "Choisir un média"}
+   211→      />
+   212→    );
+   213→    // eslint-disable-next-line react-hooks/exhaustive-deps
+   214→  }, [pickerState, blocks, update]);
+   215→
+   216→  const handleGallerySelect = (blockId: string, media: MediaItem) => {
+   217→    const block = blocks.find((b) => b.id === blockId);
+   218→    if (!block || block.type !== "gallery") return;
+   219→    if (!block.mediaIds.includes(media.id)) {
+   220→      update(blockId, { mediaIds: [...block.mediaIds, media.id] });
+   221→    }
+   222→  };
+   223→  void handleGallerySelect;
+   224→
+   225→  return (
+   226→    <div className="space-y-3">
+   227→      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd} modifiers={[restrictToVerticalAxis]}>
+   228→        <SortableContext items={blocks.map((b) => b.id)} strategy={verticalListSortingStrategy}>
+   229→          {blocks.map((block, index) => (
+   230→            <SortableBlockRow
+   231→              key={block.id}
+   232→              block={block}
+   233→              index={index}
+   234→              locked={lockedBlocks?.has(block.id) ?? false}
+   235→              onToggleLock={onToggleLock}
+   236→              onUpdate={(patch) => update(block.id, patch)}
+   237→              onRemove={() => remove(block.id)}
+   238→              onDuplicate={() => duplicate(block.id)}
+   239→              onMove={(dir) => move(block.id, dir)}
+   240→              onOpenPicker={(kind, side) => setPickerState({ kind, blockId: block.id, ...(side ? { side } : {}) } as typeof pickerState)}
+   241→            />
+   242→          ))}
+   243→        </SortableContext>
+   244→      </DndContext>
+   245→
+   246→      {blocks.length === 0 && (
+   247→        <p className="rounded-sm border border-dashed border-rule p-6 text-center text-sm text-ink-faint">
+   248→          Corps vide — insérez votre premier bloc ci-dessous.
+   249→        </p>
+   250→      )}
+   251→
+   252→      <div className="flex items-center gap-2">
+   253→        <Popover open={insertOpen} onOpenChange={setInsertOpen}>
+   254→          <PopoverTrigger asChild>
+   255→            <Button type="button" variant="outline" size="sm">
+   256→              <Plus className="mr-1 size-4" aria-hidden /> Insérer un bloc
+   257→            </Button>
+   258→          </PopoverTrigger>
+   259→          <PopoverContent className="w-72 p-1" align="start">
+   260→            <div className="max-h-80 overflow-y-auto" style={{ scrollbarWidth: "thin" }}>
+   261→              {INSERTABLE.map((type) => (
+   262→                <button
+   263→                  key={type}
+   264→                  type="button"
+   265→                  onClick={() => insert(type)}
+   266→                  className="block w-full rounded-sm px-3 py-2 text-left text-sm hover:bg-paper-alt"
+   267→                >
+   268→                  {BLOCK_LABELS[type]}
+   269→                </button>
+   270→              ))}
+   271→            </div>
+   272→          </PopoverContent>
+   273→        </Popover>
+   274→        <span className="text-xs text-ink-faint">
+   275→          Astuce : tapez « / » en début de paragraphe pour ouvrir ce menu.
+   276→        </span>
+   277→      </div>
+   278→
+   279→      {picker}
+   280→    </div>
+   281→  );
+   282→}
+   283→
+   284→// ─── Ligne de bloc triable ─────────────────────────────────────────────
+   285→
+   286→interface SortableBlockRowProps {
+   287→  block: Block;
+   288→  index: number;
+   289→  locked: boolean;
+   290→  onToggleLock?: (blockId: string) => void;
+   291→  onUpdate: (patch: Partial<Block>) => void;
+   292→  onRemove: () => void;
+   293→  onDuplicate: () => void;
+   294→  onMove: (dir: -1 | 1) => void;
+   295→  onOpenPicker: (
+   296→    kind: "image" | "gallery" | "video" | "audio" | "beforeafter",
+   297→    side?: "before" | "after"
+   298→  ) => void;
+   299→}
+   300→
+   301→function SortableBlockRow({
+   302→  block, index, locked, onToggleLock, onUpdate, onRemove, onDuplicate, onMove, onOpenPicker,
+   303→}: SortableBlockRowProps) {
+   304→  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: block.id, disabled: locked });
+   305→
+   306→  return (
+   307→    <div
+   308→      ref={setNodeRef}
+   309→      style={{ transform: CSS.Transform.toString(transform), transition }}
+   310→      className={`group relative rounded-sm border border-rule bg-paper ${isDragging ? "z-20 shadow-lg" : ""} ${locked ? "opacity-90 ring-1 ring-brand-red" : ""}`}
+   311→    >
+   312→      <div className="flex items-center justify-between border-b border-rule bg-paper-alt px-2 py-1">
+   313→        <div className="flex items-center gap-1">
+   314→          <button
+   315→            type="button"
+   316→            {...attributes}
+   317→            {...listeners}
+   318→            disabled={locked}
+   319→            aria-label="Réordonner le bloc"
+   320→            className="cursor-grab rounded-sm p-1 text-ink-faint hover:bg-rule active:cursor-grabbing"
+   321→          >
+   322→            <GripVertical className="size-4" aria-hidden />
+   323→          </button>
+   324→          <span className="text-xs font-semibold tracking-wide text-ink-soft">
+   325→            {index + 1}. {BLOCK_LABELS[block.type]}
+   326→          </span>
+   327→        </div>
+   328→        <div className="flex items-center gap-0.5 opacity-70 transition-opacity group-hover:opacity-100">
+   329→          <button type="button" onClick={() => onMove(-1)} aria-label="Monter" className="rounded-sm p-1 hover:bg-rule"><ChevronUp className="size-3.5" aria-hidden /></button>
+   330→          <button type="button" onClick={() => onMove(1)} aria-label="Descendre" className="rounded-sm p-1 hover:bg-rule"><ChevronDown className="size-3.5" aria-hidden /></button>
+   331→          <button type="button" onClick={() => onDuplicate()} aria-label="Dupliquer" className="rounded-sm p-1 hover:bg-rule"><Copy className="size-3.5" aria-hidden /></button>
+   332→          {onToggleLock && (
+   333→            <button
+   334→              type="button"
+   335→              onClick={() => onToggleLock(block.id)}
+   336→              aria-label={locked ? "Déverrouiller le bloc" : "Verrouiller le bloc"}
+   337→              aria-pressed={locked}
+   338→              className="rounded-sm p-1 hover:bg-rule"
+   339→            >
+   340→              <Wrench className={`size-3.5 ${locked ? "text-brand-red" : ""}`} aria-hidden />
+   341→            </button>
+   342→          )}
+   343→          <button type="button" onClick={onRemove} aria-label="Supprimer le bloc" className="rounded-sm p-1 hover:bg-rule hover:text-brand-red">
+   344→            <Trash2 className="size-3.5" aria-hidden />
+   345→          </button>
+   346→        </div>
+   347→      </div>
+   348→      <div className="p-3">
+   349→        {block.type === "paragraph" && (
+   350→          <ParagraphEditor
+   351→            value={block.text}
+   352→            onChange={(text) => onUpdate({ text })}
+   353→            onSlashCommand={() => {
+   354→              const trigger = document.querySelector<HTMLButtonElement>("[data-insert-menu]");
+   355→              trigger?.click();
+   356→            }}
+   357→          />
+   358→        )}
+   359→        {block.type === "heading" && (
+   360→          <div className="flex gap-2">
+   361→            <Select value={String(block.level)} onValueChange={(v) => onUpdate({ level: Number(v) as 2 | 3 | 4 } as Partial<Block>)}>
+   362→              <SelectTrigger className="w-24" aria-label="Niveau de titre"><SelectValue /></SelectTrigger>
+   363→              <SelectContent>
+   364→                <SelectItem value="2">H2</SelectItem>
+   365→                <SelectItem value="3">H3</SelectItem>
+   366→                <SelectItem value="4">H4</SelectItem>
+   367→              </SelectContent>
+   368→            </Select>
+   369→            <Input value={block.text} onChange={(e) => onUpdate({ text: e.target.value } as Partial<Block>)} placeholder="Titre de section" aria-label="Texte du titre" />
+   370→          </div>
+   371→        )}
+   372→        {block.type === "list" && <ListEditor block={block} onUpdate={onUpdate} />}
+   373→        {block.type === "quote" && (
+   374→          <div className="space-y-2">
+   375→            <Textarea value={block.text} onChange={(e) => onUpdate({ text: e.target.value } as Partial<Block>)} placeholder="Texte de la citation" aria-label="Citation" rows={3} />
+   376→            <div className="flex gap-2">
+   377→              <Input value={block.author ?? ""} onChange={(e) => onUpdate({ author: e.target.value } as Partial<Block>)} placeholder="Auteur" aria-label="Auteur cité" />
+   378→              <Input value={block.role ?? ""} onChange={(e) => onUpdate({ role: e.target.value } as Partial<Block>)} placeholder="Fonction" aria-label="Fonction" />
+   379→            </div>
+   380→          </div>
+   381→        )}
+   382→        {block.type === "pullquote" && (
+   383→          <div className="space-y-2">
+   384→            <Textarea value={block.text} onChange={(e) => onUpdate({ text: e.target.value } as Partial<Block>)} placeholder="Phrase forte de l'article" aria-label="Citation en exergue" rows={2} />
+   385→            <Input value={block.author ?? ""} onChange={(e) => onUpdate({ author: e.target.value } as Partial<Block>)} placeholder="Auteur" aria-label="Auteur" />
+   386→          </div>
+   387→        )}
+   388→        {block.type === "keypoints" && (
+   389→          <div className="space-y-2">
+   390→            <Input value={block.title ?? ""} onChange={(e) => onUpdate({ title: e.target.value } as Partial<Block>)} placeholder="Titre (défaut : À retenir)" aria-label="Titre du bloc" />
+   391→            {block.items.map((item, i) => (
+   392→              <div key={i} className="flex gap-2">
+   393→                <Input
+   394→                  value={item}
+   395→                  onChange={(e) => {
+   396→                    const items = [...block.items];
+   397→                    items[i] = e.target.value;
+   398→                    onUpdate({ items } as Partial<Block>);
+   399→                  }}
+   400→                  placeholder={`Point clé ${i + 1}`}
+   401→                  aria-label={`Point clé ${i + 1}`}
+   402→                />
+   403→                <Button type="button" variant="ghost" size="sm" onClick={() => onUpdate({ items: block.items.filter((_, j) => j !== i) } as Partial<Block>)} aria-label="Retirer ce point">✕</Button>
+   404→              </div>
+   405→            ))}
+   406→            <Button type="button" variant="outline" size="sm" onClick={() => onUpdate({ items: [...block.items, ""] } as Partial<Block>)}>+ Point</Button>
+   407→          </div>
+   408→        )}
+   409→        {block.type === "image" && (
+   410→          <div className="space-y-2">
+   411→            <div className="flex gap-2">
+   412→              <Button type="button" variant="outline" size="sm" onClick={() => onOpenPicker("image")}>
+   413→                <ImageIcon className="mr-1 size-4" aria-hidden /> {block.mediaId ? "Changer d'image" : "Choisir une image"}
+   414→              </Button>
+   415→              <Select value={block.size} onValueChange={(v) => onUpdate({ size: v as "inline" | "wide" | "full" } as Partial<Block>)}>
+   416→                <SelectTrigger className="w-36" aria-label="Taille d'affichage"><SelectValue /></SelectTrigger>
+   417→                <SelectContent>
+   418→                  <SelectItem value="inline">Dans le texte</SelectItem>
+   419→                  <SelectItem value="wide">Large</SelectItem>
+   420→                  <SelectItem value="full">Pleine largeur</SelectItem>
+   421→                </SelectContent>
+   422→              </Select>
+   423→            </div>
+   424→            <Input value={block.caption ?? ""} onChange={(e) => onUpdate({ caption: e.target.value } as Partial<Block>)} placeholder="Légende" aria-label="Légende de l'image" />
+   425→            <p className="text-xs text-ink-faint">Le texte alternatif (obligatoire à la publication) se règle sur le média, panneau « Médias ».</p>
+   426→          </div>
+   427→        )}
+   428→        {block.type === "gallery" && <GalleryEditor block={block} onUpdate={onUpdate} onOpenPicker={onOpenPicker} />}
+   429→        {block.type === "video" && (
+   430→          <div className="space-y-2">
+   431→            <div className="flex gap-2">
+   432→              <Select value={block.provider ?? "youtube"} onValueChange={(v) => onUpdate({ provider: v as "mux" | "youtube" } as Partial<Block>)}>
+   433→                <SelectTrigger className="w-32" aria-label="Hébergeur vidéo"><SelectValue /></SelectTrigger>
+   434→                <SelectContent>
+   435→                  <SelectItem value="youtube">YouTube</SelectItem>
+   436→                  <SelectItem value="mux">Mux</SelectItem>
+   437→                </SelectContent>
+   438→              </Select>
+   439→              <Input value={block.playbackId ?? ""} onChange={(e) => onUpdate({ playbackId: e.target.value } as Partial<Block>)} placeholder="Identifiant de lecture (YouTube : id de la vidéo)" aria-label="Identifiant vidéo" />
+   440→              <Button type="button" variant="outline" size="sm" onClick={() => onOpenPicker("video")}>Média local</Button>
+   441→            </div>
+   442→            <Input value={block.caption ?? ""} onChange={(e) => onUpdate({ caption: e.target.value } as Partial<Block>)} placeholder="Légende" aria-label="Légende vidéo" />
+   443→          </div>
+   444→        )}
+   445→        {block.type === "audio" && (
+   446→          <div className="flex gap-2">
+   447→            <Button type="button" variant="outline" size="sm" onClick={() => onOpenPicker("audio")}>
+   448→              {block.mediaId ? "Changer de son" : "Choisir un son"}
+   449→            </Button>
+   450→            <Input value={block.title ?? ""} onChange={(e) => onUpdate({ title: e.target.value } as Partial<Block>)} placeholder="Titre du podcast" aria-label="Titre audio" />
+   451→          </div>
+   452→        )}
+   453→        {block.type === "table" && <TableEditor block={block} onUpdate={onUpdate} />}
+   454→        {block.type === "embed" && (
+   455→          <div className="flex gap-2">
+   456→            <Select value={block.provider} onValueChange={(v) => onUpdate({ provider: v as "x" | "facebook" | "instagram" | "youtube" | "tiktok" | "iframe" } as Partial<Block>)}>
+   457→              <SelectTrigger className="w-36" aria-label="Plateforme"><SelectValue /></SelectTrigger>
+   458→              <SelectContent>
+   459→                <SelectItem value="youtube">YouTube</SelectItem>
+   460→                <SelectItem value="x">X (Twitter)</SelectItem>
+   461→                <SelectItem value="facebook">Facebook</SelectItem>
+   462→                <SelectItem value="instagram">Instagram</SelectItem>
+   463→                <SelectItem value="tiktok">TikTok</SelectItem>
+   464→                <SelectItem value="iframe">Iframe générique</SelectItem>
+   465→              </SelectContent>
+   466→            </Select>
+   467→            <Input value={block.url} onChange={(e) => onUpdate({ url: e.target.value } as Partial<Block>)} placeholder="URL du contenu" aria-label="URL d'intégration" />
+   468→          </div>
+   469→        )}
+   470→        {block.type === "chart" && (
+   471→          <div className="grid gap-2 sm:grid-cols-2">
+   472→            <Select value={block.chartType} onValueChange={(v) => onUpdate({ chartType: v as "line" | "bar" | "pie" | "area" } as Partial<Block>)}>
+   473→              <SelectTrigger aria-label="Type de graphique"><SelectValue /></SelectTrigger>
+   474→              <SelectContent>
+   475→                <SelectItem value="bar">Barres</SelectItem>
+   476→                <SelectItem value="line">Ligne</SelectItem>
+   477→                <SelectItem value="area">Aire</SelectItem>
+   478→                <SelectItem value="pie">Circulaire</SelectItem>
+   479→              </SelectContent>
+   480→            </Select>
+   481→            <Input value={block.source} onChange={(e) => onUpdate({ source: e.target.value } as Partial<Block>)} placeholder="Source (obligatoire)" aria-label="Source du graphique" />
+   482→            <Textarea
+   483→              className="sm:col-span-2 font-mono text-xs"
+   484→              rows={3}
+   485→              value={JSON.stringify(block.data ?? [], null, 1)}
+   486→              onChange={(e) => {
+   487→                try {
+   488→                  onUpdate({ data: JSON.parse(e.target.value || "[]") } as Partial<Block>);
+   489→                } catch {
+   490→                  // JSON en cours de frappe : ignoré
+   491→                }
+   492→              }}
+   493→              aria-label="Données JSON du graphique"
+   494→            />
+   495→          </div>
+   496→        )}
+   497→        {block.type === "map" && (
+   498→          <div className="grid grid-cols-3 gap-2">
+   499→            <Input type="number" step="0.0001" value={block.lat} onChange={(e) => onUpdate({ lat: Number(e.target.value) } as Partial<Block>)} aria-label="Latitude" placeholder="Latitude" />
+   500→            <Input type="number" step="0.0001" value={block.lng} onChange={(e) => onUpdate({ lng: Number(e.target.value) } as Partial<Block>)} aria-label="Longitude" placeholder="Longitude" />
+   501→            <Input type="number" min={1} max={20} value={block.zoom} onChange={(e) => onUpdate({ zoom: Number(e.target.value) } as Partial<Block>)} aria-label="Zoom" placeholder="Zoom" />
+   502→          </div>
+   503→        )}
+   504→        {block.type === "timeline" && (
+   505→          <div className="space-y-2">
+   506→            {block.events.map((ev, i) => (
+   507→              <div key={i} className="flex gap-2">
+   508→                <Input className="w-28" value={ev.date} onChange={(e) => { const events = [...block.events]; events[i] = { ...ev, date: e.target.value }; onUpdate({ events } as Partial<Block>); }} placeholder="Date" aria-label="Date de l'événement" />
+   509→                <Input value={ev.title} onChange={(e) => { const events = [...block.events]; events[i] = { ...ev, title: e.target.value }; onUpdate({ events } as Partial<Block>); }} placeholder="Événement" aria-label="Titre de l'événement" />
+   510→                <Button type="button" variant="ghost" size="sm" onClick={() => onUpdate({ events: block.events.filter((_, j) => j !== i) } as Partial<Block>)} aria-label="Retirer">✕</Button>
+   511→              </div>
+   512→            ))}
+   513→            <Button type="button" variant="outline" size="sm" onClick={() => onUpdate({ events: [...block.events, { date: "", title: "" }] } as Partial<Block>)}>+ Événement</Button>
+   514→          </div>
+   515→        )}
+   516→        {block.type === "beforeafter" && (
+   517→          <div className="flex gap-2">
+   518→            <Button type="button" variant="outline" size="sm" onClick={() => onOpenPicker("beforeafter", "before")}>
+   519→              {block.beforeMediaId ? "Changer l'avant" : "Image avant"}
+   520→            </Button>
+   521→            <Button type="button" variant="outline" size="sm" onClick={() => onOpenPicker("beforeafter", "after")}>
+   522→              {block.afterMediaId ? "Changer l'après" : "Image après"}
+   523→            </Button>
+   524→          </div>
+   525→        )}
+   526→        {block.type === "definition" && (
+   527→          <div className="space-y-2">
+   528→            <Input value={block.term} onChange={(e) => onUpdate({ term: e.target.value } as Partial<Block>)} placeholder="Terme" aria-label="Terme défini" />
+   529→            <Textarea value={block.definition} onChange={(e) => onUpdate({ definition: e.target.value } as Partial<Block>)} placeholder="Définition" aria-label="Définition" rows={2} />
+   530→          </div>
+   531→        )}
+   532→        {block.type === "readmore" && <ReadMoreEditor block={block} onUpdate={onUpdate} />}
+   533→        {block.type === "qa" && (
+   534→          <div className="space-y-2">
+   535→            <Input value={block.question} onChange={(e) => onUpdate({ question: e.target.value } as Partial<Block>)} placeholder="Question de l'interview" aria-label="Question" />
+   536→            <RichTextEditor value={block.answer} onChange={(answer) => onUpdate({ answer } as Partial<Block>)} placeholder="Réponse…" ariaLabel="Réponse" />
+   537→          </div>
+   538→        )}
+   539→        {block.type === "factcheck" && (
+   540→          <div className="space-y-2">
+   541→            <Textarea value={block.claim} onChange={(e) => onUpdate({ claim: e.target.value } as Partial<Block>)} placeholder="Allégation à vérifier" aria-label="Allégation" rows={2} />
+   542→            <div className="flex gap-2">
+   543→              <Select value={block.verdict} onValueChange={(v) => onUpdate({ verdict: v as "true" | "misleading" | "false" | "unverifiable" } as Partial<Block>)}>
+   544→                <SelectTrigger className="w-44" aria-label="Verdict"><SelectValue /></SelectTrigger>
+   545→                <SelectContent>
+   546→                  <SelectItem value="true">Vrai</SelectItem>
+   547→                  <SelectItem value="misleading">Trompeur</SelectItem>
+   548→                  <SelectItem value="false">Faux</SelectItem>
+   549→                  <SelectItem value="unverifiable">Invérifiable</SelectItem>
+   550→                </SelectContent>
+   551→              </Select>
+   552→              <Input value={block.explanation} onChange={(e) => onUpdate({ explanation: e.target.value } as Partial<Block>)} placeholder="Explication" aria-label="Explication du verdict" />
+   553→            </div>
+   554→          </div>
+   555→        )}
+   556→        {block.type === "divider" && <p className="text-xs text-ink-faint">Ligne séparatrice horizontale.</p>}
+   557→        {block.type === "code" && (
+   558→          <div className="space-y-2">
+   559→            <Input value={block.language} onChange={(e) => onUpdate({ language: e.target.value } as Partial<Block>)} placeholder="Langage" aria-label="Langage du code" />
+   560→            <Textarea className="font-mono text-xs" value={block.code} onChange={(e) => onUpdate({ code: e.target.value } as Partial<Block>)} rows={4} aria-label="Code source" />
+   561→          </div>
+   562→        )}
+   563→        {block.type === "newsletter" && (
+   564→          <Input value={block.listKey} onChange={(e) => onUpdate({ listKey: e.target.value } as Partial<Block>)} placeholder="Clé de la liste (ex. daily)" aria-label="Liste newsletter" />
+   565→        )}
+   566→        {block.type === "ad" && (
+   567→          <Input value={block.slotCode} onChange={(e) => onUpdate({ slotCode: e.target.value } as Partial<Block>)} placeholder="Code d'emplacement (ex. AD-04)" aria-label="Emplacement publicitaire" />
+   568→        )}
+   569→      </div>
+   570→    </div>
+   571→  );
+   572→}
+   573→
+   574→// ─── Éditeurs spécifiques ──────────────────────────────────────────────
+   575→
+   576→function ParagraphEditor({
+   577→  value, onChange, onSlashCommand,
+   578→}: {
+   579→  value: RichText;
+   580→  onChange: (text: RichText) => void;
+   581→  onSlashCommand: () => void;
+   582→}) {
+   583→  const [slashHandled, setSlashHandled] = useState(false);
+   584→  return (
+   585→    <RichTextEditor
+   586→      value={value}
+   587→      onChange={(next) => {
+   588→        const joined = next.map((f) => f.text).join("");
+   589→        if (!slashHandled && joined === "/") {
+   590→          setSlashHandled(true);
+   591→          onSlashCommand();
+   592→          onChange([{ text: "" }]);
+   593→          return;
+   594→        }
+   595→        if (joined !== "/" && slashHandled) setSlashHandled(false);
+   596→        onChange(next);
+   597→      }}
+   598→      placeholder="Paragraphe… (« / » pour insérer un bloc)"
+   599→      ariaLabel="Paragraphe"
+   600→    />
+   601→  );
+   602→}
+   603→
+   604→function ListEditor({ block, onUpdate }: { block: Extract<Block, { type: "list" }>; onUpdate: (patch: Partial<Block>) => void }) {
+   605→  return (
+   606→    <div className="space-y-2">
+   607→      <Select value={block.style} onValueChange={(v) => onUpdate({ style: v as "bullet" | "number" } as Partial<Block>)}>
+   608→        <SelectTrigger className="w-40" aria-label="Style de liste"><SelectValue /></SelectTrigger>
+   609→        <SelectContent>
+   610→          <SelectItem value="bullet">À puces</SelectItem>
+   611→          <SelectItem value="number">Numérotée</SelectItem>
+   612→        </SelectContent>
+   613→      </Select>
+   614→      {block.items.map((item, i) => (
+   615→        <div key={i} className="flex items-start gap-2">
+   616→          <span className="pt-3 text-xs text-ink-faint">{i + 1}.</span>
+   617→          <div className="flex-1">
+   618→            <RichTextEditor
+   619→              value={item}
+   620→              onChange={(next) => {
+   621→                const items = [...block.items];
+   622→                items[i] = next;
+   623→                onUpdate({ items } as Partial<Block>);
+   624→              }}
+   625→              placeholder={`Élément ${i + 1}`}
+   626→              ariaLabel={`Élément de liste ${i + 1}`}
+   627→            />
+   628→          </div>
+   629→          <Button type="button" variant="ghost" size="sm" className="mt-2" onClick={() => onUpdate({ items: block.items.filter((_, j) => j !== i) } as Partial<Block>)} aria-label="Retirer l'élément">✕</Button>
+   630→        </div>
+   631→      ))}
+   632→      <Button type="button" variant="outline" size="sm" onClick={() => onUpdate({ items: [...block.items, [{ text: "" }]] } as Partial<Block>)}>+ Élément</Button>
+   633→    </div>
+   634→  );
+   635→}
+   636→
+   637→function GalleryEditor({
+   638→  block, onUpdate,
+   639→}: {
+   640→  block: Extract<Block, { type: "gallery" }>;
+   641→  onUpdate: (patch: Partial<Block>) => void;
+   642→  onOpenPicker?: (kind: "gallery") => void;
+   643→}) {
+   644→  const [pickerOpen, setPickerOpen] = useState(false);
+   645→  return (
+   646→    <div className="space-y-2">
+   647→      <div className="flex gap-2">
+   648→        <Button type="button" variant="outline" size="sm" onClick={() => setPickerOpen(true)}>+ Ajouter des images</Button>
+   649→        <Select value={block.layout} onValueChange={(v) => onUpdate({ layout: v as "grid" | "carousel" | "mosaic" } as Partial<Block>)}>
+   650→          <SelectTrigger className="w-36" aria-label="Disposition"><SelectValue /></SelectTrigger>
+   651→          <SelectContent>
+   652→            <SelectItem value="grid">Grille</SelectItem>
+   653→            <SelectItem value="carousel">Carrousel</SelectItem>
+   654→            <SelectItem value="mosaic">Mosaïque</SelectItem>
+   655→          </SelectContent>
+   656→        </Select>
+   657→      </div>
+   658→      <p className="text-xs text-ink-faint">{block.mediaIds.length} image(s) sélectionnée(s)</p>
+   659→      {pickerOpen && (
+   660→        <MediaPicker
+   661→          open
+   662→          onOpenChange={setPickerOpen}
+   663→          onSelect={(media) => {
+   664→            if (!block.mediaIds.includes(media.id)) {
+   665→              onUpdate({ mediaIds: [...block.mediaIds, media.id] } as Partial<Block>);
+   666→            }
+   667→            setPickerOpen(false);
+   668→          }}
+   669→          title="Composer la galerie"
+   670→        />
+   671→      )}
+   672→    </div>
+   673→  );
+   674→}
+   675→
+   676→function TableEditor({ block, onUpdate }: { block: Extract<Block, { type: "table" }>; onUpdate: (patch: Partial<Block>) => void }) {
+   677→  const updateCell = (i: number, j: number, value: string, header: boolean) => {
+   678→    if (header) {
+   679→      const headers = [...block.headers];
+   680→      headers[i] = value;
+   681→      onUpdate({ headers } as Partial<Block>);
+   682→    } else {
+   683→      const rows = block.rows.map((r) => [...r]);
+   684→      rows[i][j] = value;
+   685→      onUpdate({ rows } as Partial<Block>);
+   686→    }
+   687→  };
+   688→  const colCount = block.headers.length;
+   689→  return (
+   690→    <div className="space-y-2">
+   691→      <div className="overflow-x-auto">
+   692→        <table className="w-full text-sm">
+   693→          <thead>
+   694→            <tr>
+   695→              {block.headers.map((h, i) => (
+   696→                <th key={i} className="p-1">
+   697→                  <Input value={h} onChange={(e) => updateCell(i, 0, e.target.value, true)} placeholder={`Colonne ${i + 1}`} aria-label={`En-tête colonne ${i + 1}`} className="font-semibold" />
+   698→                </th>
+   699→              ))}
+   700→            </tr>
+   701→          </thead>
+   702→          <tbody>
+   703→            {block.rows.map((row, i) => (
+   704→              <tr key={i}>
+   705→                {row.map((cell, j) => (
+   706→                  <td key={j} className="p-1">
+   707→                    <Input value={cell} onChange={(e) => updateCell(i, j, e.target.value, false)} aria-label={`Cellule ${i + 1}-${j + 1}`} />
+   708→                  </td>
+   709→                ))}
+   710→              </tr>
+   711→            ))}
+   712→          </tbody>
+   713→        </table>
+   714→      </div>
+   715→      <div className="flex gap-2">
+   716→        <Button type="button" variant="outline" size="sm" onClick={() => onUpdate({ headers: [...block.headers, ""], rows: block.rows.map((r) => [...r, ""]) } as Partial<Block>)}>+ Colonne</Button>
+   717→        <Button type="button" variant="outline" size="sm" onClick={() => onUpdate({ rows: [...block.rows, Array(colCount).fill("")] } as Partial<Block>)}>+ Ligne</Button>
+   718→      </div>
+   719→      <div className="flex gap-2">
+   720→        <Input value={block.caption ?? ""} onChange={(e) => onUpdate({ caption: e.target.value } as Partial<Block>)} placeholder="Légende" aria-label="Légende du tableau" />
+   721→        <Input value={block.source ?? ""} onChange={(e) => onUpdate({ source: e.target.value } as Partial<Block>)} placeholder="Source" aria-label="Source du tableau" />
+   722→      </div>
+   723→    </div>
+   724→  );
+   725→}
+   726→
+   727→function ReadMoreEditor({ block, onUpdate }: { block: Extract<Block, { type: "readmore" }>; onUpdate: (patch: Partial<Block>) => void }) {
+   728→  const [q, setQ] = useState("");
+   729→  const [results, setResults] = useState<{ id: string; title: string }[]>([]);
+   730→  const [searching, setSearching] = useState(false);
+   731→
+   732→  const search = useCallback(async () => {
+   733→    setSearching(true);
+   734→    try {
+   735→      const res = await fetch(`/api/admin/articles?q=${encodeURIComponent(q)}&per_page=8`, { cache: "no-store" });
+   736→      const payload = (await res.json()) as { data?: { id: string; title: string }[] };
+   737→      setResults(payload.data ?? []);
+   738→    } finally {
+   739→      setSearching(false);
+   740→    }
+   741→  }, [q]);
+   742→
+   743→  return (
+   744→    <div className="space-y-2">
+   745→      <div className="flex gap-2">
+   746→        <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Rechercher un article interne…" aria-label="Recherche d'article" onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), void search())} />
+   747→        <Button type="button" variant="outline" size="sm" onClick={() => void search()} disabled={searching}>Chercher</Button>
+   748→      </div>
+   749→      {results.length > 0 && (
+   750→        <ul className="max-h-40 overflow-y-auto rounded-sm border border-rule" style={{ scrollbarWidth: "thin" }}>
+   751→          {results.map((r) => (
+   752→            <li key={r.id}>
+   753→              <button
+   754→                type="button"
+   755→                className="w-full truncate px-3 py-2 text-left text-sm hover:bg-paper-alt"
+   756→                onClick={() => {
+   757→                  if (!block.articleIds.includes(r.id)) {
+   758→                    onUpdate({ articleIds: [...block.articleIds, r.id] } as Partial<Block>);
+   759→                  }
+   760→                }}
+   761→              >
+   762→                {r.title}
+   763→              </button>
+   764→            </li>
+   765→          ))}
+   766→        </ul>
+   767→      )}
+   768→      <p className="text-xs text-ink-faint">{block.articleIds.length} article(s) lié(s)</p>
+   769→    </div>
+   770→  );
+   771→}
+   772→

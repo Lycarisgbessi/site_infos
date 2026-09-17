@@ -199,6 +199,45 @@
     line-height: 1.2;
   }
 
+  /* ── Flash info : défilement horizontal automatique (§09.1 Z-03) ──────
+     Piste dupliquée ×2 ; translation de -50 % = boucle sans rupture.
+     Pause au survol / focus clavier. En prefers-reduced-motion, la piste
+     redevient une rangée déroulable horizontalement. */
+  .marquee-viewport {
+    mask-image: linear-gradient(to right, transparent, black 3%, black 97%, transparent);
+    -webkit-mask-image: linear-gradient(to right, transparent, black 3%, black 97%, transparent);
+  }
+
+  .marquee-track {
+    animation: marquee-scroll var(--marquee-duration, 45s) linear infinite;
+    will-change: transform;
+  }
+
+  .marquee-viewport:hover .marquee-track,
+  .marquee-viewport:focus-within .marquee-track {
+    animation-play-state: paused;
+  }
+
+  @keyframes marquee-scroll {
+    from {
+      transform: translateX(0);
+    }
+    to {
+      transform: translateX(-50%);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .marquee-track {
+      animation: none;
+    }
+    .marquee-viewport {
+      overflow-x: auto;
+      mask-image: none;
+      -webkit-mask-image: none;
+    }
+  }
+
   /* Conteneur de lecture d'article — max 720 px (§05.3) */
   .reading-width {
     max-width: var(--reading-max);

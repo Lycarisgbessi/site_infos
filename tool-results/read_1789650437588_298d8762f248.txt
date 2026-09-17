@@ -1,0 +1,1222 @@
+     1→"use client";
+     2→
+     3→import { useCallback, useEffect, useRef, useState } from "react";
+     4→import {
+     5→  ArrowLeft,
+     6→  EyeOff,
+     7→  FileText,
+     8→  Loader2,
+     9→  Megaphone,
+    10→  Pencil,
+    11→  Plus,
+    12→  RotateCw,
+    13→  Save,
+    14→  Trash2,
+    15→} from "lucide-react";
+    16→
+    17→import { apiFetch, errorMessage } from "@/lib/api/client";
+    18→import { useToast } from "@/hooks/use-toast";
+    19→import { parseBlocks, type Block } from "@/types/blocks";
+    20→
+    21→import {
+    22→  AlertDialog,
+    23→  AlertDialogAction,
+    24→  AlertDialogCancel,
+    25→  AlertDialogContent,
+    26→  AlertDialogDescription,
+    27→  AlertDialogFooter,
+    28→  AlertDialogHeader,
+    29→  AlertDialogTitle,
+    30→} from "@/components/ui/alert-dialog";
+    31→import { Badge } from "@/components/ui/badge";
+    32→import { Button } from "@/components/ui/button";
+    33→import {
+    34→  Dialog,
+    35→  DialogContent,
+    36→  DialogDescription,
+    37→  DialogFooter,
+    38→  DialogHeader,
+    39→  DialogTitle,
+    40→} from "@/components/ui/dialog";
+    41→import { Input } from "@/components/ui/input";
+    42→import { Label } from "@/components/ui/label";
+    43→import {
+    44→  Select,
+    45→  SelectContent,
+    46→  SelectItem,
+    47→  SelectTrigger,
+    48→  SelectValue,
+    49→} from "@/components/ui/select";
+    50→import { Skeleton } from "@/components/ui/skeleton";
+    51→import { Switch } from "@/components/ui/switch";
+    52→import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+    53→import { Textarea } from "@/components/ui/textarea";
+    54→import { BlockEditor } from "@/components/editor/BlockEditor";
+    55→
+    56→/**
+    57→ * Écran « Pages & bannières » (§11.2, Phase 2) :
+    58→ * - onglet Pages : liste des pages statiques, éditeur pleine largeur avec
+    59→ *   corps en blocs (BlockEditor §06.4) — un changement de slug déclenche
+    60→ *   une redirection 301 automatique côté serveur ;
+    61→ * - onglet Bannières : bandeaux du site (alerte / info / promo) avec lien
+    62→ *   facultatif, ciblage de chemins, fenêtre d'affichage et refermabilité.
+    63→ *
+    64→ * Toutes les requêtes passent par apiFetch (enveloppe {data,meta} §07.1) ;
+    65→ * les erreurs sont signalées par des toasts français.
+    66→ */
+    67→
+    68→interface PageRow {
+    69→  id: string;
+    70→  title: string;
+    71→  slug: string;
+    72→  template: string;
+    73→  is_published: boolean;
+    74→  updated_at: string;
+    75→  locale: string;
+    76→}
+    77→
+    78→interface PageFull extends PageRow {
+    79→  body: string | null;
+    80→  seo: Record<string, unknown> | null;
+    81→}
+    82→
+    83→interface BannerRow {
+    84→  id: string;
+    85→  message: string;
+    86→  link_url: string | null;
+    87→  link_label: string | null;
+    88→  style: string;
+    89→  is_dismissible: boolean;
+    90→  /** Tableau JSON sérialisé en chaîne côté API (colonne texte, D-01). */
+    91→  target_paths: string | string[];
+    92→  starts_at: string | null;
+    93→  ends_at: string | null;
+    94→  is_active: boolean;
+    95→}
+    96→
+    97→interface PageFormState {
+    98→  title: string;
+    99→  slug: string;
+   100→  template: string;
+   101→  is_published: boolean;
+   102→  blocks: Block[];
+   103→}
+   104→
+   105→interface BannerFormState {
+   106→  message: string;
+   107→  link_url: string;
+   108→  link_label: string;
+   109→  style: string;
+   110→  is_dismissible: boolean;
+   111→  /** Chemins saisis séparés par des virgules. */
+   112→  target_paths: string;
+   113→  /** Valeurs datetime-local. */
+   114→  starts_at: string;
+   115→  ends_at: string;
+   116→  is_active: boolean;
+   117→}
+   118→
+   119→interface EditorState {
+   120→  /** null = création. */
+   121→  id: string | null;
+   122→  loading: boolean;
+   123→  originalSlug: string | null;
+   124→}
+   125→
+   126→const TEMPLATES: { value: string; label: string }[] = [
+   127→  { value: "default", label: "Standard" },
+   128→  { value: "contact", label: "Contact" },
+   129→  { value: "about", label: "À propos" },
+   130→  { value: "advertising", label: "Publicité / Régie" },
+   131→  { value: "legal", label: "Mentions légales" },
+   132→];
+   133→
+   134→const TEMPLATE_LABELS: Record<string, string> = {
+   135→  default: "Standard",
+   136→  contact: "Contact",
+   137→  about: "À propos",
+   138→  advertising: "Publicité",
+   139→  legal: "Légal",
+   140→};
+   141→
+   142→const BANNER_STYLES: { value: string; label: string }[] = [
+   143→  { value: "alert", label: "Alerte" },
+   144→  { value: "info", label: "Information" },
+   145→  { value: "promo", label: "Promotion" },
+   146→];
+   147→
+   148→const BANNER_STYLE_BADGES: Record<string, string> = {
+   149→  alert: "border-red-bright/30 bg-red-wash text-brand-red",
+   150→  info: "border-rule bg-paper-sunk text-ink-soft",
+   151→  promo: "border-success/30 bg-success/10 text-success",
+   152→};
+   153→
+   154→const EMPTY_BANNER_FORM: BannerFormState = {
+   155→  message: "",
+   156→  link_url: "",
+   157→  link_label: "",
+   158→  style: "info",
+   159→  is_dismissible: true,
+   160→  target_paths: "",
+   161→  starts_at: "",
+   162→  ends_at: "",
+   163→  is_active: true,
+   164→};
+   165→
+   166→const DATE_FORMAT = new Intl.DateTimeFormat("fr-FR", {
+   167→  day: "2-digit",
+   168→  month: "short",
+   169→  year: "numeric",
+   170→});
+   171→
+   172→const DATETIME_FORMAT = new Intl.DateTimeFormat("fr-FR", {
+   173→  day: "2-digit",
+   174→  month: "short",
+   175→  year: "numeric",
+   176→  hour: "2-digit",
+   177→  minute: "2-digit",
+   178→});
+   179→
+   180→function formatDate(iso: string | null | undefined): string {
+   181→  if (!iso) return "—";
+   182→  const date = new Date(iso);
+   183→  return Number.isNaN(date.getTime()) ? "—" : DATE_FORMAT.format(date);
+   184→}
+   185→
+   186→function formatDateTime(iso: string | null | undefined): string {
+   187→  if (!iso) return "—";
+   188→  const date = new Date(iso);
+   189→  return Number.isNaN(date.getTime()) ? "—" : DATETIME_FORMAT.format(date);
+   190→}
+   191→
+   192→/** ISO → valeur datetime-local (heure locale du navigateur). */
+   193→function toDatetimeLocal(iso: string | null | undefined): string {
+   194→  if (!iso) return "";
+   195→  const date = new Date(iso);
+   196→  if (Number.isNaN(date.getTime())) return "";
+   197→  const pad = (n: number) => String(n).padStart(2, "0");
+   198→  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(
+   199→    date.getDate()
+   200→  )}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+   201→}
+   202→
+   203→/** datetime-local → ISO 8601 (UTC), ou null si vide/invalide. */
+   204→function fromDatetimeLocal(value: string): string | null {
+   205→  if (!value) return null;
+   206→  const date = new Date(value);
+   207→  return Number.isNaN(date.getTime()) ? null : date.toISOString();
+   208→}
+   209→
+   210→/** Normalise target_paths (chaîne JSON ou tableau) en liste de chemins. */
+   211→function parseTargetPaths(raw: string | string[]): string[] {
+   212→  let value: unknown = raw;
+   213→  if (typeof value === "string") {
+   214→    const trimmed = value.trim();
+   215→    if (!trimmed) return [];
+   216→    try {
+   217→      value = JSON.parse(trimmed) as unknown;
+   218→    } catch {
+   219→      return [];
+   220→    }
+   221→  }
+   222→  if (!Array.isArray(value)) return [];
+   223→  return value.filter(
+   224→    (entry): entry is string => typeof entry === "string" && entry.trim().length > 0
+   225→  );
+   226→}
+   227→
+   228→/** « /a, /b » → ["/a", "/b"]. */
+   229→function splitTargetPaths(raw: string): string[] {
+   230→  return raw
+   231→    .split(",")
+   232→    .map((part) => part.trim())
+   233→    .filter((part) => part.length > 0);
+   234→}
+   235→
+   236→function bannerPeriod(banner: BannerRow): string {
+   237→  if (!banner.starts_at && !banner.ends_at) return "Affichage permanent";
+   238→  if (banner.starts_at && banner.ends_at) {
+   239→    return `Du ${formatDateTime(banner.starts_at)} au ${formatDateTime(banner.ends_at)}`;
+   240→  }
+   241→  if (banner.starts_at) return `À partir du ${formatDateTime(banner.starts_at)}`;
+   242→  return `Jusqu'au ${formatDateTime(banner.ends_at)}`;
+   243→}
+   244→
+   245→function ListSkeleton() {
+   246→  return (
+   247→    <div className="space-y-0" aria-hidden>
+   248→      {[0, 1, 2, 3].map((i) => (
+   249→        <div
+   250→          key={i}
+   251→          className="flex items-center justify-between gap-4 border-b border-rule px-4 py-4"
+   252→        >
+   253→          <div className="min-w-0 flex-1 space-y-2">
+   254→            <Skeleton className="h-4 w-1/3 max-w-56" />
+   255→            <Skeleton className="h-3 w-1/4 max-w-40" />
+   256→          </div>
+   257→          <Skeleton className="h-5 w-20" />
+   258→          <Skeleton className="h-8 w-16" />
+   259→        </div>
+   260→      ))}
+   261→    </div>
+   262→  );
+   263→}
+   264→
+   265→function LoadErrorCard({ onRetry }: { onRetry: () => void }) {
+   266→  return (
+   267→    <div className="flex flex-col items-center gap-3 px-4 py-10 text-center">
+   268→      <p className="text-sm text-ink-soft">
+   269→        Chargement impossible. Vérifiez votre connexion puis réessayez.
+   270→      </p>
+   271→      <Button variant="outline" size="sm" onClick={onRetry}>
+   272→        <RotateCw className="mr-1.5 h-3.5 w-3.5" aria-hidden />
+   273→        Réessayer
+   274→      </Button>
+   275→    </div>
+   276→  );
+   277→}
+   278→
+   279→export function PagesClient() {
+   280→  const { toast } = useToast();
+   281→
+   282→  const [tab, setTab] = useState("pages");
+   283→
+   284→  // ── Pages ────────────────────────────────────────────────────────────────
+   285→  const [pages, setPages] = useState<PageRow[] | null>(null);
+   286→  const [pagesError, setPagesError] = useState(false);
+   287→  const [editor, setEditor] = useState<EditorState | null>(null);
+   288→  const [form, setForm] = useState<PageFormState>({
+   289→    title: "",
+   290→    slug: "",
+   291→    template: "default",
+   292→    is_published: false,
+   293→    blocks: [],
+   294→  });
+   295→  const [saving, setSaving] = useState(false);
+   296→  const [deleting, setDeleting] = useState<PageRow | null>(null);
+   297→  const [deleteBusy, setDeleteBusy] = useState(false);
+   298→
+   299→  // ── Bannières ────────────────────────────────────────────────────────────
+   300→  const [banners, setBanners] = useState<BannerRow[] | null>(null);
+   301→  const [bannersError, setBannersError] = useState(false);
+   302→  const bannersRequested = useRef(false);
+   303→  const [bannerDialogOpen, setBannerDialogOpen] = useState(false);
+   304→  const [bannerEditing, setBannerEditing] = useState<BannerRow | null>(null);
+   305→  const [bannerForm, setBannerForm] =
+   306→    useState<BannerFormState>(EMPTY_BANNER_FORM);
+   307→  const [bannerSaving, setBannerSaving] = useState(false);
+   308→  const [bannerDeleting, setBannerDeleting] = useState<BannerRow | null>(null);
+   309→  const [bannerDeleteBusy, setBannerDeleteBusy] = useState(false);
+   310→
+   311→  const loadPages = useCallback(async () => {
+   312→    setPagesError(false);
+   313→    try {
+   314→      const { data } = await apiFetch<PageRow[]>("/api/admin/pages");
+   315→      setPages(Array.isArray(data) ? data : []);
+   316→    } catch (error) {
+   317→      setPagesError(true);
+   318→      toast({
+   319→        title: "Chargement des pages impossible",
+   320→        description: errorMessage(error),
+   321→        variant: "destructive",
+   322→      });
+   323→    }
+   324→  }, [toast]);
+   325→
+   326→  const loadBanners = useCallback(async () => {
+   327→    setBannersError(false);
+   328→    try {
+   329→      const { data } = await apiFetch<BannerRow[]>(
+   330→        "/api/admin/banners?kind=banners"
+   331→      );
+   332→      setBanners(Array.isArray(data) ? data : []);
+   333→    } catch (error) {
+   334→      setBannersError(true);
+   335→      toast({
+   336→        title: "Chargement des bannières impossible",
+   337→        description: errorMessage(error),
+   338→        variant: "destructive",
+   339→      });
+   340→    }
+   341→  }, [toast]);
+   342→
+   343→  useEffect(() => {
+   344→    void loadPages();
+   345→  }, [loadPages]);
+   346→
+   347→  function handleTabChange(value: string) {
+   348→    setTab(value);
+   349→    if (value === "banners" && !bannersRequested.current) {
+   350→      bannersRequested.current = true;
+   351→      void loadBanners();
+   352→    }
+   353→  }
+   354→
+   355→  // ── Éditeur de page ──────────────────────────────────────────────────────
+   356→
+   357→  function openCreatePage() {
+   358→    setForm({
+   359→      title: "",
+   360→      slug: "",
+   361→      template: "default",
+   362→      is_published: false,
+   363→      blocks: [],
+   364→    });
+   365→    setEditor({ id: null, loading: false, originalSlug: null });
+   366→  }
+   367→
+   368→  async function openEditPage(id: string) {
+   369→    setForm({
+   370→      title: "",
+   371→      slug: "",
+   372→      template: "default",
+   373→      is_published: false,
+   374→      blocks: [],
+   375→    });
+   376→    setEditor({ id, loading: true, originalSlug: null });
+   377→    try {
+   378→      const { data } = await apiFetch<PageFull>(
+   379→        `/api/admin/pages?id=${encodeURIComponent(id)}`
+   380→      );
+   381→      setForm({
+   382→        title: data.title ?? "",
+   383→        slug: data.slug ?? "",
+   384→        template: data.template ?? "default",
+   385→        is_published: Boolean(data.is_published),
+   386→        // Le corps arrive en chaîne JSON → tableau de blocs typés.
+   387→        blocks: parseBlocks(data.body),
+   388→      });
+   389→      setEditor({ id, loading: false, originalSlug: data.slug ?? null });
+   390→    } catch (error) {
+   391→      setEditor(null);
+   392→      toast({
+   393→        title: "Chargement de la page impossible",
+   394→        description: errorMessage(error),
+   395→        variant: "destructive",
+   396→      });
+   397→    }
+   398→  }
+   399→
+   400→  async function savePage() {
+   401→    if (!editor) return;
+   402→    const title = form.title.trim();
+   403→    if (!title) {
+   404→      toast({
+   405→        title: "Le titre est obligatoire.",
+   406→        variant: "destructive",
+   407→      });
+   408→      return;
+   409→    }
+   410→    setSaving(true);
+   411→    try {
+   412→      const slug = form.slug.trim();
+   413→      await apiFetch("/api/admin/pages", {
+   414→        method: "POST",
+   415→        json: {
+   416→          ...(editor.id ? { id: editor.id } : {}),
+   417→          title,
+   418→          ...(slug ? { slug } : {}),
+   419→          body: form.blocks,
+   420→          template: form.template,
+   421→          is_published: form.is_published,
+   422→        },
+   423→      });
+   424→      toast({
+   425→        title: editor.id ? "Page enregistrée." : "Page créée.",
+   426→        description: editor.id
+   427→          ? form.slug.trim() !== editor.originalSlug
+   428→            ? "Une redirection 301 a été créée depuis l'ancienne adresse."
+   429→            : undefined
+   430→          : undefined,
+   431→      });
+   432→      setEditor(null);
+   433→      await loadPages();
+   434→    } catch (error) {
+   435→      toast({
+   436→        title: "Enregistrement impossible",
+   437→        description: errorMessage(error),
+   438→        variant: "destructive",
+   439→      });
+   440→    } finally {
+   441→      setSaving(false);
+   442→    }
+   443→  }
+   444→
+   445→  async function confirmDeletePage() {
+   446→    if (!deleting) return;
+   447→    setDeleteBusy(true);
+   448→    try {
+   449→      await apiFetch(`/api/admin/pages?id=${encodeURIComponent(deleting.id)}`, {
+   450→        method: "DELETE",
+   451→      });
+   452→      toast({ title: "Page supprimée." });
+   453→      setDeleting(null);
+   454→      await loadPages();
+   455→    } catch (error) {
+   456→      toast({
+   457→        title: "Suppression impossible",
+   458→        description: errorMessage(error),
+   459→        variant: "destructive",
+   460→      });
+   461→    } finally {
+   462→      setDeleteBusy(false);
+   463→    }
+   464→  }
+   465→
+   466→  const slugChanged =
+   467→    editor !== null &&
+   468→    editor.id !== null &&
+   469→    editor.originalSlug !== null &&
+   470→    form.slug.trim() !== editor.originalSlug;
+   471→
+   472→  // ── Bannières ────────────────────────────────────────────────────────────
+   473→
+   474→  function openCreateBanner() {
+   475→    setBannerEditing(null);
+   476→    setBannerForm(EMPTY_BANNER_FORM);
+   477→    setBannerDialogOpen(true);
+   478→  }
+   479→
+   480→  function openEditBanner(banner: BannerRow) {
+   481→    setBannerEditing(banner);
+   482→    setBannerForm({
+   483→      message: banner.message ?? "",
+   484→      link_url: banner.link_url ?? "",
+   485→      link_label: banner.link_label ?? "",
+   486→      style: banner.style ?? "info",
+   487→      is_dismissible: Boolean(banner.is_dismissible),
+   488→      target_paths: parseTargetPaths(banner.target_paths).join(", "),
+   489→      starts_at: toDatetimeLocal(banner.starts_at),
+   490→      ends_at: toDatetimeLocal(banner.ends_at),
+   491→      is_active: Boolean(banner.is_active),
+   492→    });
+   493→    setBannerDialogOpen(true);
+   494→  }
+   495→
+   496→  function closeBannerDialog() {
+   497→    setBannerDialogOpen(false);
+   498→    setBannerEditing(null);
+   499→    setBannerForm(EMPTY_BANNER_FORM);
+   500→  }
+   501→
+   502→  async function saveBanner() {
+   503→    const message = bannerForm.message.trim();
+   504→    if (!message) {
+   505→      toast({ title: "Le message est obligatoire.", variant: "destructive" });
+   506→      return;
+   507→    }
+   508→    setBannerSaving(true);
+   509→    try {
+   510→      await apiFetch("/api/admin/banners", {
+   511→        method: "POST",
+   512→        json: {
+   513→          kind: "banner",
+   514→          ...(bannerEditing ? { id: bannerEditing.id } : {}),
+   515→          message,
+   516→          link_url: bannerForm.link_url.trim() || null,
+   517→          link_label: bannerForm.link_label.trim() || null,
+   518→          style: bannerForm.style,
+   519→          is_dismissible: bannerForm.is_dismissible,
+   520→          target_paths: splitTargetPaths(bannerForm.target_paths),
+   521→          starts_at: fromDatetimeLocal(bannerForm.starts_at),
+   522→          ends_at: fromDatetimeLocal(bannerForm.ends_at),
+   523→          is_active: bannerForm.is_active,
+   524→        },
+   525→      });
+   526→      toast({
+   527→        title: bannerEditing ? "Bannière enregistrée." : "Bannière créée.",
+   528→      });
+   529→      closeBannerDialog();
+   530→      await loadBanners();
+   531→    } catch (error) {
+   532→      toast({
+   533→        title: "Enregistrement impossible",
+   534→        description: errorMessage(error),
+   535→        variant: "destructive",
+   536→      });
+   537→    } finally {
+   538→      setBannerSaving(false);
+   539→    }
+   540→  }
+   541→
+   542→  async function confirmDeleteBanner() {
+   543→    if (!bannerDeleting) return;
+   544→    setBannerDeleteBusy(true);
+   545→    try {
+   546→      await apiFetch(
+   547→        `/api/admin/banners?kind=banner&id=${encodeURIComponent(bannerDeleting.id)}`,
+   548→        { method: "DELETE" }
+   549→      );
+   550→      toast({ title: "Bannière supprimée." });
+   551→      setBannerDeleting(null);
+   552→      await loadBanners();
+   553→    } catch (error) {
+   554→      toast({
+   555→        title: "Suppression impossible",
+   556→        description: errorMessage(error),
+   557→        variant: "destructive",
+   558→      });
+   559→    } finally {
+   560→      setBannerDeleteBusy(false);
+   561→    }
+   562→  }
+   563→
+   564→  // ── Rendu ────────────────────────────────────────────────────────────────
+   565→
+   566→  return (
+   567→    <>
+   568→      <Tabs
+   569→        value={tab}
+   570→        onValueChange={handleTabChange}
+   571→        className="space-y-4"
+   572→      >
+   573→        <TabsList aria-label="Sections de l'écran">
+   574→          <TabsTrigger value="pages">Pages</TabsTrigger>
+   575→          <TabsTrigger value="banners">Bannières</TabsTrigger>
+   576→        </TabsList>
+   577→
+   578→        {/* ── Onglet Pages ─────────────────────────────────────────────── */}
+   579→        <TabsContent value="pages" className="space-y-4">
+   580→          {editor === null ? (
+   581→            <section
+   582→              aria-label="Liste des pages"
+   583→              className="border border-rule bg-paper"
+   584→            >
+   585→              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-rule px-4 py-3">
+   586→                <div>
+   587→                  <h2 className="font-serif text-lg font-semibold">
+   588→                    Pages statiques
+   589→                  </h2>
+   590→                  <p className="text-xs text-ink-faint">
+   591→                    {pages === null
+   592→                      ? "Chargement…"
+   593→                      : `${pages.length} page${pages.length > 1 ? "s" : ""}`}
+   594→                  </p>
+   595→                </div>
+   596→                <Button size="sm" onClick={openCreatePage}>
+   597→                  <Plus aria-hidden />
+   598→                  Nouvelle page
+   599→                </Button>
+   600→              </div>
+   601→
+   602→              {pages === null ? (
+   603→                pagesError ? (
+   604→                  <LoadErrorCard onRetry={() => void loadPages()} />
+   605→                ) : (
+   606→                  <ListSkeleton />
+   607→                )
+   608→              ) : pages.length === 0 ? (
+   609→                <div className="flex flex-col items-center gap-3 px-4 py-12 text-center">
+   610→                  <FileText className="h-8 w-8 text-ink-faint" aria-hidden />
+   611→                  <p className="text-sm text-ink-soft">
+   612→                    Aucune page pour le moment. Créez la première page du site
+   613→                    (à propos, contact, mentions légales…).
+   614→                  </p>
+   615→                  <Button size="sm" variant="outline" onClick={openCreatePage}>
+   616→                    <Plus className="mr-1.5 h-4 w-4" aria-hidden />
+   617→                    Nouvelle page
+   618→                  </Button>
+   619→                </div>
+   620→              ) : (
+   621→                <div className="max-h-[34rem] overflow-y-auto">
+   622→                  <ul className="divide-y divide-rule">
+   623→                    {pages.map((page) => (
+   624→                      <li
+   625→                        key={page.id}
+   626→                        className="flex flex-col gap-2 px-4 py-3 transition-colors hover:bg-paper-alt sm:flex-row sm:items-center sm:gap-4"
+   627→                      >
+   628→                        <div className="min-w-0 flex-1">
+   629→                          <p className="truncate text-sm font-medium">
+   630→                            {page.title}
+   631→                          </p>
+   632→                          <p className="truncate font-mono text-xs text-ink-faint">
+   633→                            /{page.slug}
+   634→                          </p>
+   635→                        </div>
+   636→                        <div className="flex flex-wrap items-center gap-2">
+   637→                          <Badge variant="outline" className="font-normal">
+   638→                            {TEMPLATE_LABELS[page.template] ?? page.template}
+   639→                          </Badge>
+   640→                          {page.is_published ? (
+   641→                            <Badge className="border-success/30 bg-success/10 text-success">
+   642→                              Publiée
+   643→                            </Badge>
+   644→                          ) : (
+   645→                            <Badge
+   646→                              variant="outline"
+   647→                              className="text-ink-faint"
+   648→                            >
+   649→                              Brouillon
+   650→                            </Badge>
+   651→                          )}
+   652→                          <span className="hidden text-xs text-ink-faint lg:inline">
+   653→                            maj {formatDate(page.updated_at)}
+   654→                          </span>
+   655→                        </div>
+   656→                        <div className="flex items-center gap-1">
+   657→                          <Button
+   658→                            variant="ghost"
+   659→                            size="icon"
+   660→                            onClick={() => void openEditPage(page.id)}
+   661→                            aria-label={`Modifier la page ${page.title}`}
+   662→                          >
+   663→                            <Pencil aria-hidden />
+   664→                          </Button>
+   665→                          <Button
+   666→                            variant="ghost"
+   667→                            size="icon"
+   668→                            className="text-danger hover:bg-red-wash hover:text-danger"
+   669→                            onClick={() => setDeleting(page)}
+   670→                            aria-label={`Supprimer la page ${page.title}`}
+   671→                          >
+   672→                            <Trash2 aria-hidden />
+   673→                          </Button>
+   674→                        </div>
+   675→                      </li>
+   676→                    ))}
+   677→                  </ul>
+   678→                </div>
+   679→              )}
+   680→            </section>
+   681→          ) : (
+   682→            <section
+   683→              aria-label="Éditeur de page"
+   684→              className="border border-rule bg-paper"
+   685→            >
+   686→              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-rule px-4 py-3">
+   687→                <div className="flex items-center gap-2">
+   688→                  <Button
+   689→                    variant="ghost"
+   690→                    size="sm"
+   691→                    onClick={() => setEditor(null)}
+   692→                    disabled={saving}
+   693→                    aria-label="Retour à la liste des pages"
+   694→                  >
+   695→                    <ArrowLeft aria-hidden />
+   696→                    <span className="hidden sm:inline">Retour</span>
+   697→                  </Button>
+   698→                  <h2 className="font-serif text-lg font-semibold">
+   699→                    {editor.id ? "Modifier la page" : "Nouvelle page"}
+   700→                  </h2>
+   701→                  {editor.loading ? (
+   702→                    <Loader2
+   703→                      className="h-4 w-4 animate-spin text-ink-faint"
+   704→                      aria-hidden
+   705→                    />
+   706→                  ) : null}
+   707→                </div>
+   708→                <div className="flex items-center gap-2">
+   709→                  <Label
+   710→                    htmlFor="page-published"
+   711→                    className="text-xs text-ink-soft"
+   712→                  >
+   713→                    Publiée
+   714→                  </Label>
+   715→                  <Switch
+   716→                    id="page-published"
+   717→                    checked={form.is_published}
+   718→                    onCheckedChange={(checked) =>
+   719→                      setForm((f) => ({ ...f, is_published: checked }))
+   720→                    }
+   721→                  />
+   722→                </div>
+   723→              </div>
+   724→
+   725→              {editor.loading ? (
+   726→                <div className="space-y-4 p-4 lg:p-6" aria-hidden>
+   727→                  <Skeleton className="h-10 w-full" />
+   728→                  <Skeleton className="h-10 w-2/3" />
+   729→                  <Skeleton className="h-64 w-full" />
+   730→                </div>
+   731→              ) : (
+   732→                <div className="space-y-5 p-4 lg:p-6">
+   733→                  <div className="grid gap-4 md:grid-cols-2">
+   734→                    <div className="space-y-1.5">
+   735→                      <Label htmlFor="page-title">
+   736→                        Titre <span className="text-brand-red">*</span>
+   737→                      </Label>
+   738→                      <Input
+   739→                        id="page-title"
+   740→                        value={form.title}
+   741→                        onChange={(e) =>
+   742→                          setForm((f) => ({ ...f, title: e.target.value }))
+   743→                        }
+   744→                        placeholder="Ex. : À propos d'INFOSPRO"
+   745→                        required
+   746→                      />
+   747→                    </div>
+   748→                    <div className="space-y-1.5">
+   749→                      <Label htmlFor="page-template">Modèle</Label>
+   750→                      <Select
+   751→                        value={form.template}
+   752→                        onValueChange={(value) =>
+   753→                          setForm((f) => ({ ...f, template: value }))
+   754→                        }
+   755→                      >
+   756→                        <SelectTrigger
+   757→                          id="page-template"
+   758→                          aria-label="Modèle de page"
+   759→                        >
+   760→                          <SelectValue />
+   761→                        </SelectTrigger>
+   762→                        <SelectContent>
+   763→                          {TEMPLATES.map((template) => (
+   764→                            <SelectItem
+   765→                              key={template.value}
+   766→                              value={template.value}
+   767→                            >
+   768→                              {template.label}
+   769→                            </SelectItem>
+   770→                          ))}
+   771→                        </SelectContent>
+   772→                      </Select>
+   773→                    </div>
+   774→                    <div className="space-y-1.5 md:col-span-2">
+   775→                      <Label htmlFor="page-slug">Slug (adresse)</Label>
+   776→                      <Input
+   777→                        id="page-slug"
+   778→                        value={form.slug}
+   779→                        onChange={(e) =>
+   780→                          setForm((f) => ({ ...f, slug: e.target.value }))
+   781→                        }
+   782→                        placeholder="a-propos"
+   783→                        className="font-mono"
+   784→                      />
+   785→                      {slugChanged ? (
+   786→                        <p className="text-xs text-warning" role="status">
+   787→                          La modification du slug créera automatiquement une
+   788→                          redirection 301 depuis l&apos;ancienne adresse.
+   789→                        </p>
+   790→                      ) : (
+   791→                        <p className="text-xs text-ink-faint">
+   792→                          Laissez vide pour générer l&apos;adresse depuis le
+   793→                          titre.
+   794→                        </p>
+   795→                      )}
+   796→                    </div>
+   797→                  </div>
+   798→
+   799→                  <div className="space-y-1.5">
+   800→                    <Label>Contenu de la page</Label>
+   801→                    <BlockEditor
+   802→                      blocks={form.blocks}
+   803→                      onChange={(blocks) =>
+   804→                        setForm((f) => ({ ...f, blocks }))
+   805→                      }
+   806→                    />
+   807→                  </div>
+   808→
+   809→                  <div className="flex items-center justify-end gap-2 border-t border-rule pt-4">
+   810→                    <Button
+   811→                      variant="outline"
+   812→                      onClick={() => setEditor(null)}
+   813→                      disabled={saving}
+   814→                    >
+   815→                      Annuler
+   816→                    </Button>
+   817→                    <Button
+   818→                      onClick={() => void savePage()}
+   819→                      disabled={saving || form.title.trim().length === 0}
+   820→                    >
+   821→                      {saving ? (
+   822→                        <Loader2 className="animate-spin" aria-hidden />
+   823→                      ) : (
+   824→                        <Save aria-hidden />
+   825→                      )}
+   826→                      {editor.id ? "Enregistrer" : "Créer la page"}
+   827→                    </Button>
+   828→                  </div>
+   829→                </div>
+   830→              )}
+   831→            </section>
+   832→          )}
+   833→        </TabsContent>
+   834→
+   835→        {/* ── Onglet Bannières ─────────────────────────────────────────── */}
+   836→        <TabsContent value="banners" className="space-y-4">
+   837→          <section
+   838→            aria-label="Liste des bannières"
+   839→            className="border border-rule bg-paper"
+   840→          >
+   841→            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-rule px-4 py-3">
+   842→              <div>
+   843→                <h2 className="font-serif text-lg font-semibold">
+   844→                  Bannières du site
+   845→                </h2>
+   846→                <p className="text-xs text-ink-faint">
+   847→                  Bandeaux affichés en tête du site public.
+   848→                </p>
+   849→              </div>
+   850→              <Button size="sm" onClick={openCreateBanner}>
+   851→                <Plus aria-hidden />
+   852→                Nouvelle bannière
+   853→              </Button>
+   854→            </div>
+   855→
+   856→            {banners === null ? (
+   857→              bannersError ? (
+   858→                <LoadErrorCard onRetry={() => void loadBanners()} />
+   859→              ) : (
+   860→                <ListSkeleton />
+   861→              )
+   862→            ) : banners.length === 0 ? (
+   863→              <div className="flex flex-col items-center gap-3 px-4 py-12 text-center">
+   864→                <Megaphone className="h-8 w-8 text-ink-faint" aria-hidden />
+   865→                <p className="text-sm text-ink-soft">
+   866→                  Aucune bannière. Créez un bandeau d&apos;alerte,
+   867→                  d&apos;information ou promotionnel.
+   868→                </p>
+   869→                <Button
+   870→                  size="sm"
+   871→                  variant="outline"
+   872→                  onClick={openCreateBanner}
+   873→                >
+   874→                  <Plus className="mr-1.5 h-4 w-4" aria-hidden />
+   875→                  Nouvelle bannière
+   876→                </Button>
+   877→              </div>
+   878→            ) : (
+   879→              <div className="max-h-[34rem] overflow-y-auto">
+   880→                <ul className="divide-y divide-rule">
+   881→                  {banners.map((banner) => {
+   882→                    const paths = parseTargetPaths(banner.target_paths);
+   883→                    return (
+   884→                      <li
+   885→                        key={banner.id}
+   886→                        className="flex flex-col gap-2 px-4 py-3 transition-colors hover:bg-paper-alt sm:flex-row sm:items-center sm:gap-4"
+   887→                      >
+   888→                        <div className="min-w-0 flex-1">
+   889→                          <p className="truncate text-sm font-medium">
+   890→                            {banner.message}
+   891→                          </p>
+   892→                          <p className="truncate text-xs text-ink-faint">
+   893→                            {bannerPeriod(banner)}
+   894→                            {paths.length > 0
+   895→                              ? ` · ${paths.length} chemin${paths.length > 1 ? "s" : ""} ciblé${paths.length > 1 ? "s" : ""}`
+   896→                              : " · tout le site"}
+   897→                            {banner.link_url
+   898→                              ? ` · lien : ${banner.link_label || banner.link_url}`
+   899→                              : ""}
+   900→                          </p>
+   901→                        </div>
+   902→                        <div className="flex flex-wrap items-center gap-2">
+   903→                          <Badge
+   904→                            className={
+   905→                              BANNER_STYLE_BADGES[banner.style] ??
+   906→                              BANNER_STYLE_BADGES.info
+   907→                            }
+   908→                          >
+   909→                            {banner.style === "alert"
+   910→                              ? "Alerte"
+   911→                              : banner.style === "promo"
+   912→                                ? "Promo"
+   913→                                : "Info"}
+   914→                          </Badge>
+   915→                          {banner.is_active ? (
+   916→                            <Badge className="border-success/30 bg-success/10 text-success">
+   917→                              Active
+   918→                            </Badge>
+   919→                          ) : (
+   920→                            <Badge
+   921→                              variant="outline"
+   922→                              className="text-ink-faint"
+   923→                            >
+   924→                              <EyeOff
+   925→                                className="mr-1 h-3 w-3"
+   926→                                aria-hidden
+   927→                              />
+   928→                              Inactive
+   929→                            </Badge>
+   930→                          )}
+   931→                        </div>
+   932→                        <div className="flex items-center gap-1">
+   933→                          <Button
+   934→                            variant="ghost"
+   935→                            size="icon"
+   936→                            onClick={() => openEditBanner(banner)}
+   937→                            aria-label={`Modifier la bannière : ${banner.message}`}
+   938→                          >
+   939→                            <Pencil aria-hidden />
+   940→                          </Button>
+   941→                          <Button
+   942→                            variant="ghost"
+   943→                            size="icon"
+   944→                            className="text-danger hover:bg-red-wash hover:text-danger"
+   945→                            onClick={() => setBannerDeleting(banner)}
+   946→                            aria-label={`Supprimer la bannière : ${banner.message}`}
+   947→                          >
+   948→                            <Trash2 aria-hidden />
+   949→                          </Button>
+   950→                        </div>
+   951→                      </li>
+   952→                    );
+   953→                  })}
+   954→                </ul>
+   955→              </div>
+   956→            )}
+   957→          </section>
+   958→        </TabsContent>
+   959→      </Tabs>
+   960→
+   961→      {/* ── Dialogue bannière (création / édition) ─────────────────────── */}
+   962→      <Dialog
+   963→        open={bannerDialogOpen}
+   964→        onOpenChange={(open) => {
+   965→          if (!open) closeBannerDialog();
+   966→        }}
+   967→      >
+   968→        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-lg">
+   969→          <DialogHeader>
+   970→            <DialogTitle>
+   971→              {bannerEditing ? "Modifier la bannière" : "Nouvelle bannière"}
+   972→            </DialogTitle>
+   973→            <DialogDescription>
+   974→              Bandeau affiché en tête du site public. Le style « alerte »
+   975→              utilise le rouge de marque.
+   976→            </DialogDescription>
+   977→          </DialogHeader>
+   978→
+   979→          <div className="grid gap-4 py-2">
+   980→            <div className="space-y-1.5">
+   981→              <Label htmlFor="banner-message">
+   982→                Message <span className="text-brand-red">*</span>
+   983→              </Label>
+   984→              <Textarea
+   985→                id="banner-message"
+   986→                rows={2}
+   987→                value={bannerForm.message}
+   988→                onChange={(e) =>
+   989→                  setBannerForm((f) => ({ ...f, message: e.target.value }))
+   990→                }
+   991→                placeholder="Ex. : Nos rédactions seront fermées du 24 au 26 décembre."
+   992→                required
+   993→              />
+   994→            </div>
+   995→
+   996→            <div className="grid gap-4 sm:grid-cols-2">
+   997→              <div className="space-y-1.5">
+   998→                <Label htmlFor="banner-link-url">Lien (URL)</Label>
+   999→                <Input
+  1000→                  id="banner-link-url"
+  1001→                  value={bannerForm.link_url}
+  1002→                  onChange={(e) =>
+  1003→                    setBannerForm((f) => ({ ...f, link_url: e.target.value }))
+  1004→                  }
+  1005→                  placeholder="/special/abonnement"
+  1006→                  className="font-mono"
+  1007→                />
+  1008→              </div>
+  1009→              <div className="space-y-1.5">
+  1010→                <Label htmlFor="banner-link-label">Libellé du lien</Label>
+  1011→                <Input
+  1012→                  id="banner-link-label"
+  1013→                  value={bannerForm.link_label}
+  1014→                  onChange={(e) =>
+  1015→                    setBannerForm((f) => ({
+  1016→                      ...f,
+  1017→                      link_label: e.target.value,
+  1018→                    }))
+  1019→                  }
+  1020→                  placeholder="En savoir plus"
+  1021→                />
+  1022→              </div>
+  1023→            </div>
+  1024→
+  1025→            <div className="space-y-1.5">
+  1026→              <Label htmlFor="banner-style">Style</Label>
+  1027→              <Select
+  1028→                value={bannerForm.style}
+  1029→                onValueChange={(value) =>
+  1030→                  setBannerForm((f) => ({ ...f, style: value }))
+  1031→                }
+  1032→              >
+  1033→                <SelectTrigger id="banner-style" aria-label="Style de bannière">
+  1034→                  <SelectValue />
+  1035→                </SelectTrigger>
+  1036→                <SelectContent>
+  1037→                  {BANNER_STYLES.map((style) => (
+  1038→                    <SelectItem key={style.value} value={style.value}>
+  1039→                      {style.label}
+  1040→                    </SelectItem>
+  1041→                  ))}
+  1042→                </SelectContent>
+  1043→              </Select>
+  1044→            </div>
+  1045→
+  1046→            <div className="space-y-1.5">
+  1047→              <Label htmlFor="banner-paths">Chemins ciblés</Label>
+  1048→              <Input
+  1049→                id="banner-paths"
+  1050→                value={bannerForm.target_paths}
+  1051→                onChange={(e) =>
+  1052→                  setBannerForm((f) => ({
+  1053→                    ...f,
+  1054→                    target_paths: e.target.value,
+  1055→                  }))
+  1056→                }
+  1057→                placeholder="/, /politique, /economie"
+  1058→                className="font-mono"
+  1059→              />
+  1060→              <p className="text-xs text-ink-faint">
+  1061→                Chemins où afficher la bannière, séparés par des virgules.
+  1062→                Vide = tout le site.
+  1063→              </p>
+  1064→            </div>
+  1065→
+  1066→            <div className="grid gap-4 sm:grid-cols-2">
+  1067→              <div className="space-y-1.5">
+  1068→                <Label htmlFor="banner-starts">Début d&apos;affichage</Label>
+  1069→                <Input
+  1070→                  id="banner-starts"
+  1071→                  type="datetime-local"
+  1072→                  value={bannerForm.starts_at}
+  1073→                  onChange={(e) =>
+  1074→                    setBannerForm((f) => ({
+  1075→                      ...f,
+  1076→                      starts_at: e.target.value,
+  1077→                    }))
+  1078→                  }
+  1079→                />
+  1080→              </div>
+  1081→              <div className="space-y-1.5">
+  1082→                <Label htmlFor="banner-ends">Fin d&apos;affichage</Label>
+  1083→                <Input
+  1084→                  id="banner-ends"
+  1085→                  type="datetime-local"
+  1086→                  value={bannerForm.ends_at}
+  1087→                  onChange={(e) =>
+  1088→                    setBannerForm((f) => ({ ...f, ends_at: e.target.value }))
+  1089→                  }
+  1090→                />
+  1091→              </div>
+  1092→              <p className="text-xs text-ink-faint sm:col-span-2">
+  1093→                Fenêtre d&apos;affichage facultative. Vide = affichage
+  1094→                permanent.
+  1095→              </p>
+  1096→            </div>
+  1097→
+  1098→            <div className="grid gap-3 sm:grid-cols-2">
+  1099→              <div className="flex items-center justify-between rounded-md border border-rule p-3">
+  1100→                <Label
+  1101→                  htmlFor="banner-dismissible"
+  1102→                  className="text-sm font-normal"
+  1103→                >
+  1104→                  Refermable par le lecteur
+  1105→                </Label>
+  1106→                <Switch
+  1107→                  id="banner-dismissible"
+  1108→                  checked={bannerForm.is_dismissible}
+  1109→                  onCheckedChange={(checked) =>
+  1110→                    setBannerForm((f) => ({ ...f, is_dismissible: checked }))
+  1111→                  }
+  1112→                />
+  1113→              </div>
+  1114→              <div className="flex items-center justify-between rounded-md border border-rule p-3">
+  1115→                <Label htmlFor="banner-active" className="text-sm font-normal">
+  1116→                  Active
+  1117→                </Label>
+  1118→                <Switch
+  1119→                  id="banner-active"
+  1120→                  checked={bannerForm.is_active}
+  1121→                  onCheckedChange={(checked) =>
+  1122→                    setBannerForm((f) => ({ ...f, is_active: checked }))
+  1123→                  }
+  1124→                />
+  1125→              </div>
+  1126→            </div>
+  1127→          </div>
+  1128→
+  1129→          <DialogFooter>
+  1130→            <Button
+  1131→              variant="outline"
+  1132→              onClick={closeBannerDialog}
+  1133→              disabled={bannerSaving}
+  1134→            >
+  1135→              Annuler
+  1136→            </Button>
+  1137→            <Button
+  1138→              onClick={() => void saveBanner()}
+  1139→              disabled={bannerSaving || bannerForm.message.trim().length === 0}
+  1140→            >
+  1141→              {bannerSaving ? (
+  1142→                <Loader2 className="animate-spin" aria-hidden />
+  1143→              ) : null}
+  1144→              {bannerEditing ? "Enregistrer" : "Créer la bannière"}
+  1145→            </Button>
+  1146→          </DialogFooter>
+  1147→        </DialogContent>
+  1148→      </Dialog>
+  1149→
+  1150→      {/* ── Confirmation de suppression (page) ────────────────────────── */}
+  1151→      <AlertDialog
+  1152→        open={deleting !== null}
+  1153→        onOpenChange={(open) => {
+  1154→          if (!open) setDeleting(null);
+  1155→        }}
+  1156→      >
+  1157→        <AlertDialogContent>
+  1158→          <AlertDialogHeader>
+  1159→            <AlertDialogTitle>Supprimer cette page ?</AlertDialogTitle>
+  1160→            <AlertDialogDescription>
+  1161→              La page « {deleting?.title} » sera définitivement supprimée, y
+  1162→              compris son contenu. Cette action est irréversible.
+  1163→            </AlertDialogDescription>
+  1164→          </AlertDialogHeader>
+  1165→          <AlertDialogFooter>
+  1166→            <AlertDialogCancel disabled={deleteBusy}>Annuler</AlertDialogCancel>
+  1167→            <AlertDialogAction
+  1168→              className="bg-danger text-white hover:bg-danger/90"
+  1169→              disabled={deleteBusy}
+  1170→              onClick={(e) => {
+  1171→                e.preventDefault();
+  1172→                void confirmDeletePage();
+  1173→              }}
+  1174→            >
+  1175→              {deleteBusy ? (
+  1176→                <Loader2 className="animate-spin" aria-hidden />
+  1177→              ) : null}
+  1178→              Supprimer
+  1179→            </AlertDialogAction>
+  1180→          </AlertDialogFooter>
+  1181→        </AlertDialogContent>
+  1182→      </AlertDialog>
+  1183→
+  1184→      {/* ── Confirmation de suppression (bannière) ────────────────────── */}
+  1185→      <AlertDialog
+  1186→        open={bannerDeleting !== null}
+  1187→        onOpenChange={(open) => {
+  1188→          if (!open) setBannerDeleting(null);
+  1189→        }}
+  1190→      >
+  1191→        <AlertDialogContent>
+  1192→          <AlertDialogHeader>
+  1193→            <AlertDialogTitle>Supprimer cette bannière ?</AlertDialogTitle>
+  1194→            <AlertDialogDescription>
+  1195→              Le bandeau « {bannerDeleting?.message} » ne sera plus affiché
+  1196→              sur le site. Cette action est irréversible.
+  1197→            </AlertDialogDescription>
+  1198→          </AlertDialogHeader>
+  1199→          <AlertDialogFooter>
+  1200→            <AlertDialogCancel disabled={bannerDeleteBusy}>
+  1201→              Annuler
+  1202→            </AlertDialogCancel>
+  1203→            <AlertDialogAction
+  1204→              className="bg-danger text-white hover:bg-danger/90"
+  1205→              disabled={bannerDeleteBusy}
+  1206→              onClick={(e) => {
+  1207→                e.preventDefault();
+  1208→                void confirmDeleteBanner();
+  1209→              }}
+  1210→            >
+  1211→              {bannerDeleteBusy ? (
+  1212→                <Loader2 className="animate-spin" aria-hidden />
+  1213→              ) : null}
+  1214→              Supprimer
+  1215→            </AlertDialogAction>
+  1216→          </AlertDialogFooter>
+  1217→        </AlertDialogContent>
+  1218→      </AlertDialog>
+  1219→    </>
+  1220→  );
+  1221→}
+  1222→

@@ -218,6 +218,8 @@ model User {
   auditEntries    AuditLog[]
   campaignsCreate AdCampaign[]
   emailCreated    EmailCampaign[]
+  notifications   Notification[]
+  preferences     UserPreference[]
 
   @@index([slug], map: "idx_users_slug")
   @@map("users")
@@ -934,6 +936,36 @@ model Redirect {
   created_at  DateTime @default(now()) @map("created_at")
 
   @@map("redirects")
+}
+
+// Tables additives (DECISIONS.md D-13) — hors §06.2, aucun nom contractuel modifié.
+
+// Notifications in-app du workflow éditorial (§11.2 « transitions et notifications »)
+model Notification {
+  id         String   @id @default(uuid(7))
+  user_id    String   @map("user_id")
+  type       String // workflow.submit | workflow.publish | workflow.return | workflow.schedule | workflow.changes_requested
+  payload    String   @default("{}") // jsonb adapté {article_id, title, from, to, actor}
+  is_read    Boolean  @default(false) @map("is_read")
+  created_at DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@index([user_id, is_read, created_at(sort: Desc)], map: "idx_notifications_user")
+  @@map("notifications")
+}
+
+// Préférences par utilisateur (vues enregistrées §11.2, widgets réorganisables)
+model UserPreference {
+  user_id    String   @map("user_id")
+  key        String // articles.saved_views, dashboard.widgets, editor.panel…
+  value      String   @default("{}") // jsonb adapté
+  updated_at DateTime @default(now()) @updatedAt @map("updated_at")
+
+  user User @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@id([user_id, key])
+  @@map("user_preferences")
 }
 
 model NotFoundLog {

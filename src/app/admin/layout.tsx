@@ -42,9 +42,12 @@ export default async function AdminLayout({
   }).map((item) => ({
     ...item,
     label: translate(item.labelKey),
-    enabled: item.phase === 1, // les modules des phases suivantes arrivent avec leur phase
+    // Les livrées Phase 1 (socle) et Phase 2 (back-office éditorial) sont
+    // actives — filtrées par permissions réelles ; les phases suivantes
+    // apparaissent désactivées (état réel, pas de façade).
+    enabled: item.phase <= 2,
     phaseLabel:
-      item.phase === 1
+      item.phase <= 2
         ? null
         : translate("admin.nav.phaseBadge", { phase: item.phase }),
   }));

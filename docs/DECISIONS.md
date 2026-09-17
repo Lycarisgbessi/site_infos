@@ -183,3 +183,50 @@ donc `Int @default(autoincrement())` (SQLite stocke du 64 bits nativement ; aucu
 risque de dépassement dans la pratique dev). En production PostgreSQL, le schéma
 restaure `BigInt @default(autoincrement())` (= `bigserial`, contractuel §06.2).
 Consigné dans chaque modèle et dans DATA-DICTIONARY.md.
+
+---
+
+## D-13 — Règle « journaliste peut publier » : le réglage ACCORDE la permission
+
+**Date :** 2026-09-17 · **Phase :** 2 · **Statut :** actif
+
+Le §08.2 liste les permissions du journaliste sans `article.publish`, qui est
+« paramétrable via `settings.editorial.journalist_can_publish` ». La première
+implémentation exigeait que la permission figure déjà dans la matrice avant
+d'appliquer le réglage : le réglage était donc sans effet (403 permanent).
+
+**Décision :** `getEffectivePermissions()` ajoute `article.publish` au journaliste
+quand le réglage vaut `true` ; `hasPermission()` court-circuite alors la
+restriction par rubrique (le réglage est global, contrairement à
+`user_roles.category_ids`). Réglage à `false` → la permission n'existe pas →
+403 « Publication réservée… ». Vérifié dans les deux sens (200 / 403).
+
+## D-14 — Renommage A→B→A : garde anti-boucle des redirections automatiques
+
+**Date :** 2026-09-17 · **Phase :** 2 · **Statut :** actif
+
+Renommer une rubrique `A→B` crée `A→301→B` ; renommer ensuite `B→A` provoquait,
+via l'anti-chaîne, une redirection auto-bouclante `A→A` (boucle 301 infinie).
+
+**Décision :** avant chaque upsert de redirection de renommage (rubriques,
+tags, dossiers, zones géo, pages, slug d'article publié), la redirection
+réciproque éventuelle (`newPath→oldPath`) est supprimée ; si `oldPath ===
+newPath` (retour au slug d'origine), la ligne est purgée. Vérifié par
+aller-retour réel (`/tech → /technologies-numeriques → /tech`).
+
+## D-15 — Import Word/Google Docs : conversion serveur unique
+
+**Date :** 2026-09-17 · **Phase :** 2 · **Statut :** actif
+
+Le collage riche (`text/html` du presse-papiers, déclenché sur les marqueurs
+Word/Docs) et l'import de fichier `.docx` (mammoth) convergent vers le même
+convertisseur serveur `lib/import/html-to-blocks.ts` (HTML → blocs §06.4,
+aucun HTML brut en base). Choix :
+- images embarquées (`data:`) téléversées en médiathèque (variantes + EXIF
+  retirés), avec `alt` provisoire « À compléter » — le contrôle bloquant de
+  publication force ensuite sa saisie réelle ;
+- images à URL externe **jamais récupérées** côté serveur (SSRF, §17.1) :
+  paragraphe marqueur + avertissement ;
+- `H1` rabattu en `H2` ; listes imbriquées aplaties (`—`) ; entités HTML
+  décodées ;
+- les blocs importés sont ajoutés en fin de corps (réordonnçables ensuite).

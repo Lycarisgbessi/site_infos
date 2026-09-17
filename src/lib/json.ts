@@ -18,6 +18,18 @@ export function parseJsonArray(value: string | null | undefined): string[] {
   }
 }
 
+/**
+ * Variante pour les colonnes « restriction par rubrique »
+ * (`user_roles.category_ids`) : null = rôle global (aucune restriction),
+ * alors qu'un tableau vide signifierait « restreint à rien ».
+ */
+export function parseJsonArrayOrNull(
+  value: string | null | undefined
+): string[] | null {
+  if (value === null || value === undefined) return null;
+  return parseJsonArray(value);
+}
+
 export function parseJsonArrayObjects<T>(
   value: string | null | undefined,
   guard: (item: unknown) => item is T
