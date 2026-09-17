@@ -1,8 +1,13 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+// ═══════════════════════════════════════════════════════════════════════
+// INFOSPRO.NET — Schéma de données (spécification §06, contractuel)
+//
+// Noms de tables/colonnes : identiques au DDL normatif (§06.2, §06.3) via
+// les directives @map/@@map. Adaptations SQLite documentées dans
+// docs/DECISIONS.md (D-01) : jsonb→String(JSON), text[]→String(JSON),
+// citext→String(minuscules), numeric→Float, bigserial→Int autoincrement,
+// tsvector→String (inutilisé en dev, alimenté par trigger en production).
+// UUID v7 générés côté application (D-05).
+// ═══════════════════════════════════════════════════════════════════════
 
 generator client {
   provider = "prisma-client-js"
@@ -13,20 +18,1403 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  name      String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+// ═══════════════════════════════════════════════════════════════════
+// ÉNUMÉRATIONS (§06.2 — noms et valeurs contractuels)
+// ═══════════════════════════════════════════════════════════════════
+
+enum article_status {
+  draft
+  in_review
+  changes_requested
+  approved
+  scheduled
+  published
+  updated
+  archived
+  unpublished
+
+  @@map("article_status")
 }
 
-model Post {
-  id        String   @id @default(cuid())
-  title     String
-  content   String?
-  published Boolean  @default(false)
-  authorId  String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+enum article_format {
+  brief
+  standard
+  analysis
+  investigation
+  interview
+  opinion
+  portrait
+  live
+  video
+  infographic
+  factcheck
+  press_review
+  longform
+
+  @@map("article_format")
+}
+
+enum article_visibility {
+  public
+  unlisted
+  restricted
+
+  @@map("article_visibility")
+}
+
+enum media_type {
+  image
+  video
+  audio
+  document
+
+  @@map("media_type")
+}
+
+enum geo_type {
+  continent
+  country
+  region
+  city
+
+  @@map("geo_type")
+}
+
+enum entity_type {
+  person
+  organization
+  place
+
+  @@map("entity_type")
+}
+
+enum user_status {
+  active
+  invited
+  suspended
+  disabled
+
+  @@map("user_status")
+}
+
+enum comment_status {
+  pending
+  approved
+  rejected
+  spam
+
+  @@map("comment_status")
+}
+
+enum campaign_status {
+  draft
+  scheduled
+  running
+  paused
+  completed
+  cancelled
+
+  @@map("campaign_status")
+}
+
+enum creative_type {
+  image
+  html5
+  video
+  native
+  third_party_script
+
+  @@map("creative_type")
+}
+
+enum subscriber_status {
+  pending
+  confirmed
+  unsubscribed
+  bounced
+  complained
+
+  @@map("subscriber_status")
+}
+
+enum email_campaign_status {
+  draft
+  scheduled
+  sending
+  sent
+  failed
+  cancelled
+
+  @@map("email_campaign_status")
+}
+
+enum keyword_trend {
+  spiking
+  rising
+  stable
+  declining
+  seasonal
+
+  @@map("keyword_trend")
+}
+
+enum live_status {
+  upcoming
+  live
+  ended
+
+  @@map("live_status")
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// UTILISATEURS, RÔLES, PERMISSIONS, SESSIONS (§06.2)
+// ═══════════════════════════════════════════════════════════════════
+
+model User {
+  id                 String      @id @default(uuid(7))
+  email              String      @unique // citext adapté : normalisé en minuscules côté application
+  password_hash      String?     @map("password_hash")
+  display_name       String      @map("display_name")
+  slug               String      @unique
+  job_title          String?     @map("job_title")
+  bio                String?
+  avatar_media_id    String?     @map("avatar_media_id")
+  socials            String      @default("[]") // jsonb adapté [{platform,url}]
+  expertise          String      @default("[]") // text[] adapté
+  phone              String?
+  locale             String      @default("fr")
+  status             user_status @default(invited)
+  two_factor_secret  String?     @map("two_factor_secret")
+  two_factor_enabled Boolean     @default(false) @map("two_factor_enabled")
+  failed_attempts    Int         @default(0) @map("failed_attempts")
+  locked_until       DateTime?   @map("locked_until")
+  last_login_at      DateTime?   @map("last_login_at")
+  is_author_public   Boolean     @default(true) @map("is_author_public")
+  created_at         DateTime    @default(now()) @map("created_at")
+  updated_at         DateTime    @default(now()) @updatedAt @map("updated_at")
+  deleted_at         DateTime?   @map("deleted_at")
+
+  avatarMedia     Media?           @relation("UserAvatarMedia", fields: [avatar_media_id], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  userRoles       UserRole[]
+  sessions        Session[]
+  backupCodes     UserBackupCode[]
+  rolesGranted    UserRole[]       @relation("RoleGrantedBy")
+  mediaUploaded   Media[]          @relation("MediaUploadedBy")
+  articlesCreated Article[]        @relation("ArticleCreatedBy")
+  articlesPublish Article[]        @relation("ArticlePublishedBy")
+  articleAuthors  ArticleAuthor[]
+  articleVersions ArticleVersion[]
+  reviewComments  ReviewComment[]
+  locks           ArticleLock[]
+  featuredCreated FeaturedSlot[]
+  flashCreated    FlashNews[]
+  liveEntries     LiveEntry[]
+  blocksUpdated   HomepageBlock[]
+  layoutsCreated  HomepageLayout[]
+  settingsUpdated Setting[]
+  pagesUpdated    Page[]
+  commentsMod     Comment[]
+  inboxAssigned   InboxMessage[]
+  auditEntries    AuditLog[]
+  campaignsCreate AdCampaign[]
+  emailCreated    EmailCampaign[]
+
+  @@index([slug], map: "idx_users_slug")
+  @@map("users")
+}
+
+model Role {
+  id          String   @id @default(uuid(7))
+  key         String   @unique // admin, publisher, chief_editor…
+  label       String
+  description String?
+  permissions String   @default("[]") // text[] adapté
+  is_system   Boolean  @default(false) @map("is_system")
+  created_at  DateTime @default(now()) @map("created_at")
+  updated_at  DateTime @default(now()) @updatedAt @map("updated_at")
+
+  userRoles UserRole[]
+
+  @@map("roles")
+}
+
+model UserRole {
+  user_id      String   @map("user_id")
+  role_id      String   @map("role_id")
+  category_ids String?  @map("category_ids") // uuid[] adapté — restriction optionnelle du rôle à certaines rubriques
+  granted_at   DateTime @default(now()) @map("granted_at")
+  granted_by   String?  @map("granted_by")
+
+  user      User  @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  role      Role  @relation(fields: [role_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  grantedBy User? @relation("RoleGrantedBy", fields: [granted_by], references: [id], onDelete: SetNull, onUpdate: Cascade)
+
+  @@id([user_id, role_id])
+  @@map("user_roles")
+}
+
+model Session {
+  id         String   @id @default(uuid(7))
+  user_id    String   @map("user_id")
+  token_hash String   @unique @map("token_hash")
+  ip_hash    String?  @map("ip_hash")
+  user_agent String?  @map("user_agent")
+  expires_at DateTime @map("expires_at")
+  created_at DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@index([user_id])
+  @@map("sessions")
+}
+
+// Table additive (DECISIONS.md D-04) — codes de secours 2FA du §08.3
+model UserBackupCode {
+  id         String    @id @default(uuid(7))
+  user_id    String    @map("user_id")
+  code_hash  String    @map("code_hash")
+  used_at    DateTime? @map("used_at")
+  created_at DateTime  @default(now()) @map("created_at")
+
+  user User @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@index([user_id])
+  @@map("user_backup_codes")
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// MÉDIAS (§06.2)
+// ═══════════════════════════════════════════════════════════════════
+
+model Media {
+  id           String     @id @default(uuid(7))
+  type         media_type
+  storage_key  String     @map("storage_key")
+  url          String
+  mime_type    String     @map("mime_type")
+  file_size    BigInt     @map("file_size")
+  width        Int?
+  height       Int?
+  duration_sec Float?     @map("duration_sec")
+  blurhash     String?
+  checksum     String? // détection de doublons
+  title        String?
+  alt_text     String?    @map("alt_text") // OBLIGATOIRE pour type=image (contrôle applicatif)
+  caption      String?
+  credit       String // OBLIGATOIRE
+  license      String?
+  shot_at      DateTime?  @map("shot_at")
+  location     String?
+  focal_point  String     @default("{\"x\":0.5,\"y\":0.5}") @map("focal_point") // jsonb adapté
+  crops        String     @default("{}") // jsonb adapté {"16:9":{…},"1:1":{…}}
+  variants     String     @default("[]") // jsonb adapté [{w,format,url,size}]
+  provider     String? // mux, s3…
+  provider_id  String?    @map("provider_id") // playback id
+  transcript   String? // vidéo/audio, indexable
+  captions     String     @default("[]") // jsonb adapté [{lang,url}]
+  uploaded_by  String?    @map("uploaded_by")
+  created_at   DateTime   @default(now()) @map("created_at")
+  updated_at   DateTime   @default(now()) @updatedAt @map("updated_at")
+  deleted_at   DateTime?  @map("deleted_at")
+
+  uploadedBy     User?          @relation("MediaUploadedBy", fields: [uploaded_by], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  userAvatars    User[]         @relation("UserAvatarMedia")
+  categories     Category[]
+  dossiers       Dossier[]
+  entities       Entity[]
+  articlesCover  Article[]      @relation("ArticleCoverMedia")
+  articlesSocial Article[]      @relation("ArticleSocialImage")
+  featuredOver   FeaturedSlot[] @relation("FeaturedOverrideMedia")
+  liveBlogs      LiveBlog[]
+  creatives      AdCreative[]
+
+  @@index([type], map: "idx_media_type")
+  @@index([checksum], map: "idx_media_checksum")
+  @@map("media")
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// TAXONOMIES (§06.2)
+// ═══════════════════════════════════════════════════════════════════
+
+model Category {
+  id             String    @id @default(uuid(7))
+  parent_id      String?   @map("parent_id")
+  slug           String
+  name           String
+  short_name     String?   @map("short_name")
+  description    String?
+  intro_html     String?   @map("intro_html") // texte éditorial SEO de la page rubrique
+  color_accent   String?   @map("color_accent") // optionnel, doit rester dans la palette
+  cover_media_id String?   @map("cover_media_id")
+  icon           String?
+  position       Int       @default(0)
+  depth          Int       @default(0) // 0,1,2 — max 3 niveaux
+  is_visible     Boolean   @default(true) @map("is_visible")
+  show_in_nav    Boolean   @default(true) @map("show_in_nav")
+  seo            String    @default("{}") // jsonb adapté
+  article_count  Int       @default(0) @map("article_count") // dénormalisé, maintenu par la couche service (dev) / trigger (prod)
+  created_at     DateTime  @default(now()) @map("created_at")
+  updated_at     DateTime  @default(now()) @updatedAt @map("updated_at")
+  deleted_at     DateTime? @map("deleted_at")
+
+  parent     Category?         @relation("CategoryTree", fields: [parent_id], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  children   Category[]        @relation("CategoryTree")
+  coverMedia Media?            @relation(fields: [cover_media_id], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  articles   Article[]         @relation("ArticlePrimaryCategory")
+  secondary  ArticleCategory[]
+  liveBlogs  LiveBlog[]
+
+  @@unique([parent_id, slug], map: "categories_parent_id_slug_key")
+  @@index([parent_id, position], map: "idx_categories_parent")
+  @@map("categories")
+}
+
+model Tag {
+  id          String    @id @default(uuid(7))
+  slug        String    @unique
+  name        String
+  description String?
+  intro_html  String?   @map("intro_html")
+  synonyms    String    @default("[]") // text[] adapté
+  is_featured Boolean   @default(false) @map("is_featured")
+  usage_count Int       @default(0) @map("usage_count")
+  seo         String    @default("{}") // jsonb adapté
+  created_at  DateTime  @default(now()) @map("created_at")
+  updated_at  DateTime  @default(now()) @updatedAt @map("updated_at")
+  deleted_at  DateTime? @map("deleted_at")
+
+  articles ArticleTag[]
+
+  @@index([name], map: "idx_tags_name")
+  @@map("tags")
+}
+
+model Dossier {
+  id             String    @id @default(uuid(7))
+  slug           String    @unique
+  title          String
+  lede           String?
+  description    String?
+  cover_media_id String?   @map("cover_media_id")
+  is_active      Boolean   @default(true) @map("is_active")
+  is_featured    Boolean   @default(false) @map("is_featured")
+  started_at     DateTime? @map("started_at")
+  ended_at       DateTime? @map("ended_at")
+  seo            String    @default("{}") // jsonb adapté
+  created_at     DateTime  @default(now()) @map("created_at")
+  updated_at     DateTime  @default(now()) @updatedAt @map("updated_at")
+  deleted_at     DateTime? @map("deleted_at")
+
+  coverMedia Media?    @relation(fields: [cover_media_id], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  articles   Article[]
+
+  @@map("dossiers")
+}
+
+model GeoZone {
+  id         String   @id @default(uuid(7))
+  parent_id  String?  @map("parent_id")
+  type       geo_type
+  slug       String
+  name       String
+  iso_code   String?  @map("iso_code")
+  latitude   Float?
+  longitude  Float?
+  position   Int      @default(0)
+  is_visible Boolean  @default(true) @map("is_visible")
+  created_at DateTime @default(now()) @map("created_at")
+
+  parent   GeoZone?         @relation("GeoZoneTree", fields: [parent_id], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  children GeoZone[]        @relation("GeoZoneTree")
+  articles ArticleGeoZone[]
+
+  @@unique([parent_id, slug], map: "geo_zones_parent_id_slug_key")
+  @@map("geo_zones")
+}
+
+model Entity {
+  id             String      @id @default(uuid(7))
+  type           entity_type
+  slug           String      @unique
+  name           String
+  aliases        String      @default("[]") // text[] adapté
+  description    String?
+  role_title     String?     @map("role_title")
+  image_media_id String?     @map("image_media_id")
+  wikidata_id    String?     @map("wikidata_id")
+  official_url   String?     @map("official_url")
+  created_at     DateTime    @default(now()) @map("created_at")
+  updated_at     DateTime    @default(now()) @updatedAt @map("updated_at")
+  deleted_at     DateTime?   @map("deleted_at")
+
+  imageMedia Media?          @relation(fields: [image_media_id], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  articles   ArticleEntity[]
+
+  @@map("entities")
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// ARTICLES (§06.2) — corps = tableau JSON de blocs (§06.4), jamais HTML brut
+// ═══════════════════════════════════════════════════════════════════
+
+model Article {
+  id                String  @id @default(uuid(7))
+  slug              String
+  locale            String  @default("fr")
+  translation_of_id String? @map("translation_of_id")
+
+  kicker           String? // surtitre
+  title            String
+  short_title      String? @map("short_title") // titre court pour la une
+  seo_title        String? @map("seo_title") // titre distinct pour Google
+  lede             String? // chapô
+  body             String  @default("[]") // jsonb adapté — blocs §06.4
+  plain_text       String? @map("plain_text") // généré, pour recherche et comptage
+  word_count       Int     @default(0) @map("word_count")
+  reading_time_min Int     @default(1) @map("reading_time_min") // word_count / 220 arrondi sup.
+
+  format       article_format     @default(standard)
+  status       article_status     @default(draft)
+  visibility   article_visibility @default(public)
+  importance   Int                @default(3) // 1 (majeure) à 5 (mineure)
+  is_sponsored Boolean            @default(false) @map("is_sponsored")
+  sponsor_name String?            @map("sponsor_name")
+  is_breaking  Boolean            @default(false) @map("is_breaking")
+
+  category_id  String  @map("category_id")
+  dossier_id   String? @map("dossier_id")
+  live_blog_id String? @map("live_blog_id")
+
+  cover_media_id  String? @map("cover_media_id")
+  social_image_id String? @map("social_image_id")
+
+  dateline      String? // "Conakry, envoyé spécial"
+  source_agency String? @map("source_agency") // AFP, Reuters…
+
+  published_at       DateTime? @map("published_at")
+  scheduled_at       DateTime? @map("scheduled_at")
+  expires_at         DateTime? @map("expires_at")
+  updated_content_at DateTime? @map("updated_content_at") // dernière modif éditoriale réelle
+
+  // SEO
+  meta_title        String? @map("meta_title")
+  meta_description  String? @map("meta_description")
+  canonical_url     String? @map("canonical_url")
+  robots_directives String  @default("index,follow") @map("robots_directives")
+  focus_keyword     String? @map("focus_keyword")
+  seo_score         Int?    @map("seo_score") // 0-100, calculé
+  seo_checks        String  @default("{}") @map("seo_checks") // jsonb adapté
+
+  // Diffusion
+  send_push          Boolean @default(false) @map("send_push")
+  include_newsletter Boolean @default(true) @map("include_newsletter")
+  social_text        String? @map("social_text")
+
+  // Traçabilité
+  created_by      String? @map("created_by")
+  published_by    String? @map("published_by")
+  correction_note String? @map("correction_note")
+  sources         String  @default("[]") // jsonb adapté [{label,url}]
+
+  view_count  BigInt @default(0) @map("view_count")
+  share_count Int    @default(0) @map("share_count")
+
+  search_vector String?   @map("search_vector") // tsvector adapté : alimenté par trigger en production (D-01)
+  created_at    DateTime  @default(now()) @map("created_at")
+  updated_at    DateTime  @default(now()) @updatedAt @map("updated_at")
+  deleted_at    DateTime? @map("deleted_at")
+
+  translationOf Article?  @relation("ArticleTranslations", fields: [translation_of_id], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  translations  Article[] @relation("ArticleTranslations")
+  category      Category  @relation("ArticlePrimaryCategory", fields: [category_id], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  dossier       Dossier?  @relation(fields: [dossier_id], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  liveBlog      LiveBlog? @relation(fields: [live_blog_id], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  coverMedia    Media?    @relation("ArticleCoverMedia", fields: [cover_media_id], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  socialImage   Media?    @relation("ArticleSocialImage", fields: [social_image_id], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  createdBy     User?     @relation("ArticleCreatedBy", fields: [created_by], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  publishedBy   User?     @relation("ArticlePublishedBy", fields: [published_by], references: [id], onDelete: SetNull, onUpdate: Cascade)
+
+  authors       ArticleAuthor[]
+  tags          ArticleTag[]
+  secondaryCats ArticleCategory[]
+  geoZones      ArticleGeoZone[]
+  entities      ArticleEntity[]
+  relatedFrom   ArticleRelated[]   @relation("ArticleRelatedSource")
+  relatedTo     ArticleRelated[]   @relation("ArticleRelatedTarget")
+  versions      ArticleVersion[]
+  reviewNotes   ReviewComment[]
+  lock          ArticleLock?
+  featuredSlots FeaturedSlot[]
+  flashLinks    FlashNews[]
+  keywords      ArticleKeyword[]
+  dailyStats    ArticleDailyStat[]
+  comments      Comment[]
+
+  @@unique([locale, slug], map: "articles_locale_slug_key")
+  @@index([published_at(sort: Desc)], map: "idx_articles_published")
+  @@index([category_id, published_at(sort: Desc)], map: "idx_articles_category")
+  @@index([status, updated_at(sort: Desc)], map: "idx_articles_status")
+  @@index([scheduled_at], map: "idx_articles_scheduled")
+  @@map("articles")
+}
+
+model ArticleAuthor {
+  article_id String @map("article_id")
+  user_id    String @map("user_id")
+  role       String @default("author") // author|coauthor|photographer|translator|editor
+  position   Int    @default(0)
+
+  article Article @relation(fields: [article_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  user    User    @relation(fields: [user_id], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@id([article_id, user_id, role])
+  @@map("article_authors")
+}
+
+model ArticleTag {
+  article_id String @map("article_id")
+  tag_id     String @map("tag_id")
+  position   Int    @default(0)
+
+  article Article @relation(fields: [article_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  tag     Tag     @relation(fields: [tag_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@id([article_id, tag_id])
+  @@map("article_tags")
+}
+
+// Rubriques secondaires
+model ArticleCategory {
+  article_id  String @map("article_id")
+  category_id String @map("category_id")
+
+  article  Article  @relation(fields: [article_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  category Category @relation(fields: [category_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@id([article_id, category_id])
+  @@map("article_categories")
+}
+
+model ArticleGeoZone {
+  article_id  String @map("article_id")
+  geo_zone_id String @map("geo_zone_id")
+
+  article Article @relation(fields: [article_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  geoZone GeoZone @relation(fields: [geo_zone_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@id([article_id, geo_zone_id])
+  @@map("article_geo_zones")
+}
+
+model ArticleEntity {
+  article_id String @map("article_id")
+  entity_id  String @map("entity_id")
+  relevance  Float  @default(1)
+
+  article Article @relation(fields: [article_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  entity  Entity  @relation(fields: [entity_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@id([article_id, entity_id])
+  @@map("article_entities")
+}
+
+model ArticleRelated {
+  article_id String  @map("article_id")
+  related_id String  @map("related_id")
+  position   Int     @default(0)
+  is_manual  Boolean @default(true) @map("is_manual")
+
+  article Article @relation("ArticleRelatedSource", fields: [article_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  related Article @relation("ArticleRelatedTarget", fields: [related_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@id([article_id, related_id])
+  @@map("article_related")
+}
+
+model ArticleVersion {
+  id          String   @id @default(uuid(7))
+  article_id  String   @map("article_id")
+  version     Int
+  snapshot    String // jsonb adapté — copie complète de l'article
+  change_note String?  @map("change_note")
+  created_by  String?  @map("created_by")
+  created_at  DateTime @default(now()) @map("created_at")
+
+  article   Article @relation(fields: [article_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  createdBy User?   @relation(fields: [created_by], references: [id], onDelete: SetNull, onUpdate: Cascade)
+
+  @@unique([article_id, version], map: "article_versions_article_id_version_key")
+  @@map("article_versions")
+}
+
+model ReviewComment {
+  id         String   @id @default(uuid(7))
+  article_id String   @map("article_id")
+  block_id   String?  @map("block_id") // ancre sur un bloc du corps
+  text       String
+  resolved   Boolean  @default(false)
+  created_by String?  @map("created_by")
+  created_at DateTime @default(now()) @map("created_at")
+
+  article   Article @relation(fields: [article_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  createdBy User?   @relation(fields: [created_by], references: [id], onDelete: SetNull, onUpdate: Cascade)
+
+  @@map("review_comments")
+}
+
+model ArticleLock {
+  article_id String   @id @map("article_id")
+  user_id    String   @map("user_id")
+  locked_at  DateTime @default(now()) @map("locked_at")
+  expires_at DateTime @map("expires_at") // 5 min, renouvelé par heartbeat
+
+  article Article @relation(fields: [article_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  user    User    @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@map("article_locks")
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// MODULES ÉDITORIAUX (§06.2)
+// ═══════════════════════════════════════════════════════════════════
+
+// Composition de « À la une »
+model FeaturedSlot {
+  id                String    @id @default(uuid(7))
+  zone              String // home_lead, home_secondary, category:<id>
+  article_id        String    @map("article_id")
+  position          Int
+  pinned            Boolean   @default(false)
+  starts_at         DateTime? @map("starts_at")
+  ends_at           DateTime? @map("ends_at")
+  override_title    String?   @map("override_title") // titre alternatif pour la une
+  override_media_id String?   @map("override_media_id")
+  created_by        String?   @map("created_by")
+  created_at        DateTime  @default(now()) @map("created_at")
+
+  article       Article @relation(fields: [article_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  overrideMedia Media?  @relation("FeaturedOverrideMedia", fields: [override_media_id], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  createdBy     User?   @relation(fields: [created_by], references: [id], onDelete: SetNull, onUpdate: Cascade)
+
+  @@unique([zone, position], map: "featured_slots_zone_position_key")
+  @@map("featured_slots")
+}
+
+model FlashNews {
+  id           String    @id @default(uuid(7))
+  text         String
+  article_id   String?   @map("article_id")
+  external_url String?   @map("external_url")
+  priority     Int       @default(2) // 1 urgent (rouge) … 3 normal
+  published_at DateTime  @default(now()) @map("published_at")
+  expires_at   DateTime  @map("expires_at") // défaut applicatif : now + 12 h (§06.2)
+  created_by   String?   @map("created_by")
+  deleted_at   DateTime? @map("deleted_at")
+
+  article   Article? @relation(fields: [article_id], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  createdBy User?    @relation(fields: [created_by], references: [id], onDelete: SetNull, onUpdate: Cascade)
+
+  @@index([published_at(sort: Desc)], map: "idx_flash_active")
+  @@map("flash_news")
+}
+
+model LiveBlog {
+  id             String      @id @default(uuid(7))
+  slug           String      @unique
+  title          String
+  summary        String      @default("[]") // jsonb adapté — "l'essentiel" : liste de points
+  status         live_status @default(upcoming)
+  category_id    String?     @map("category_id")
+  cover_media_id String?     @map("cover_media_id")
+  started_at     DateTime?   @map("started_at")
+  ended_at       DateTime?   @map("ended_at")
+  entry_count    Int         @default(0) @map("entry_count")
+  seo            String      @default("{}") // jsonb adapté
+  created_at     DateTime    @default(now()) @map("created_at")
+  updated_at     DateTime    @default(now()) @updatedAt @map("updated_at")
+  deleted_at     DateTime?   @map("deleted_at")
+
+  category   Category?   @relation(fields: [category_id], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  coverMedia Media?      @relation(fields: [cover_media_id], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  articles   Article[]
+  entries    LiveEntry[]
+
+  @@map("live_blogs")
+}
+
+model LiveEntry {
+  id           String    @id @default(uuid(7))
+  live_blog_id String    @map("live_blog_id")
+  title        String?
+  body         String    @default("[]") // jsonb adapté
+  is_pinned    Boolean   @default(false) @map("is_pinned")
+  is_key       Boolean   @default(false) @map("is_key")
+  published_at DateTime  @default(now()) @map("published_at")
+  created_by   String?   @map("created_by")
+  deleted_at   DateTime? @map("deleted_at")
+
+  liveBlog  LiveBlog @relation(fields: [live_blog_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  createdBy User?    @relation(fields: [created_by], references: [id], onDelete: SetNull, onUpdate: Cascade)
+
+  @@index([live_blog_id, published_at(sort: Desc)], map: "idx_live_entries")
+  @@map("live_entries")
+}
+
+model WeatherCity {
+  id           String  @id @default(uuid(7))
+  name         String
+  country_code String  @default("GN") @map("country_code")
+  latitude     Float
+  longitude    Float
+  position     Int     @default(0)
+  is_default   Boolean @default(false) @map("is_default")
+  is_visible   Boolean @default(true) @map("is_visible")
+
+  cache WeatherCache?
+
+  @@map("weather_cities")
+}
+
+model WeatherCache {
+  city_id    String   @id @map("city_id")
+  payload    String // jsonb adapté
+  fetched_at DateTime @default(now()) @map("fetched_at")
+
+  city WeatherCity @relation(fields: [city_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@map("weather_cache")
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// PAGES, MENUS, BLOCS D'ACCUEIL, RÉGLAGES (§06.2)
+// ═══════════════════════════════════════════════════════════════════
+
+model Page {
+  id           String    @id @default(uuid(7))
+  slug         String
+  locale       String    @default("fr")
+  title        String
+  body         String    @default("[]") // jsonb adapté
+  template     String    @default("default") // default|contact|about|advertising|legal
+  is_published Boolean   @default(false) @map("is_published")
+  seo          String    @default("{}") // jsonb adapté
+  updated_by   String?   @map("updated_by")
+  created_at   DateTime  @default(now()) @map("created_at")
+  updated_at   DateTime  @default(now()) @updatedAt @map("updated_at")
+  deleted_at   DateTime? @map("deleted_at")
+
+  updatedBy User? @relation(fields: [updated_by], references: [id], onDelete: SetNull, onUpdate: Cascade)
+
+  @@unique([locale, slug], map: "pages_locale_slug_key")
+  @@map("pages")
+}
+
+model Menu {
+  id    String @id @default(uuid(7))
+  key   String @unique // main, secondary, footer_1..4, mobile, utility
+  label String
+
+  items MenuItem[]
+
+  @@map("menus")
+}
+
+model MenuItem {
+  id           String  @id @default(uuid(7))
+  menu_id      String  @map("menu_id")
+  parent_id    String? @map("parent_id")
+  label        String
+  target_type  String  @map("target_type") // category|page|dossier|tag|url|home|section
+  target_id    String? @map("target_id")
+  target_url   String? @map("target_url")
+  icon         String?
+  open_new_tab Boolean @default(false) @map("open_new_tab")
+  highlight    Boolean @default(false) @map("highlight") // style rouge / CTA
+  position     Int     @default(0)
+  is_visible   Boolean @default(true) @map("is_visible")
+  locale       String  @default("fr")
+
+  menu     Menu       @relation(fields: [menu_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  parent   MenuItem?  @relation("MenuItemTree", fields: [parent_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  children MenuItem[] @relation("MenuItemTree")
+
+  @@index([menu_id, position])
+  @@map("menu_items")
+}
+
+model HomepageBlock {
+  id                 String    @id @default(uuid(7))
+  code               String // Z-03, Z-07a…
+  type               String // alert|flash|lead|live|latest|section|video|newsletter|weather|dossier|world|opinion|ad|most_read|custom_html
+  variant            String? // gabarit du bloc
+  title              String?
+  subtitle           String?
+  source_type        String?   @map("source_type") // category|dossier|tag|manual|auto|format
+  source_id          String?   @map("source_id")
+  manual_article_ids String    @default("[]") @map("manual_article_ids") // uuid[] adapté
+  item_count         Int       @default(6) @map("item_count")
+  settings           String    @default("{}") // jsonb adapté
+  position           Int
+  is_active          Boolean   @default(true) @map("is_active")
+  starts_at          DateTime? @map("starts_at")
+  ends_at            DateTime? @map("ends_at")
+  locale             String    @default("fr")
+  updated_by         String?   @map("updated_by")
+  updated_at         DateTime  @default(now()) @updatedAt @map("updated_at")
+
+  updatedBy User? @relation(fields: [updated_by], references: [id], onDelete: SetNull, onUpdate: Cascade)
+
+  @@unique([code, locale], map: "homepage_blocks_code_locale_key")
+  @@index([position])
+  @@map("homepage_blocks")
+}
+
+// Versions sauvegardées / rollback
+model HomepageLayout {
+  id         String   @id @default(uuid(7))
+  name       String
+  snapshot   String // jsonb adapté
+  is_current Boolean  @default(false) @map("is_current")
+  created_by String?  @map("created_by")
+  created_at DateTime @default(now()) @map("created_at")
+
+  createdBy User? @relation(fields: [created_by], references: [id], onDelete: SetNull, onUpdate: Cascade)
+
+  @@map("homepage_layouts")
+}
+
+model Setting {
+  key        String   @id
+  value      String // jsonb adapté
+  group_key  String   @map("group_key") // identity|contact|social|seo|ads|email|features|legal
+  label      String?
+  updated_by String?  @map("updated_by")
+  updated_at DateTime @default(now()) @updatedAt @map("updated_at")
+
+  updatedBy User? @relation(fields: [updated_by], references: [id], onDelete: SetNull, onUpdate: Cascade)
+
+  @@index([group_key])
+  @@map("settings")
+}
+
+model Translation {
+  key        String
+  locale     String
+  value      String
+  context    String?
+  updated_at DateTime @default(now()) @updatedAt @map("updated_at")
+
+  @@id([key, locale])
+  @@map("translations")
+}
+
+model SiteBanner {
+  id             String    @id @default(uuid(7))
+  message        String
+  link_url       String?   @map("link_url")
+  link_label     String?   @map("link_label")
+  style          String    @default("alert") // alert|info|promo
+  is_dismissible Boolean   @default(true) @map("is_dismissible")
+  target_paths   String    @default("[\"/*\"]") @map("target_paths") // text[] adapté
+  starts_at      DateTime? @map("starts_at")
+  ends_at        DateTime? @map("ends_at")
+  is_active      Boolean   @default(false) @map("is_active")
+
+  @@map("site_banners")
+}
+
+model Redirect {
+  id          String   @id @default(uuid(7))
+  source_path String   @unique @map("source_path")
+  target_path String   @map("target_path")
+  status_code Int      @default(301) @map("status_code")
+  hit_count   Int      @default(0) @map("hit_count")
+  is_auto     Boolean  @default(false) @map("is_auto")
+  created_at  DateTime @default(now()) @map("created_at")
+
+  @@map("redirects")
+}
+
+model NotFoundLog {
+  path      String   @id
+  hit_count Int      @default(1) @map("hit_count")
+  referrer  String?
+  last_seen DateTime @default(now()) @map("last_seen")
+
+  @@map("not_found_log")
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// COMMENTAIRES ET MESSAGES ENTRANTS (§06.2)
+// ═══════════════════════════════════════════════════════════════════
+
+model Comment {
+  id           String         @id @default(uuid(7))
+  article_id   String         @map("article_id")
+  parent_id    String?        @map("parent_id")
+  author_name  String         @map("author_name")
+  author_email String?        @map("author_email") // citext adapté
+  body         String
+  status       comment_status @default(pending)
+  is_staff     Boolean        @default(false) @map("is_staff")
+  ip_hash      String?        @map("ip_hash")
+  moderated_by String?        @map("moderated_by")
+  moderated_at DateTime?      @map("moderated_at")
+  created_at   DateTime       @default(now()) @map("created_at")
+
+  article     Article   @relation(fields: [article_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  parent      Comment?  @relation("CommentThread", fields: [parent_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  replies     Comment[] @relation("CommentThread")
+  moderatedBy User?     @relation(fields: [moderated_by], references: [id], onDelete: SetNull, onUpdate: Cascade)
+
+  @@index([article_id, status, created_at(sort: Desc)])
+  @@map("comments")
+}
+
+model InboxMessage {
+  id           String   @id @default(uuid(7))
+  kind         String // contact|tip|right_of_reply|advertising|correction|job
+  department   String?
+  name         String?
+  email        String? // citext adapté
+  phone        String?
+  subject      String?
+  body         String
+  attachments  String   @default("[]") // jsonb adapté
+  is_anonymous Boolean  @default(false) @map("is_anonymous")
+  status       String   @default("new") // new|read|assigned|closed|spam
+  assigned_to  String?  @map("assigned_to")
+  created_at   DateTime @default(now()) @map("created_at")
+
+  assignedTo User? @relation(fields: [assigned_to], references: [id], onDelete: SetNull, onUpdate: Cascade)
+
+  @@index([kind, status, created_at(sort: Desc)])
+  @@map("inbox_messages")
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// AUDIT (§06.2)
+// ═══════════════════════════════════════════════════════════════════
+
+model AuditLog {
+  // bigserial en production (BigInt) — Int en dev : SQLite ne gère pas
+  // AUTOINCREMENT sur BIGINT (voir DECISIONS.md D-01).
+  id            Int      @id @default(autoincrement())
+  user_id       String?  @map("user_id")
+  action        String // article.publish, settings.update…
+  resource_type String   @map("resource_type")
+  resource_id   String?  @map("resource_id")
+  before        String? // jsonb adapté
+  after         String? // jsonb adapté
+  ip_hash       String?  @map("ip_hash")
+  user_agent    String?  @map("user_agent")
+  created_at    DateTime @default(now()) @map("created_at")
+
+  user User? @relation(fields: [user_id], references: [id], onDelete: SetNull, onUpdate: Cascade)
+
+  @@index([resource_type, resource_id, created_at(sort: Desc)], map: "idx_audit_resource")
+  @@index([user_id, created_at(sort: Desc)], map: "idx_audit_user")
+  @@map("audit_log")
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// RÉGIE PUBLICITAIRE (§06.3)
+// ═══════════════════════════════════════════════════════════════════
+
+model AdSlot {
+  code               String  @id // AD-01 … AD-19
+  name               String
+  description        String?
+  placement          String // header|hero|sidebar|in_read|footer…
+  sizes              String // jsonb adapté [{w,h,label}] par breakpoint
+  pages              String // text[] adapté — home|article|category|search|live|all
+  is_active          Boolean @default(true) @map("is_active")
+  max_creative_kb    Int     @default(150) @map("max_creative_kb")
+  allows_third_party Boolean @default(false) @map("allows_third_party")
+  refresh_sec        Int?    @map("refresh_sec") // null = pas de rafraîchissement
+  max_refresh        Int     @default(5) @map("max_refresh")
+  base_cpm           Float?  @map("base_cpm")
+  position           Int     @default(0)
+
+  creatives AdCreative[]
+
+  @@map("ad_slots")
+}
+
+model Advertiser {
+  id            String    @id @default(uuid(7))
+  name          String
+  agency        String?
+  sector        String? // pour exclusions concurrentielles
+  contact_name  String?   @map("contact_name")
+  contact_email String?   @map("contact_email") // citext adapté
+  contact_phone String?   @map("contact_phone")
+  address       String?
+  notes         String?
+  report_token  String?   @unique @map("report_token") // accès lecture seule aux rapports
+  created_at    DateTime  @default(now()) @map("created_at")
+  deleted_at    DateTime? @map("deleted_at")
+
+  campaigns AdCampaign[]
+
+  @@map("advertisers")
+}
+
+model AdCampaign {
+  id            String          @id @default(uuid(7))
+  advertiser_id String          @map("advertiser_id")
+  name          String
+  status        campaign_status @default(draft)
+  starts_at     DateTime        @map("starts_at")
+  ends_at       DateTime        @map("ends_at")
+  goal_type     String          @default("impressions") @map("goal_type") // impressions|clicks|sponsorship
+  goal_value    BigInt?         @map("goal_value")
+  budget        Float?
+  currency      String          @default("GNF")
+  priority      Int             @default(5) // 1 (garanti) … 9 (remplissage)
+  weight        Int             @default(1) // rotation pondérée
+  frequency_cap Int?            @map("frequency_cap") // impressions / visiteur / jour
+  targeting     String          @default("{}") // jsonb adapté (voir §06.3)
+  created_by    String?         @map("created_by")
+  created_at    DateTime        @default(now()) @map("created_at")
+  updated_at    DateTime        @default(now()) @updatedAt @map("updated_at")
+  deleted_at    DateTime?       @map("deleted_at")
+
+  advertiser Advertiser   @relation(fields: [advertiser_id], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  createdBy  User?        @relation(fields: [created_by], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  creatives  AdCreative[]
+
+  @@index([status, starts_at, ends_at], map: "idx_campaigns_active")
+  @@map("ad_campaigns")
+}
+
+model AdCreative {
+  id           String        @id @default(uuid(7))
+  campaign_id  String        @map("campaign_id")
+  slot_code    String        @map("slot_code")
+  type         creative_type
+  media_id     String?       @map("media_id")
+  html         String?
+  script_tag   String?       @map("script_tag")
+  // champs pour les formats natifs
+  native_title String?       @map("native_title")
+  native_text  String?       @map("native_text")
+  native_cta   String?       @map("native_cta")
+  native_brand String?       @map("native_brand")
+  click_url    String        @map("click_url")
+  alt_text     String        @map("alt_text")
+  width        Int?
+  height       Int?
+  file_size_kb Int?          @map("file_size_kb")
+  weight       Int           @default(1)
+  is_active    Boolean       @default(true) @map("is_active")
+  created_at   DateTime      @default(now()) @map("created_at")
+
+  campaign  AdCampaign      @relation(fields: [campaign_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  slot      AdSlot          @relation(fields: [slot_code], references: [code], onDelete: Restrict, onUpdate: Cascade)
+  media     Media?          @relation(fields: [media_id], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  sponsorOf EmailCampaign[] @relation("EmailSponsorCreative")
+
+  @@index([slot_code, is_active])
+  @@map("ad_creatives")
+}
+
+// Table partitionnée en production (PARTITION BY RANGE (occurred_at), D-01)
+model AdEvent {
+  // bigserial en production (BigInt) — voir D-01.
+  id           Int      @id @default(autoincrement())
+  creative_id  String   @map("creative_id")
+  campaign_id  String   @map("campaign_id")
+  slot_code    String   @map("slot_code")
+  event_type   String   @map("event_type") // impression|viewable|click
+  page_path    String?  @map("page_path")
+  country      String?
+  device       String?
+  visitor_hash String?  @map("visitor_hash")
+  occurred_at  DateTime @default(now()) @map("occurred_at")
+
+  @@index([campaign_id, occurred_at(sort: Desc)])
+  @@index([slot_code, occurred_at(sort: Desc)])
+  @@map("ad_events")
+}
+
+// Agrégat, alimenté par cron horaire
+model AdDailyStat {
+  date        DateTime @map("date")
+  campaign_id String   @map("campaign_id")
+  creative_id String   @map("creative_id")
+  slot_code   String   @map("slot_code")
+  impressions BigInt   @default(0)
+  viewable    BigInt   @default(0)
+  clicks      BigInt   @default(0)
+
+  @@id([date, campaign_id, creative_id, slot_code])
+  @@map("ad_daily_stats")
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// NEWSLETTER (§06.3)
+// ═══════════════════════════════════════════════════════════════════
+
+model NewsletterList {
+  id           String  @id @default(uuid(7))
+  key          String  @unique // morning|breaking|weekly|economy|diaspora
+  name         String
+  description  String?
+  cadence      String? // daily|weekly|biweekly|event
+  send_time    String? @map("send_time") // 'time' adapté — "HH:MM" (fuseau GMT)
+  is_active    Boolean @default(true) @map("is_active")
+  is_public    Boolean @default(true) @map("is_public")
+  auto_compose Boolean @default(false) @map("auto_compose")
+  template_key String  @default("default") @map("template_key")
+  position     Int     @default(0)
+
+  subscribers SubscriberList[]
+  campaigns   EmailCampaign[]
+
+  @@map("newsletter_lists")
+}
+
+model Subscriber {
+  id                String            @id @default(uuid(7))
+  email             String            @unique // citext adapté
+  first_name        String?           @map("first_name")
+  country           String?
+  locale            String            @default("fr")
+  interests         String            @default("[]") // text[] adapté
+  status            subscriber_status @default(pending)
+  confirm_token     String?           @map("confirm_token")
+  unsubscribe_token String            @unique @map("unsubscribe_token")
+  source            String? // home_inline|article_inline|footer|exit|page
+  source_url        String?           @map("source_url")
+  consent_at        DateTime?         @map("consent_at")
+  consent_ip_hash   String?           @map("consent_ip_hash")
+  last_open_at      DateTime?         @map("last_open_at")
+  last_click_at     DateTime?         @map("last_click_at")
+  engagement_score  Int               @default(0) @map("engagement_score")
+  bounce_count      Int               @default(0) @map("bounce_count")
+  created_at        DateTime          @default(now()) @map("created_at")
+  unsubscribed_at   DateTime?         @map("unsubscribed_at")
+
+  lists  SubscriberList[]
+  events EmailEvent[]
+
+  @@map("subscribers")
+}
+
+model SubscriberList {
+  subscriber_id String   @map("subscriber_id")
+  list_id       String   @map("list_id")
+  subscribed_at DateTime @default(now()) @map("subscribed_at")
+
+  subscriber Subscriber     @relation(fields: [subscriber_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  list       NewsletterList @relation(fields: [list_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@id([subscriber_id, list_id])
+  @@map("subscriber_lists")
+}
+
+model EmailCampaign {
+  id                  String                @id @default(uuid(7))
+  list_id             String                @map("list_id")
+  subject             String
+  subject_b           String?               @map("subject_b") // test A/B
+  preheader           String?
+  blocks              String                @default("[]") // jsonb adapté
+  html_cache          String?               @map("html_cache")
+  text_cache          String?               @map("text_cache")
+  segment             String                @default("{}") // jsonb adapté — filtres de ciblage
+  status              email_campaign_status @default(draft)
+  scheduled_at        DateTime?             @map("scheduled_at")
+  sent_at             DateTime?             @map("sent_at")
+  recipients_count    Int                   @default(0) @map("recipients_count")
+  sponsor_creative_id String?               @map("sponsor_creative_id")
+  created_by          String?               @map("created_by")
+  created_at          DateTime              @default(now()) @map("created_at")
+
+  list      NewsletterList @relation(fields: [list_id], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  sponsor   AdCreative?    @relation("EmailSponsorCreative", fields: [sponsor_creative_id], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  createdBy User?          @relation(fields: [created_by], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  events    EmailEvent[]
+
+  @@index([status, scheduled_at])
+  @@map("email_campaigns")
+}
+
+// Table partitionnée en production (PARTITION BY RANGE (occurred_at), D-01)
+model EmailEvent {
+  // bigserial en production (BigInt) — voir D-01.
+  id            Int      @id @default(autoincrement())
+  campaign_id   String   @map("campaign_id")
+  subscriber_id String   @map("subscriber_id")
+  event_type    String   @map("event_type") // sent|delivered|open|click|bounce|complaint|unsubscribe
+  link_url      String?  @map("link_url")
+  occurred_at   DateTime @default(now()) @map("occurred_at")
+
+  campaign   EmailCampaign @relation(fields: [campaign_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  subscriber Subscriber    @relation(fields: [subscriber_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@index([campaign_id, occurred_at(sort: Desc)])
+  @@index([subscriber_id, occurred_at(sort: Desc)])
+  @@map("email_events")
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// SEO / MOTS-CLÉS (§06.3)
+// ═══════════════════════════════════════════════════════════════════
+
+model SeoKeyword {
+  id              String   @id @default(uuid(7))
+  term            String
+  term_normalized String   @map("term_normalized") // minuscules, sans accents
+  locale          String   @default("fr")
+  country         String   @default("GN")
+  word_count      Int      @map("word_count")
+  tail_type       String   @map("tail_type") // short|medium|long
+  intent          String? // informational|navigational|transactional|news
+  cluster_id      String?  @map("cluster_id")
+  is_tracked      Boolean  @default(false) @map("is_tracked")
+  created_at      DateTime @default(now()) @map("created_at")
+
+  cluster  KeywordCluster?  @relation(fields: [cluster_id], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  metrics  KeywordMetric[]
+  rankings SeoRanking[]
+  articles ArticleKeyword[]
+
+  @@unique([term_normalized, locale, country], map: "seo_keywords_term_normalized_locale_country_key")
+  @@map("seo_keywords")
+}
+
+model KeywordMetric {
+  keyword_id      String         @map("keyword_id")
+  source          String // gsc|trends|provider|autocomplete|llm
+  search_volume   Int?           @map("search_volume")
+  volume_weighted Int?           @map("volume_weighted") // volume pondéré par coefficient régional
+  difficulty      Float? // 0-100
+  cpc             Float?
+  trend           keyword_trend?
+  trend_series    String?        @map("trend_series") // jsonb adapté — 12 derniers mois
+  serp_features   String?        @map("serp_features") // text[] adapté
+  collected_at    DateTime       @default(now()) @map("collected_at")
+
+  keyword SeoKeyword @relation(fields: [keyword_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@id([keyword_id, source, collected_at])
+  @@map("keyword_metrics")
+}
+
+model KeywordCluster {
+  id         String   @id @default(uuid(7))
+  label      String
+  centroid   String? // jsonb adapté — vecteur d'embedding
+  coverage   String   @default("none") // none|partial|covered|cannibalized
+  created_at DateTime @default(now()) @map("created_at")
+
+  keywords SeoKeyword[]
+
+  @@map("keyword_clusters")
+}
+
+model ArticleKeyword {
+  article_id        String  @map("article_id")
+  keyword_id        String  @map("keyword_id")
+  role              String // focus|secondary|longtail|question
+  opportunity_score Float?  @map("opportunity_score")
+  was_suggested     Boolean @default(true) @map("was_suggested")
+  was_accepted      Boolean @default(false) @map("was_accepted")
+
+  article Article    @relation(fields: [article_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  keyword SeoKeyword @relation(fields: [keyword_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@id([article_id, keyword_id])
+  @@map("article_keywords")
+}
+
+model SeoRanking {
+  keyword_id  String   @map("keyword_id")
+  date        DateTime @map("date")
+  position    Float?
+  impressions Int?
+  clicks      Int?
+  ctr         Float?
+  url         String?
+
+  keyword SeoKeyword @relation(fields: [keyword_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@id([keyword_id, date])
+  @@map("seo_rankings")
+}
+
+// Maîtrise des coûts d'API
+model SeoProviderUsage {
+  date           DateTime @id @map("date")
+  provider       String
+  calls          Int      @default(0)
+  estimated_cost Float    @default(0) @map("estimated_cost")
+
+  @@map("seo_provider_usage")
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// ANALYTICS INTERNE (§06.3)
+// ═══════════════════════════════════════════════════════════════════
+
+// Table partitionnée en production (PARTITION BY RANGE (occurred_at), D-01)
+model PageView {
+  // bigserial en production (BigInt) — voir D-01.
+  id            Int      @id @default(autoincrement())
+  path          String
+  article_id    String?  @map("article_id")
+  referrer_host String?  @map("referrer_host")
+  country       String?
+  device        String?
+  visitor_hash  String?  @map("visitor_hash")
+  scroll_depth  Int?     @map("scroll_depth")
+  dwell_sec     Int?     @map("dwell_sec")
+  occurred_at   DateTime @default(now()) @map("occurred_at")
+
+  @@index([path, occurred_at(sort: Desc)])
+  @@index([article_id, occurred_at(sort: Desc)])
+  @@map("page_views")
+}
+
+model ArticleDailyStat {
+  date               DateTime @map("date")
+  article_id         String   @map("article_id")
+  views              BigInt   @default(0)
+  uniques            BigInt   @default(0)
+  avg_dwell          Int      @default(0) @map("avg_dwell")
+  completion_rate    Float?   @map("completion_rate")
+  shares             Int      @default(0)
+  newsletter_signups Int      @default(0) @map("newsletter_signups")
+
+  article Article @relation(fields: [article_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@id([date, article_id])
+  @@map("article_daily_stats")
+}
+
+model SearchQuery {
+  // bigserial en production (BigInt) — voir D-01.
+  id                 Int      @id @default(autoincrement())
+  query              String
+  results_count      Int      @map("results_count")
+  clicked_article_id String?  @map("clicked_article_id")
+  occurred_at        DateTime @default(now()) @map("occurred_at")
+
+  @@index([occurred_at(sort: Desc)])
+  @@map("search_queries")
+}
+
+model PushSubscription {
+  id           String    @id @default(uuid(7))
+  endpoint     String    @unique
+  keys         String // jsonb adapté
+  topics       String    @default("[]") // text[] adapté
+  locale       String?   @default("fr")
+  created_at   DateTime  @default(now()) @map("created_at")
+  last_sent_at DateTime? @map("last_sent_at")
+
+  @@map("push_subscriptions")
 }

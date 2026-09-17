@@ -1,0 +1,196 @@
+/**
+ * Réglages (§11.2 groupes « Autonomie totale », defaults du §24) et
+ * libellés d'interface (table `translations`, §00.2-2 / §18.2).
+ */
+
+export interface SettingSeed {
+  key: string;
+  value: string;
+  groupKey: string;
+  label: string;
+}
+
+export const SETTINGS: SettingSeed[] = [
+  // identity
+  { key: "identity.site_name", value: "\"INFOSPRO\"", groupKey: "identity", label: "Nom du site" },
+  { key: "identity.baseline", value: "\"L'information de Guinée, sans détour\"", groupKey: "identity", label: "Baseline" },
+  { key: "identity.logo_light", value: "\"/logo.svg\"", groupKey: "identity", label: "Logo clair" },
+  { key: "identity.logo_dark", value: "\"/logo.svg\"", groupKey: "identity", label: "Logo sombre" },
+  { key: "identity.logo_icon", value: "\"/logo.svg\"", groupKey: "identity", label: "Icône" },
+  { key: "identity.default_social_image", value: "\"\"", groupKey: "identity", label: "Image sociale par défaut" },
+  { key: "identity.accent_color", value: "\"#C8102E\"", groupKey: "identity", label: "Couleur d'accent (§00.4)" },
+  { key: "identity.timezone", value: "\"Africa/Conakry\"", groupKey: "identity", label: "Fuseau horaire" },
+  { key: "identity.active_locales", value: "[\"fr\"]", groupKey: "identity", label: "Langues actives" },
+  // contact
+  { key: "contact.address", value: "\"\"", groupKey: "contact", label: "Adresse postale (à compléter, §24-8)" },
+  { key: "contact.phones", value: "[]", groupKey: "contact", label: "Téléphones" },
+  { key: "contact.whatsapp", value: "\"\"", groupKey: "contact", label: "WhatsApp" },
+  { key: "contact.emails", value: "{}", groupKey: "contact", label: "E-mails par service" },
+  { key: "contact.hours", value: "\"\"", groupKey: "contact", label: "Horaires" },
+  { key: "contact.gps", value: "{}", groupKey: "contact", label: "Coordonnées GPS" },
+  { key: "contact.form_recipients", value: "{}", groupKey: "contact", label: "Destinataires des formulaires" },
+  // social
+  { key: "social.links", value: "[]", groupKey: "social", label: "Réseaux sociaux [{platform,url,label,showInHeader,showInFooter}]" },
+  // editorial
+  { key: "editorial.journalist_can_publish", value: "false", groupKey: "editorial", label: "Le journaliste peut publier (§08.2)" },
+  { key: "editorial.comments_enabled", value: "true", groupKey: "editorial", label: "Commentaires activés (défaut §24-7)" },
+  { key: "editorial.comments_moderation", value: "\"pre\"", groupKey: "editorial", label: "Modération (a priori, défaut §24-7)" },
+  { key: "editorial.flash_expiry_hours", value: "12", groupKey: "editorial", label: "Expiration des flashs (heures)" },
+  { key: "editorial.blocked_words", value: "[]", groupKey: "editorial", label: "Mots bloqués" },
+  // seo
+  { key: "seo.default_title", value: "\"INFOSPRO — L'information de Guinée\"", groupKey: "seo", label: "Titre par défaut" },
+  { key: "seo.title_separator", value: "\"·\"", groupKey: "seo", label: "Séparateur de titre" },
+  { key: "seo.title_suffix", value: "\"INFOSPRO\"", groupKey: "seo", label: "Suffixe de titre" },
+  { key: "seo.search_console_verification", value: "\"\"", groupKey: "seo", label: "Vérification Search Console" },
+  { key: "seo.default_robots", value: "\"index,follow\"", groupKey: "seo", label: "Robots par défaut" },
+  { key: "seo.region_weight", value: "3.5", groupKey: "seo", label: "Coefficient régional des volumes (§12.5)" },
+  { key: "seo.scoring", value: "{}", groupKey: "seo", label: "Coefficients de scoring SEO (§12.3-7)" },
+  // ads
+  { key: "ads.enabled", value: "true", groupKey: "ads", label: "Régie activée" },
+  { key: "ads.max_density", value: "3", groupKey: "ads", label: "Densité maximale par page" },
+  { key: "ads.sensitive_keywords", value: "[\"deuil\",\"décès\",\"catastrophe\",\"attentat\",\"noyade\",\"meurtre\"]", groupKey: "ads", label: "Mots-clés sensibles excluant la publicité (§13.2)" },
+  // email
+  { key: "email.from_name", value: "\"INFOSPRO\"", groupKey: "email", label: "Nom d'expéditeur" },
+  { key: "email.footer_legal", value: "\"\"", groupKey: "email", label: "Pied de page légal (CAN-SPAM)" },
+  { key: "email.postal_address", value: "\"\"", groupKey: "email", label: "Adresse postale e-mail" },
+  // features
+  { key: "features.weather", value: "true", groupKey: "features", label: "Module météo" },
+  { key: "features.live", value: "true", groupKey: "features", label: "Module direct" },
+  { key: "features.comments", value: "true", groupKey: "features", label: "Commentaires" },
+  { key: "features.push", value: "false", groupKey: "features", label: "Notifications push" },
+  { key: "features.donations", value: "false", groupKey: "features", label: "Dons (défaut §24-9 : non activé)" },
+  // legal
+  { key: "legal.publisher", value: "\"\"", groupKey: "legal", label: "Éditeur (à compléter, signalé en rouge, §24-8)" },
+  { key: "legal.publication_director", value: "\"\"", groupKey: "legal", label: "Directeur de publication (à compléter)" },
+  { key: "legal.host", value: "\"\"", groupKey: "legal", label: "Hébergeur" },
+  { key: "legal.registration_number", value: "\"\"", groupKey: "legal", label: "Numéro d'enregistrement (autorité de régulation)" },
+];
+
+// ─── Libellés d'interface (§00.2-2, §11.2 « Textes d'interface ») ───────
+
+export interface TranslationSeed {
+  key: string;
+  value: string;
+  context?: string;
+}
+
+export const TRANSLATIONS: TranslationSeed[] = [
+  // Commun
+  { key: "common.loading", value: "Chargement…" },
+  { key: "common.error", value: "Une erreur est survenue." },
+  { key: "common.save", value: "Enregistrer" },
+  { key: "common.cancel", value: "Annuler" },
+  { key: "common.confirm", value: "Confirmer" },
+  { key: "common.close", value: "Fermer" },
+  { key: "common.delete", value: "Supprimer" },
+  { key: "common.retry", value: "Réessayer" },
+  { key: "common.back", value: "Retour" },
+  // Statut du socle (page /)
+  { key: "status.subtitle", value: "Plateforme média numérique — Conakry, République de Guinée" },
+  { key: "status.phaseBadge", value: "PHASE 1 / 8 — Socle technique" },
+  { key: "status.title", value: "Socle technique" },
+  { key: "status.check.roles", value: "Rôles système (§08.2)" },
+  { key: "status.check.users", value: "Comptes utilisateurs" },
+  { key: "status.check.categories", value: "Rubriques (§21.1)" },
+  { key: "status.check.articles", value: "Articles de démonstration (§21.6)" },
+  { key: "status.check.adSlots", value: "Emplacements publicitaires (§13.1)" },
+  { key: "status.check.newsletters", value: "Listes newsletter (§14.1)" },
+  { key: "status.check.menus", value: "Menus (§21.4)" },
+  { key: "status.check.settings", value: "Réglages (§11.2)" },
+  { key: "status.check.translations", value: "Textes d'interface" },
+  { key: "status.check.pages", value: "Pages statiques (§21.5)" },
+  { key: "status.ok", value: "Prêt" },
+  { key: "status.pending", value: "À compléter" },
+  { key: "status.readyMessage", value: "Le socle est opérationnel : base de données, migrations, authentification 2FA, RBAC et audit sont en place." },
+  { key: "status.pendingMessage", value: "Certains éléments de référence manquent — exécutez « bun run db:seed »." },
+  { key: "status.adminTitle", value: "Back-office" },
+  { key: "status.adminDesc", value: "Connexion réservée à l'équipe de rédaction. La 2FA (TOTP) est activée à la première connexion." },
+  { key: "status.adminCta", value: "Accéder au back-office" },
+  { key: "status.footerConakry", value: "Heure de Conakry (GMT) — fuseau de référence éditoriale" },
+  // Connexion
+  { key: "login.subtitle", value: "Connexion à l'espace rédaction" },
+  { key: "login.email", value: "Adresse e-mail" },
+  { key: "login.password", value: "Mot de passe" },
+  { key: "login.remember", value: "Se souvenir de moi (30 jours)" },
+  { key: "login.signIn", value: "Se connecter" },
+  { key: "login.signingIn", value: "Connexion…" },
+  { key: "login.mfaHint", value: "Saisissez le code à 6 chiffres de votre application d'authentification, ou l'un de vos codes de secours." },
+  { key: "login.mfaCode", value: "Code de vérification" },
+  { key: "login.verify", value: "Vérifier" },
+  { key: "login.verifying", value: "Vérification…" },
+  { key: "login.backToLogin", value: "Revenir à l'étape précédente" },
+  { key: "login.genericError", value: "Connexion impossible. Vérifiez vos identifiants." },
+  { key: "login.networkError", value: "Réseau indisponible. Vérifiez votre connexion et réessayez." },
+  // Navigation back-office
+  { key: "admin.nav.dashboard", value: "Tableau de bord" },
+  { key: "admin.nav.articles", value: "Articles" },
+  { key: "admin.nav.featured", value: "À la une" },
+  { key: "admin.nav.flash", value: "Flash info" },
+  { key: "admin.nav.live", value: "Direct" },
+  { key: "admin.nav.media", value: "Médiathèque" },
+  { key: "admin.nav.taxonomies", value: "Taxonomies" },
+  { key: "admin.nav.pages", value: "Pages" },
+  { key: "admin.nav.menus", value: "Menus" },
+  { key: "admin.nav.homepage", value: "Page d'accueil" },
+  { key: "admin.nav.seo", value: "SEO" },
+  { key: "admin.nav.ads", value: "Publicité" },
+  { key: "admin.nav.newsletter", value: "Newsletter" },
+  { key: "admin.nav.moderation", value: "Modération" },
+  { key: "admin.nav.analytics", value: "Audience" },
+  { key: "admin.nav.users", value: "Utilisateurs" },
+  { key: "admin.nav.settings", value: "Paramètres" },
+  { key: "admin.nav.audit", value: "Journal d'audit" },
+  { key: "admin.nav.security", value: "Sécurité" },
+  { key: "admin.nav.phaseBadge", value: "Ph. {phase}" },
+  { key: "admin.header.signOut", value: "Se déconnecter" },
+  { key: "admin.header.theme", value: "Changer de thème" },
+  { key: "admin.header.search", value: "Rechercher" },
+  // Tableau de bord
+  { key: "admin.dash.title", value: "Tableau de bord" },
+  { key: "admin.dash.subtitle", value: "Vue du jour — données réelles de la rédaction" },
+  { key: "admin.dash.indicators", value: "Articles du jour" },
+  { key: "admin.dash.published", value: "Publiés" },
+  { key: "admin.dash.drafts", value: "Brouillons" },
+  { key: "admin.dash.review", value: "En relecture" },
+  { key: "admin.dash.scheduled", value: "Programmés" },
+  { key: "admin.dash.flashActive", value: "Flashs actifs" },
+  { key: "admin.dash.categories", value: "Rubriques" },
+  { key: "admin.dash.team", value: "Équipe" },
+  { key: "admin.dash.userStatus.active", value: "Actifs" },
+  { key: "admin.dash.userStatus.invited", value: "Invités" },
+  { key: "admin.dash.userStatus.suspended", value: "Suspendus" },
+  { key: "admin.dash.userStatus.disabled", value: "Désactivés" },
+  { key: "admin.dash.recentActivity", value: "Activité récente" },
+  { key: "admin.dash.action", value: "Action" },
+  { key: "admin.dash.resource", value: "Ressource" },
+  { key: "admin.dash.by", value: "Par" },
+  { key: "admin.dash.at", value: "Le" },
+  { key: "admin.dash.noActivity", value: "Aucune activité enregistrée." },
+  // Sécurité
+  { key: "admin.security.pageDesc", value: "Double authentification et sessions actives de votre compte." },
+  { key: "admin.security.twoFactorTitle", value: "Double authentification (TOTP)" },
+  { key: "admin.security.twoFactorDesc", value: "Protégez votre compte avec une application d'authentification (Aegis, Google Authenticator, 1Password…). Obligatoire pour les rôles d'encadrement (§08.3)." },
+  { key: "admin.security.twoFactorRequired", value: "La double authentification est obligatoire pour votre rôle — activez-la maintenant." },
+  { key: "admin.security.enabledBadge", value: "Activée" },
+  { key: "admin.security.disabledBadge", value: "Non activée" },
+  { key: "admin.security.activateButton", value: "Activer la 2FA" },
+  { key: "admin.security.setupSteps", value: "1. Scannez le QR code dans votre application. 2. Saisissez le code à 6 chiffres. 3. Conservez vos codes de secours." },
+  { key: "admin.security.generateButton", value: "Générer mon code QR" },
+  { key: "admin.security.qrAlt", value: "QR code d'activation de la double authentification" },
+  { key: "admin.security.manualEntry", value: "Saisie manuelle" },
+  { key: "admin.security.codeLabel", value: "Code à 6 chiffres" },
+  { key: "admin.security.backupTitle", value: "Codes de secours à usage unique" },
+  { key: "admin.security.backupOnce", value: "Ces 10 codes ne seront plus jamais affichés. Rangez-les en lieu sûr." },
+  { key: "admin.security.confirmButton", value: "Activer" },
+  { key: "admin.security.sessionsTitle", value: "Sessions actives" },
+  { key: "admin.security.sessionsError", value: "Impossible de charger les sessions." },
+  { key: "admin.security.noSessions", value: "Aucune session active." },
+  { key: "admin.security.unknownDevice", value: "Appareil inconnu" },
+  { key: "admin.security.currentSession", value: "Cette session" },
+  { key: "admin.security.revoke", value: "Révoquer" },
+  { key: "admin.security.sessionRevoked", value: "Session révoquée." },
+  { key: "admin.security.sessionError", value: "La révocation a échoué." },
+  { key: "admin.security.activated", value: "Double authentification activée." },
+  { key: "admin.security.activateError", value: "Code invalide — la 2FA n'a pas été activée." },
+  { key: "admin.security.setupError", value: "Impossible de démarrer la configuration." },
+];
