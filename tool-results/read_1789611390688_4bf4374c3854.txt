@@ -1,0 +1,702 @@
+     1→# INFOSPRO.NET — SPÉCIFICATION D'IMPLÉMENTATION COMPLÈTE
+     2→### Document d'entrée pour agent de développement IA (GLM)
+     3→**Version 2.0 — Spécification exécutable · 16 septembre 2026**
+     4→**Projet :** plateforme média numérique de standard international · Conakry, République de Guinée
+     5→**Domaine :** `infospro.net`
+     6→
+     7→---
+     8→
+     9→# 00. INSTRUCTIONS POUR L'AGENT DE DÉVELOPPEMENT
+    10→
+    11→> **Lis intégralement ce document avant d'écrire la moindre ligne de code.**
+    12→
+    13→## 00.1 Ta mission
+    14→
+    15→Tu dois construire **l'intégralité** de la plateforme INFOSPRO.NET décrite ci-dessous : base de données, backend serverless, API, site public (front-office), tableau de bord d'administration (back-office), moteur SEO, régie publicitaire, module newsletter, et toute l'infrastructure associée.
+    16→
+    17→Ce document est **normatif**. Chaque section contient des spécifications directement implémentables : schéma SQL, routes d'API, arborescence de fichiers, jetons de design, noms de composants, règles métier, critères d'acceptation.
+    18→
+    19→## 00.2 Règles absolues
+    20→
+    21→1. **Ne simplifie rien.** Si une fonctionnalité est décrite, elle doit être implémentée entièrement, pas en version « démo ».
+    22→2. **Aucune donnée en dur.** Tout texte affiché sur le site public doit provenir de la base de données ou de la table `translations`. Aucun titre de rubrique, aucun libellé de menu, aucune adresse e-mail, aucun lien social ne doit être écrit dans le code.
+    23→3. **Respecte les noms.** Les noms de tables, colonnes, routes, composants et variables d'environnement donnés ici sont contractuels. Ne les renomme pas.
+    24→4. **TypeScript strict.** `strict: true`, aucun `any` implicite, aucun `@ts-ignore` sans commentaire justificatif.
+    25→5. **Pas de `localStorage` pour des données métier.** Uniquement pour les préférences d'affichage (thème, mode données réduites).
+    26→6. **Sécurité côté serveur.** Chaque vérification de permission se fait sur le serveur. Masquer un bouton n'est jamais une protection.
+    27→7. **Mobile d'abord.** Toute interface est conçue d'abord pour un écran de 360 px, puis élargie.
+    28→8. **Performance dès le premier commit.** Ne code pas « on optimisera après ». Les budgets de la section 16 sont bloquants.
+    29→9. **Si une information manque**, choisis l'option la plus proche de ce qui se fait sur BBC News, The Economist ou Le Monde, et documente ton choix dans `/docs/DECISIONS.md`.
+    30→10. **Langue du produit :** français. Langue du code (variables, fonctions) : anglais. Commentaires : français.
+    31→
+    32→## 00.3 Ordre d'exécution imposé
+    33→
+    34→Construis dans cet ordre. Ne passe à la phase suivante qu'une fois la précédente fonctionnelle et testée.
+    35→
+    36→```
+    37→PHASE 1  Socle          → repo, config, DB, migrations, seed, auth, RBAC
+    38→PHASE 2  Back-office    → CRUD articles, éditeur blocs, médiathèque, taxonomies
+    39→PHASE 3  API publique   → endpoints de lecture, cache, recherche
+    40→PHASE 4  Front-office   → design system, layouts, pages, animations
+    41→PHASE 5  Modules        → flash, à la une, direct, météo, reportages
+    42→PHASE 6  SEO            → socle technique + moteur de mots-clés + assistant
+    43→PHASE 7  Monétisation   → régie publicitaire + newsletter
+    44→PHASE 8  Finition       → i18n, a11y, perf, tests, observabilité, docs
+    45→```
+    46→
+    47→Le détail de chaque phase, avec ses critères d'acceptation, figure en **section 20**.
+    48→
+    49→## 00.4 Identité visuelle imposée
+    50→
+    51→- **Couleurs :** blanc, noir, rouge — strictement. Aucune autre couleur décorative.
+    52→- **Rouge de marque :** `#C8102E`
+    53→- **Le rouge est un signal, pas une décoration.** Réservé à : marque, liens, statuts d'urgence (direct/flash/alerte), un seul accent par bloc. Maximum 10 % de surface rouge par page.
+    54→- **Langage visuel :** presse imprimée haut de gamme — filets fins, typographie serif en titraille, densité maîtrisée. Pas d'ombres portées diffuses, pas de dégradés, pas de coins très arrondis, pas d'esthétique « SaaS ».
+    55→
+    56→## 00.5 Références de qualité
+    57→
+    58→| Référence | Ce qu'il faut en tirer |
+    59→|---|---|
+    60→| BBC News | Architecture de l'information, accessibilité, performance en réseau contraint |
+    61→| The Economist | Rigueur typographique, identité rouge/blanc/noir, densité |
+    62→| The New York Times | Formats immersifs, live blogs, publicité native |
+    63→| France 24 | Multilinguisme, place de la vidéo, couverture Afrique |
+    64→| Le Monde | Dossiers, newsletters éditorialisées, hiérarchie de la une |
+    65→
+    66→---
+    67→
+    68→# 01. CONTEXTE ET OBJECTIFS
+    69→
+    70→## 01.1 Nature du produit
+    71→
+    72→Site d'information généraliste, national et international, produit depuis la Guinée, avec ambition de qualité comparable aux grands médias mondiaux. Contenus en français au lancement, architecture multilingue native (anglais en phase 2, arabe RTL prévu).
+    73→
+    74→## 01.2 Contraintes structurantes
+    75→
+    76→| Contrainte | Conséquence technique directe |
+    77→|---|---|
+    78→| Audience majoritairement sur 3G/4G instable, forfaits data coûteux | Budget strict de poids de page, mode données réduites, ISR agressif |
+    79→| Parc Android d'entrée de gamme (4 Go RAM) | Animations `transform`/`opacity` uniquement, JS initial < 180 Ko |
+    80→| Rédaction non technique | Back-office en français, vocabulaire de presse, formation en 4 h |
+    81→| Pics d'audience imprévisibles (élections, crises) | Serverless élastique, cache en périphérie, pas de serveur à dimensionner |
+    82→| Extension future (abonnements, annonces, emploi) | Schéma relationnel extensible, pas de refonte nécessaire |
+    83→| Lecteurs répartis sur 4 continents | CDN mondial, fuseaux horaires, éditions géographiques |
+    84→
+    85→## 01.3 Objectifs mesurables à 12 mois
+    86→
+    87→| Objectif | Indicateur | Cible |
+    88→|---|---|---|
+    89→| Audience | Visiteurs uniques mensuels | ≥ 300 000, dont 25 % hors Guinée |
+    90→| Fidélisation | Abonnés newsletter actifs | ≥ 20 000 · ouverture ≥ 35 % |
+    91→| SEO | Part du trafic organique | ≥ 45 % |
+    92→| Performance | Core Web Vitals terrain p75 | LCP < 2,0 s · INP < 200 ms · CLS < 0,1 |
+    93→| Disponibilité | Uptime mensuel | ≥ 99,9 % |
+    94→| Autonomie | Modifications sans développeur | 100 % du contenu, 95 % de la mise en page |
+    95→| Monétisation | Emplacements publicitaires actifs | ≥ 18 formats distincts |
+    96→| Productivité | Délai de publication d'une brève | < 3 minutes |
+    97→
+    98→## 01.4 Hors périmètre de cette implémentation
+    99→
+   100→Ces éléments ne sont **pas** à construire maintenant, mais le schéma de données et l'architecture doivent les rendre possibles sans refonte :
+   101→
+   102→- Applications mobiles natives iOS/Android
+   103→- Paywall et abonnements payants (prévoir `users.subscription_status`, table `subscriptions` vide)
+   104→- Web radio / podcast en flux continu
+   105→- Petites annonces et annonces légales
+   106→
+   107→---
+   108→
+   109→# 02. STACK TECHNIQUE IMPOSÉE
+   110→
+   111→## 02.1 Choix technologiques
+   112→
+   113→| Couche | Technologie | Version | Note |
+   114→|---|---|---|---|
+   115→| Framework | **Next.js** App Router | 15.x | React Server Components par défaut |
+   116→| Langage | **TypeScript** | 5.x | `strict: true` |
+   117→| UI | **React** | 19.x | — |
+   118→| Styles | **Tailwind CSS** | 4.x | Jetons de design en variables CSS |
+   119→| Animations | **Framer Motion** (`motion`) | 11.x+ | + transitions CSS natives pour le simple |
+   120→| Base de données | **PostgreSQL** | 16+ | Serverless : Neon, Supabase, ou Aurora Serverless v2 |
+   121→| ORM | **Prisma** | 5.x+ | Alternative acceptée : Drizzle |
+   122→| Pool de connexions | PgBouncer / pooler intégré | — | **Obligatoire** en serverless |
+   123→| Auth | **Auth.js (NextAuth)** v5 | 5.x | Credentials + TOTP 2FA |
+   124→| Validation | **Zod** | 3.x | Schémas partagés client/serveur |
+   125→| Recherche | **Meilisearch** | 1.x | Repli : PostgreSQL FTS + `pg_trgm` |
+   126→| Cache / compteurs | **Redis serverless** (Upstash) | — | Vues, sessions, rate limit |
+   127→| Stockage objet | **S3** ou **Cloudflare R2** | — | Médias |
+   128→| Transformation images | `next/image` + service de transformation | — | AVIF/WebP, 6 largeurs |
+   129→| Vidéo | **Mux** ou **Cloudflare Stream** | — | HLS adaptatif, sous-titres |
+   130→| E-mail | **Resend** ou **Amazon SES** | — | SPF/DKIM/DMARC obligatoires |
+   131→| Files & cron | **QStash** ou **Inngest** | — | Tâches asynchrones |
+   132→| Éditeur riche | **TipTap** | 2.x | Sortie **JSON blocs**, jamais HTML brut |
+   133→| Formulaires | **React Hook Form** + Zod | — | — |
+   134→| Tables admin | **TanStack Table** | 8.x | — |
+   135→| Graphiques | **Recharts** | — | Dashboards |
+   136→| Tests unitaires | **Vitest** | — | — |
+   137→| Tests E2E | **Playwright** | — | — |
+   138→| Erreurs | **Sentry** | — | — |
+   139→| Hébergement | **Vercel** | — | Alternative : AWS Lambda + CloudFront |
+   140→
+   141→## 02.2 Architecture en couches
+   142→
+   143→```
+   144→┌─────────────────────────────────────────────────────────┐
+   145→│  EDGE : CDN mondial, cache HTML+médias, WAF,            │
+   146→│         rate limiting, redirections, TLS                 │
+   147→├─────────────────────────────────────────────────────────┤
+   148→│  APP  : Next.js — RSC, ISR (articles), SSR (perso),     │
+   149→│         Server Actions (admin)                           │
+   150→├─────────────────────────────────────────────────────────┤
+   151→│  API  : Route Handlers /api/v1/* (public, cachée)       │
+   152→│         Server Actions (admin, authentifiées)            │
+   153→├─────────────────────────────────────────────────────────┤
+   154→│  JOBS : encodage vidéo, envoi e-mail, collecte SEO,     │
+   155→│         sitemaps, agrégation stats, backups              │
+   156→├─────────────────────────────────────────────────────────┤
+   157→│  DATA : PostgreSQL (+ replica lecture) · Redis ·        │
+   158→│         Meilisearch · S3/R2                              │
+   159→├─────────────────────────────────────────────────────────┤
+   160→│  TIERS: météo · vidéo · e-mail · données SEO ·          │
+   161→│         analytics · push · régie externe                 │
+   162→└─────────────────────────────────────────────────────────┘
+   163→```
+   164→
+   165→## 02.3 Règle d'indépendance
+   166→
+   167→Aucune dépendance propriétaire bloquante. Un export complet (dump PostgreSQL + archive des médias) doit être obtenable par une commande documentée : `pnpm run export:full`.
+   168→
+   169→---
+   170→
+   171→# 03. STRUCTURE DU DÉPÔT
+   172→
+   173→```
+   174→infospro/
+   175→├── apps/
+   176→│   └── web/                          # Application Next.js unique
+   177→│       ├── src/
+   178→│       │   ├── app/
+   179→│       │   │   ├── (public)/                 # Site public — layout public
+   180→│       │   │   │   ├── layout.tsx
+   181→│       │   │   │   ├── page.tsx              # Accueil
+   182→│       │   │   │   ├── a-la-une/page.tsx
+   183→│       │   │   │   ├── rubriques/page.tsx
+   184→│       │   │   │   ├── [category]/
+   185→│       │   │   │   │   ├── page.tsx          # Page rubrique
+   186→│       │   │   │   │   ├── page/[n]/page.tsx # Pagination indexable
+   187→│       │   │   │   │   └── [slug]/page.tsx   # Article
+   188→│       │   │   │   ├── reportages/
+   189→│       │   │   │   ├── direct/[slug]/
+   190→│       │   │   │   ├── dossiers/[slug]/
+   191→│       │   │   │   ├── monde/[zone]/
+   192→│       │   │   │   ├── auteurs/[slug]/
+   193→│       │   │   │   ├── tags/[slug]/
+   194→│       │   │   │   ├── entites/[slug]/
+   195→│       │   │   │   ├── recherche/
+   196→│       │   │   │   ├── meteo/
+   197→│       │   │   │   ├── newsletters/
+   198→│       │   │   │   ├── archives/[y]/[m]/[d]/
+   199→│       │   │   │   └── [page]/page.tsx       # Pages statiques (à-propos, contact…)
+   200→│       │   │   ├── admin/                    # Back-office — layout admin
+   201→│       │   │   │   ├── layout.tsx
+   202→│       │   │   │   ├── page.tsx              # Dashboard
+   203→│       │   │   │   ├── articles/
+   204→│       │   │   │   ├── une/                  # Composeur de la une
+   205→│       │   │   │   ├── flash/
+   206→│       │   │   │   ├── direct/
+   207→│       │   │   │   ├── medias/
+   208→│       │   │   │   ├── taxonomies/
+   209→│       │   │   │   ├── pages/
+   210→│       │   │   │   ├── menus/
+   211→│       │   │   │   ├── homepage/             # Composeur page d'accueil
+   212→│       │   │   │   ├── seo/
+   213→│       │   │   │   ├── publicite/
+   214→│       │   │   │   ├── newsletter/
+   215→│       │   │   │   ├── moderation/
+   216→│       │   │   │   ├── analytics/
+   217→│       │   │   │   ├── utilisateurs/
+   218→│       │   │   │   ├── parametres/
+   219→│       │   │   │   └── audit/
+   220→│       │   │   ├── api/v1/                   # API publique REST
+   221→│       │   │   ├── api/admin/                # API privée
+   222→│       │   │   ├── api/cron/                 # Tâches planifiées
+   223→│       │   │   ├── api/webhooks/             # Callbacks tiers
+   224→│       │   │   ├── sitemap.xml/route.ts
+   225→│       │   │   ├── sitemap-news.xml/route.ts
+   226→│       │   │   ├── rss.xml/route.ts
+   227→│       │   │   ├── robots.ts
+   228→│       │   │   └── opengraph-image.tsx
+   229→│       │   ├── components/
+   230→│       │   │   ├── ui/                       # Primitives design system
+   231→│       │   │   ├── public/                   # Composants site public
+   232→│       │   │   ├── admin/                    # Composants back-office
+   233→│       │   │   ├── editor/                   # Éditeur de blocs
+   234→│       │   │   ├── blocks/                   # Rendu des blocs de contenu
+   235→│       │   │   └── ads/                      # Emplacements publicitaires
+   236→│       │   ├── lib/
+   237→│       │   │   ├── db.ts                     # Client Prisma singleton
+   238→│       │   │   ├── auth.ts                   # Config Auth.js
+   239→│       │   │   ├── permissions.ts            # RBAC
+   240→│       │   │   ├── cache.ts                  # Helpers cache + tags
+   241→│       │   │   ├── redis.ts
+   242→│       │   │   ├── search.ts                 # Meilisearch
+   243→│       │   │   ├── media.ts                  # Upload, transformation
+   244→│       │   │   ├── email.ts
+   245→│       │   │   ├── seo/                      # Moteur SEO (voir §12)
+   246→│       │   │   ├── ads/                      # Sélection des créations
+   247→│       │   │   ├── i18n/
+   248→│       │   │   ├── analytics.ts
+   249→│       │   │   └── utils/
+   250→│       │   ├── server/
+   251→│       │   │   ├── actions/                  # Server Actions par domaine
+   252→│       │   │   ├── services/                 # Logique métier
+   253→│       │   │   └── repositories/             # Accès données
+   254→│       │   ├── schemas/                      # Schémas Zod partagés
+   255→│       │   ├── types/
+   256→│       │   ├── styles/
+   257→│       │   │   ├── globals.css               # Jetons CSS
+   258→│       │   │   └── tokens.css
+   259→│       │   └── middleware.ts                 # i18n, redirections, auth guard
+   260→│       ├── public/
+   261→│       ├── prisma/
+   262→│       │   ├── schema.prisma
+   263→│       │   ├── migrations/
+   264→│       │   └── seed.ts
+   265→│       ├── tests/
+   266→│       │   ├── unit/
+   267→│       │   └── e2e/
+   268→│       ├── next.config.ts
+   269→│       ├── tailwind.config.ts
+   270→│       └── package.json
+   271→├── docs/
+   272→│   ├── DECISIONS.md          # Journal des choix techniques
+   273→│   ├── DEPLOYMENT.md
+   274→│   ├── OPERATIONS.md
+   275→│   ├── DATA-DICTIONARY.md
+   276→│   └── USER-MANUAL.md        # Manuel back-office, en français
+   277→├── .env.example
+   278→├── README.md
+   279→└── pnpm-workspace.yaml
+   280→```
+   281→
+   282→---
+   283→
+   284→# 04. VARIABLES D'ENVIRONNEMENT
+   285→
+   286→Crée `.env.example` exactement avec ces clés. Aucun secret dans le dépôt.
+   287→
+   288→```bash
+   289→# ─── Application ───────────────────────────────────────
+   290→NEXT_PUBLIC_SITE_URL=https://infospro.net
+   291→NEXT_PUBLIC_SITE_NAME=INFOSPRO
+   292→NODE_ENV=production
+   293→APP_TIMEZONE=Africa/Conakry
+   294→
+   295→# ─── Base de données ───────────────────────────────────
+   296→DATABASE_URL=postgresql://user:pass@host/db?sslmode=require&pgbouncer=true
+   297→DIRECT_DATABASE_URL=postgresql://user:pass@host/db?sslmode=require  # migrations
+   298→
+   299→# ─── Auth ──────────────────────────────────────────────
+   300→AUTH_SECRET=
+   301→AUTH_URL=https://infospro.net
+   302→AUTH_TRUST_HOST=true
+   303→
+   304→# ─── Redis ─────────────────────────────────────────────
+   305→UPSTASH_REDIS_REST_URL=
+   306→UPSTASH_REDIS_REST_TOKEN=
+   307→
+   308→# ─── Stockage médias ───────────────────────────────────
+   309→S3_ENDPOINT=
+   310→S3_REGION=
+   311→S3_BUCKET=infospro-media
+   312→S3_ACCESS_KEY_ID=
+   313→S3_SECRET_ACCESS_KEY=
+   314→NEXT_PUBLIC_CDN_URL=https://cdn.infospro.net
+   315→
+   316→# ─── Recherche ─────────────────────────────────────────
+   317→MEILISEARCH_HOST=
+   318→MEILISEARCH_MASTER_KEY=
+   319→MEILISEARCH_SEARCH_KEY=          # clé publique restreinte
+   320→
+   321→# ─── Vidéo ─────────────────────────────────────────────
+   322→MUX_TOKEN_ID=
+   323→MUX_TOKEN_SECRET=
+   324→MUX_WEBHOOK_SECRET=
+   325→
+   326→# ─── E-mail ────────────────────────────────────────────
+   327→RESEND_API_KEY=
+   328→EMAIL_FROM=redaction@infospro.net
+   329→EMAIL_REPLY_TO=contact@infospro.net
+   330→EMAIL_BOUNCE_WEBHOOK_SECRET=
+   331→
+   332→# ─── Météo ─────────────────────────────────────────────
+   333→WEATHER_API_PROVIDER=openweathermap
+   334→WEATHER_API_KEY=
+   335→
+   336→# ─── SEO / données mots-clés ───────────────────────────
+   337→GOOGLE_SEARCH_CONSOLE_CLIENT_EMAIL=
+   338→GOOGLE_SEARCH_CONSOLE_PRIVATE_KEY=
+   339→GOOGLE_SEARCH_CONSOLE_SITE_URL=
+   340→KEYWORD_PROVIDER=dataforseo        # dataforseo | semrush | ahrefs | none
+   341→KEYWORD_PROVIDER_LOGIN=
+   342→KEYWORD_PROVIDER_PASSWORD=
+   343→KEYWORD_PROVIDER_MONTHLY_QUOTA=5000
+   344→LLM_API_KEY=
+   345→LLM_MODEL=
+   346→
+   347→# ─── Analytics ─────────────────────────────────────────
+   348→NEXT_PUBLIC_PLAUSIBLE_DOMAIN=infospro.net
+   349→PLAUSIBLE_API_KEY=
+   350→NEXT_PUBLIC_GA_ID=
+   351→
+   352→# ─── Publicité ─────────────────────────────────────────
+   353→NEXT_PUBLIC_GAM_NETWORK_CODE=
+   354→NEXT_PUBLIC_ADS_ENABLED=true
+   355→
+   356→# ─── Push ──────────────────────────────────────────────
+   357→VAPID_PUBLIC_KEY=
+   358→VAPID_PRIVATE_KEY=
+   359→VAPID_SUBJECT=mailto:tech@infospro.net
+   360→
+   361→# ─── Observabilité ─────────────────────────────────────
+   362→SENTRY_DSN=
+   363→SENTRY_AUTH_TOKEN=
+   364→
+   365→# ─── Sécurité ──────────────────────────────────────────
+   366→CRON_SECRET=
+   367→REVALIDATE_SECRET=
+   368→TURNSTILE_SITE_KEY=
+   369→TURNSTILE_SECRET_KEY=
+   370→```
+   371→
+   372→---
+   373→
+   374→# 05. DESIGN SYSTEM
+   375→
+   376→## 05.1 Jetons de couleur (à écrire dans `src/styles/tokens.css`)
+   377→
+   378→```css
+   379→:root {
+   380→  /* Encres */
+   381→  --ink:            #14110F;
+   382→  --ink-soft:       #4A4441;
+   383→  --ink-faint:      #7B7470;
+   384→  --ink-inverse:    #FFFFFF;
+   385→
+   386→  /* Papiers */
+   387→  --paper:          #FFFFFF;
+   388→  --paper-alt:      #F6F5F3;
+   389→  --paper-sunk:     #ECEBE8;
+   390→
+   391→  /* Rouge de marque */
+   392→  --red:            #C8102E;
+   393→  --red-deep:       #8F0B20;
+   394→  --red-bright:     #E31B37;
+   395→  --red-wash:       #FDF2F3;
+   396→
+   397→  /* Filets */
+   398→  --rule:           #DDD9D4;
+   399→  --rule-strong:    #BDB7B1;
+   400→
+   401→  /* Statuts (back-office uniquement) */
+   402→  --success:        #0F7B4F;
+   403→  --warning:        #B26A00;
+   404→  --danger:         #C8102E;
+   405→  --info:           #1B4F8F;
+   406→
+   407→  /* Typographie */
+   408→  --font-serif: "Source Serif 4", Georgia, "Times New Roman", serif;
+   409→  --font-sans:  "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+   410→  --font-mono:  "JetBrains Mono", ui-monospace, Menlo, monospace;
+   411→
+   412→  /* Rayons — volontairement faibles */
+   413→  --radius-none: 0;
+   414→  --radius-sm:   2px;
+   415→  --radius-md:   4px;
+   416→  --radius-full: 9999px;
+   417→
+   418→  /* Durées */
+   419→  --dur-micro:  160ms;
+   420→  --dur-state:  260ms;
+   421→  --dur-enter:  340ms;
+   422→  --dur-macro:  520ms;
+   423→
+   424→  /* Courbes */
+   425→  --ease-out:    cubic-bezier(0, 0, 0.2, 1);
+   426→  --ease-inout:  cubic-bezier(0.4, 0, 0.2, 1);
+   427→  --ease-signal: cubic-bezier(0.2, 0.8, 0.2, 1);
+   428→
+   429→  /* Profondeur (usage parcimonieux) */
+   430→  --z-dropdown: 100;
+   431→  --z-sticky:   200;
+   432→  --z-overlay:  300;
+   433→  --z-modal:    400;
+   434→  --z-toast:    500;
+   435→}
+   436→
+   437→@media (prefers-color-scheme: dark) {
+   438→  :root:not([data-theme="light"]) {
+   439→    --ink: #F2EFEC; --ink-soft: #BDB6B0; --ink-faint: #8B837D; --ink-inverse: #0E0D0C;
+   440→    --paper: #0E0D0C; --paper-alt: #171514; --paper-sunk: #1F1C1A;
+   441→    --red: #FF3B57; --red-deep: #FF6B7F; --red-bright: #FF5470; --red-wash: #241214;
+   442→    --rule: #2C2826; --rule-strong: #443E3A;
+   443→  }
+   444→}
+   445→:root[data-theme="dark"] { /* mêmes valeurs que ci-dessus */ }
+   446→```
+   447→
+   448→**Contraintes de contraste :** texte courant ≥ 4,5:1, éléments d'interface ≥ 3:1. Vérification automatisée dans le pipeline.
+   449→
+   450→## 05.2 Échelle typographique
+   451→
+   452→| Niveau | Desktop | Mobile | Interligne | Graisse | Famille | Usage |
+   453→|---|---|---|---|---|---|---|
+   454→| `display` | 56px | 34px | 1.05 | 700 | serif | Une immersive, dossiers |
+   455→| `h1` | 42px | 28px | 1.12 | 700 | serif | Titre d'article |
+   456→| `h2` | 30px | 23px | 1.20 | 700 | serif | Titres de sections d'accueil |
+   457→| `h3` | 22px | 19px | 1.30 | 600 | serif | Intertitres d'article |
+   458→| `lede` | 21px | 18px | 1.45 | 400 | serif | Chapô |
+   459→| `body` | 18px | 17px | 1.70 | 400 | sans | Corps d'article (62–75 signes/ligne) |
+   460→| `ui` | 15px | 15px | 1.50 | 400 | sans | Interface |
+   461→| `caption` | 14px | 13px | 1.45 | 400 | sans | Légendes, crédits |
+   462→| `kicker` | 12px | 11px | 1.20 | 700 | sans | Surtitre, capitales, `letter-spacing: .14em` |
+   463→| `meta` | 13px | 12px | 1.40 | 500 | sans | Horodatages, signatures |
+   464→
+   465→Polices en WOFF2, sous-ensemble latin, **2 graisses préchargées maximum**, `font-display: swap` avec métriques de repli ajustées (`size-adjust`) pour CLS = 0.
+   466→
+   467→## 05.3 Grille et espacement
+   468→
+   469→- Grille 12 colonnes · gouttière 24 px · marges 24 px (mobile) / 48 px (≥1024 px) · conteneur max 1320 px
+   470→- Colonne de lecture d'article : **max 720 px**
+   471→- Points de rupture : `xs 360` · `sm 480` · `md 768` · `lg 1024` · `xl 1280` · `2xl 1600`
+   472→- Échelle d'espacement (base 4) : `4, 8, 12, 16, 24, 32, 48, 64, 96, 128`
+   473→- **Séparation par filets fins, pas par ombres.**
+   474→
+   475→## 05.4 Inventaire des composants à construire
+   476→
+   477→### `components/ui/` — primitives
+   478→`Button` (variants: primary, secondary, ghost, danger; sizes: sm, md, lg) · `IconButton` · `Link` · `Input` · `Textarea` · `Select` · `Combobox` · `Checkbox` · `Radio` · `Switch` · `Slider` · `DatePicker` · `DateTimePicker` · `Tabs` · `Accordion` · `Dialog` · `Drawer` · `Popover` · `Tooltip` · `Toast` · `Badge` · `Tag` · `Avatar` · `Skeleton` · `Spinner` · `ProgressBar` · `Pagination` · `Breadcrumb` · `EmptyState` · `ErrorState` · `Table` · `DropdownMenu` · `CommandPalette` · `VisuallyHidden` · `SkipLink`
+   479→
+   480→**Chaque composant doit spécifier ses états :** default, hover, focus-visible, active, disabled, loading, error.
+   481→
+   482→### `components/public/` — site public
+   483→`TopUtilityBar` · `Masthead` · `MainNav` · `MegaMenu` · `CategoryStrip` · `MobileMenu` · `SearchOverlay` · `SiteFooter` · `AlertBanner` · `FlashTicker` · `HeroLead` (3 gabarits) · `ArticleCard` (6 variantes : hero, large, medium, small, list, compact) · `ArticleGrid` · `ArticleList` · `LiveBadge` · `LivePreviewCard` · `MostReadList` · `SectionBlock` · `VideoCarousel` · `VideoPlayer` · `NewsletterInline` · `NewsletterBlock` · `WeatherWidget` · `WeatherPage` · `DossierBanner` · `WorldTabs` · `OpinionBlock` · `AuthorByline` · `AuthorBox` · `ShareBar` · `ReadingProgress` · `ArticleToc` · `RelatedArticles` · `TagList` · `EntityChip` · `CorrectionNotice` · `SponsoredLabel` · `CommentThread` · `ContinuousReader` · `Lightbox` · `PrintView`
+   484→
+   485→### `components/blocks/` — rendu du contenu d'article
+   486→Un composant par type de bloc (voir §06.4) : `ParagraphBlock` · `HeadingBlock` · `QuoteBlock` · `PullQuoteBlock` · `KeyPointsBlock` · `ListBlock` · `ImageBlock` · `GalleryBlock` · `VideoBlock` · `AudioBlock` · `TableBlock` · `EmbedBlock` · `ChartBlock` · `MapBlock` · `TimelineBlock` · `BeforeAfterBlock` · `DefinitionBlock` · `ReadMoreBlock` · `DividerBlock` · `CodeBlock` · `NewsletterFormBlock` · `AdSlotBlock` · `FactCheckVerdictBlock` · `QABlock`
+   487→
+   488→### `components/ads/`
+   489→`AdSlot` (composant générique paramétré par code d'emplacement) · `AdLabel` · `NativeAdCard` · `StickyMobileBanner` · `Interstitial` · `AdBlockNotice`
+   490→
+   491→### `components/editor/`
+   492→`BlockEditor` · `BlockToolbar` · `SlashMenu` · `MediaPicker` · `LinkEditor` · `SeoPanel` · `PublishPanel` · `VersionDiff` · `ReviewComments` · `PreviewFrame`
+   493→
+   494→## 05.5 Variantes de `ArticleCard`
+   495→
+   496→| Variante | Image | Surtitre | Titre | Chapô | Méta | Usage |
+   497→|---|---|---|---|---|---|---|
+   498→| `hero` | 21:9 ou 16:9 pleine largeur | oui | display/h1 | 2 lignes | auteur + date | Une principale |
+   499→| `large` | 16:9 | oui | h2 | 2 lignes | date | Tête de bloc rubrique |
+   500→| `medium` | 16:9 | oui | h3 | 1 ligne | date | Grilles |
+   501→| `small` | 4:3 vignette latérale | oui | 17px | non | date | Colonnes latérales |
+   502→| `list` | aucune ou vignette 1:1 | oui | 17px | non | heure | Fil chronologique |
+   503→| `compact` | aucune | non | 15px | non | heure | Le plus lu, flash |
+   504→
+   505→---
+   506→
+   507→# 06. MODÈLE DE DONNÉES
+   508→
+   509→## 06.1 Conventions
+   510→
+   511→- Identifiants : **UUID v7** (triables chronologiquement). Colonne `id uuid primary key`.
+   512→- Horodatages : `timestamptz`, stockés en UTC. Colonnes `created_at`, `updated_at` sur toutes les tables.
+   513→- Suppression logique : `deleted_at timestamptz null` sur toutes les tables de contenu. Toute requête de lecture filtre `deleted_at IS NULL`.
+   514→- Nommage : `snake_case`, tables au pluriel.
+   515→- Contraintes d'intégrité référentielle **déclarées en base**, jamais uniquement applicatives.
+   516→- Index GIN sur les colonnes `jsonb` interrogées et sur la recherche plein texte.
+   517→- Partitionnement mensuel sur `ad_events`, `email_events`, `page_views`.
+   518→
+   519→## 06.2 Schéma SQL complet
+   520→
+   521→```sql
+   522→-- ═══════════════════════════════════════════════════════
+   523→-- EXTENSIONS
+   524→-- ═══════════════════════════════════════════════════════
+   525→CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+   526→CREATE EXTENSION IF NOT EXISTS "pg_trgm";
+   527→CREATE EXTENSION IF NOT EXISTS "unaccent";
+   528→
+   529→-- ═══════════════════════════════════════════════════════
+   530→-- ÉNUMÉRATIONS
+   531→-- ═══════════════════════════════════════════════════════
+   532→CREATE TYPE article_status AS ENUM (
+   533→  'draft','in_review','changes_requested','approved',
+   534→  'scheduled','published','updated','archived','unpublished'
+   535→);
+   536→CREATE TYPE article_format AS ENUM (
+   537→  'brief','standard','analysis','investigation','interview','opinion',
+   538→  'portrait','live','video','infographic','factcheck','press_review','longform'
+   539→);
+   540→CREATE TYPE article_visibility AS ENUM ('public','unlisted','restricted');
+   541→CREATE TYPE media_type AS ENUM ('image','video','audio','document');
+   542→CREATE TYPE geo_type AS ENUM ('continent','country','region','city');
+   543→CREATE TYPE entity_type AS ENUM ('person','organization','place');
+   544→CREATE TYPE user_status AS ENUM ('active','invited','suspended','disabled');
+   545→CREATE TYPE comment_status AS ENUM ('pending','approved','rejected','spam');
+   546→CREATE TYPE campaign_status AS ENUM ('draft','scheduled','running','paused','completed','cancelled');
+   547→CREATE TYPE creative_type AS ENUM ('image','html5','video','native','third_party_script');
+   548→CREATE TYPE subscriber_status AS ENUM ('pending','confirmed','unsubscribed','bounced','complained');
+   549→CREATE TYPE email_campaign_status AS ENUM ('draft','scheduled','sending','sent','failed','cancelled');
+   550→CREATE TYPE keyword_trend AS ENUM ('spiking','rising','stable','declining','seasonal');
+   551→CREATE TYPE live_status AS ENUM ('upcoming','live','ended');
+   552→
+   553→-- ═══════════════════════════════════════════════════════
+   554→-- UTILISATEURS, RÔLES, PERMISSIONS
+   555→-- ═══════════════════════════════════════════════════════
+   556→CREATE TABLE users (
+   557→  id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+   558→  email           citext UNIQUE NOT NULL,
+   559→  password_hash   text,
+   560→  display_name    text NOT NULL,
+   561→  slug            text UNIQUE NOT NULL,
+   562→  job_title       text,
+   563→  bio             text,
+   564→  avatar_media_id uuid REFERENCES media(id) ON DELETE SET NULL,
+   565→  socials         jsonb NOT NULL DEFAULT '[]',   -- [{platform,url}]
+   566→  expertise       text[] DEFAULT '{}',
+   567→  phone           text,
+   568→  locale          text NOT NULL DEFAULT 'fr',
+   569→  status          user_status NOT NULL DEFAULT 'invited',
+   570→  two_factor_secret text,
+   571→  two_factor_enabled boolean NOT NULL DEFAULT false,
+   572→  failed_attempts int NOT NULL DEFAULT 0,
+   573→  locked_until    timestamptz,
+   574→  last_login_at   timestamptz,
+   575→  is_author_public boolean NOT NULL DEFAULT true,
+   576→  created_at      timestamptz NOT NULL DEFAULT now(),
+   577→  updated_at      timestamptz NOT NULL DEFAULT now(),
+   578→  deleted_at      timestamptz
+   579→);
+   580→CREATE INDEX idx_users_slug ON users(slug) WHERE deleted_at IS NULL;
+   581→
+   582→CREATE TABLE roles (
+   583→  id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+   584→  key         text UNIQUE NOT NULL,       -- admin, publisher, chief_editor…
+   585→  label       text NOT NULL,
+   586→  description text,
+   587→  permissions text[] NOT NULL DEFAULT '{}',
+   588→  is_system   boolean NOT NULL DEFAULT false,
+   589→  created_at  timestamptz NOT NULL DEFAULT now(),
+   590→  updated_at  timestamptz NOT NULL DEFAULT now()
+   591→);
+   592→
+   593→CREATE TABLE user_roles (
+   594→  user_id      uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+   595→  role_id      uuid NOT NULL REFERENCES roles(id) ON DELETE CASCADE,
+   596→  -- restriction optionnelle du rôle à certaines rubriques (chef de rubrique)
+   597→  category_ids uuid[] DEFAULT NULL,
+   598→  granted_at   timestamptz NOT NULL DEFAULT now(),
+   599→  granted_by   uuid REFERENCES users(id),
+   600→  PRIMARY KEY (user_id, role_id)
+   601→);
+   602→
+   603→CREATE TABLE sessions (
+   604→  id           uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+   605→  user_id      uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+   606→  token_hash   text UNIQUE NOT NULL,
+   607→  ip_hash      text,
+   608→  user_agent   text,
+   609→  expires_at   timestamptz NOT NULL,
+   610→  created_at   timestamptz NOT NULL DEFAULT now()
+   611→);
+   612→
+   613→-- ═══════════════════════════════════════════════════════
+   614→-- MÉDIAS
+   615→-- ═══════════════════════════════════════════════════════
+   616→CREATE TABLE media (
+   617→  id            uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+   618→  type          media_type NOT NULL,
+   619→  storage_key   text NOT NULL,
+   620→  url           text NOT NULL,
+   621→  mime_type     text NOT NULL,
+   622→  file_size     bigint NOT NULL,
+   623→  width         int, height int, duration_sec numeric,
+   624→  blurhash      text,
+   625→  checksum      text,                          -- détection de doublons
+   626→  title         text,
+   627→  alt_text      text,                          -- OBLIGATOIRE pour type=image
+   628→  caption       text,
+   629→  credit        text NOT NULL,                 -- OBLIGATOIRE
+   630→  license       text,
+   631→  shot_at       timestamptz,
+   632→  location      text,
+   633→  focal_point   jsonb DEFAULT '{"x":0.5,"y":0.5}',
+   634→  crops         jsonb DEFAULT '{}',            -- {"16:9":{...},"1:1":{...}}
+   635→  variants      jsonb DEFAULT '[]',            -- [{w,format,url,size}]
+   636→  provider      text,                          -- mux, s3…
+   637→  provider_id   text,                          -- playback id
+   638→  transcript    text,                          -- vidéo/audio, indexable
+   639→  captions      jsonb DEFAULT '[]',            -- [{lang,url}]
+   640→  uploaded_by   uuid REFERENCES users(id),
+   641→  created_at    timestamptz NOT NULL DEFAULT now(),
+   642→  updated_at    timestamptz NOT NULL DEFAULT now(),
+   643→  deleted_at    timestamptz
+   644→);
+   645→CREATE INDEX idx_media_type ON media(type) WHERE deleted_at IS NULL;
+   646→CREATE INDEX idx_media_checksum ON media(checksum);
+   647→CREATE INDEX idx_media_search ON media USING gin (
+   648→  to_tsvector('french', coalesce(title,'')||' '||coalesce(caption,'')||' '||coalesce(credit,''))
+   649→);
+   650→
+   651→-- ═══════════════════════════════════════════════════════
+   652→-- TAXONOMIES
+   653→-- ═══════════════════════════════════════════════════════
+   654→CREATE TABLE categories (
+   655→  id             uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+   656→  parent_id      uuid REFERENCES categories(id) ON DELETE RESTRICT,
+   657→  slug           text NOT NULL,
+   658→  name           text NOT NULL,
+   659→  short_name     text,
+   660→  description    text,
+   661→  intro_html     text,                    -- texte éditorial SEO de la page rubrique
+   662→  color_accent   text,                    -- optionnel, doit rester dans la palette
+   663→  cover_media_id uuid REFERENCES media(id) ON DELETE SET NULL,
+   664→  icon           text,
+   665→  position       int NOT NULL DEFAULT 0,
+   666→  depth          int NOT NULL DEFAULT 0,  -- 0,1,2 — max 3 niveaux
+   667→  is_visible     boolean NOT NULL DEFAULT true,
+   668→  show_in_nav    boolean NOT NULL DEFAULT true,
+   669→  seo            jsonb NOT NULL DEFAULT '{}',
+   670→  article_count  int NOT NULL DEFAULT 0,  -- dénormalisé, maintenu par trigger
+   671→  created_at     timestamptz NOT NULL DEFAULT now(),
+   672→  updated_at     timestamptz NOT NULL DEFAULT now(),
+   673→  deleted_at     timestamptz,
+   674→  UNIQUE (parent_id, slug)
+   675→);
+   676→CREATE INDEX idx_categories_parent ON categories(parent_id, position);
+   677→
+   678→CREATE TABLE tags (
+   679→  id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+   680→  slug        text UNIQUE NOT NULL,
+   681→  name        text NOT NULL,
+   682→  description text,
+   683→  intro_html  text,
+   684→  synonyms    text[] DEFAULT '{}',
+   685→  is_featured boolean NOT NULL DEFAULT false,
+   686→  usage_count int NOT NULL DEFAULT 0,
+   687→  seo         jsonb NOT NULL DEFAULT '{}',
+   688→  created_at  timestamptz NOT NULL DEFAULT now(),
+   689→  updated_at  timestamptz NOT NULL DEFAULT now(),
+   690→  deleted_at  timestamptz
+   691→);
+   692→CREATE INDEX idx_tags_name_trgm ON tags USING gin (name gin_trgm_ops);
+   693→
+   694→CREATE TABLE dossiers (
+   695→  id             uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+   696→  slug           text UNIQUE NOT NULL,
+   697→  title          text NOT NULL,
+   698→  lede           text,
+   699→  description    text,
+   700→  cover_media_id uuid REFERENCES media(id) ON DELETE SET NULL,
+
+[showing lines 1-700 of 2613; use offset=701 with limit to continue reading]

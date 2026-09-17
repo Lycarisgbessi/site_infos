@@ -40,3 +40,23 @@ Stage Summary:
 - Correctif notable : bigserial→Int autoincrement en dev (SQLite ne génère pas AUTOINCREMENT sur BIGINT) — D-12.
 - En attente client : URL PostgreSQL (bascule prod), clés Upstash/S3/Meilisearch/Resend (phases 2-3).
 - Comptes seed : admin@infospro.net + 3 comptes de test (mots de passe temporaires affichés au seed, 2FA à activer à la première connexion).
+
+---
+Task ID: 1-verify
+Agent: Z.ai Code (ingénieur en chef)
+Task: Re-vérification complète de la Phase 1 après compactage de contexte — lint/tsc, livrables, base seedée, E2E navigateur, correctifs.
+
+Work Log:
+- bun run lint (eslint + tsc strict) : verts, zéro erreur.
+- Livrables contrôlés : 61 modèles + 14 enums Prisma, docs/DECISIONS.md (D-01..D-12), DATA-DICTIONARY.md, README, .prettierrc, .editorconfig, .gitignore, scripts §22 (bun).
+- Correctif 1 : .env.example manquant — créé à l'identique du §04 (toutes les clés contractuelles).
+- Correctif 2 : AUTH_SECRET absente du .env — POST /api/auth/login renvoyait 500 sur le défi MFA (« AUTH_SECRET manquante »). Générée (openssl 48 o), serveur relancé, flux revalidé.
+- Correctif 3 : footer page publique — structure min-h-screen flex flex-col + footer mt-auto + safe-area iOS ; vérifié : page courte → collé au bas, page longue → repoussé naturellement.
+- db reset (2 migrations) + seed : OK — 4 comptes, 11 rôles, 55 rubriques, 112 translations, 6 menus, 19 ad_slots, 5 listes, 45 réglages, 30 articles publiés, 10 flashs, 50 abonnés.
+- E2E navigateur : / (socle), /login étape 1 → défi MFA → TOTP valide → /admin (gate 2FA ?enforce=1 → activation QR + code calculé → dashboard données réelles), palette Ctrl+K (badges PH.), thème sombre (data-theme=dark), mobile 375 px, déconnexion (cookie purgé).
+- Sécurité serveur : journaliste sur GET/PUT /api/admin/settings → 403 « Permission requise : settings.manage » ; audit_log alimenté (auth.login, auth.logout, auth.2fa_setup, auth.2fa_activated).
+- Mots de passe seed régénérés (affichés une seule fois au client dans la sortie du seed).
+
+Stage Summary:
+- Phase 1 re-vérifiée de bout en bout : 3 correctifs appliqués (env.example, AUTH_SECRET, footer sticky), tous les critères §20 revus au vert.
+- Le client devra re-seeder (bun run db:reset + db:seed) pour obtenir ses mots de passe temporaires si besoin.
