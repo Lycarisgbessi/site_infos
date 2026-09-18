@@ -91,7 +91,7 @@ export default async function ArticlePage({ params }: PageProps) {
             <span>{publishedLabel}</span>
             <span>{article.reading_time_min} min de lecture</span>
             {article.dateline && <span>{article.dateline}</span>}
-            {article.source_agency && <span>Source <: {}article.source_agency}</span>}
+            {article.source_agency && <span>Source : {article.source_agency}</span>}
           </div>
 
           {article.coverMedia && (
