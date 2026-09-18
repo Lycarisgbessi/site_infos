@@ -39,7 +39,11 @@ export default async function ArticlePage({ params }: PageProps) {
     notFound();
   }
 
-  const blocks = parseBlocks(article.body);
+  let blocks = parseBlocks(article.body);
+  if (blocks.length > 0 && blocks[0].type === 'image' && blocks[0].mediaId === article.cover_media_id) {
+    blocks = blocks.slice(1);
+  }
+  
   const mediaIds = new Set<string>();
   for (const b of blocks) {
     if (b.type === 'image') mediaIds.add(b.mediaId);

@@ -38,7 +38,7 @@ export default function RootLayout({
     <html lang="fr" suppressHydrationWarning>
       <body className={`${fontVariables} antialiased bg-background text-foreground`}>
         <ThemeProvider
-          attribute="class"
+          attribute="data-theme"
           defaultTheme="system"
           enableSystem
           disableTransitionOnChange

@@ -2,7 +2,7 @@
 @import "tw-animate-css";
 @import "../styles/tokens.css";
 
-@custom-variant dark (&:is(.dark *));
+@custom-variant dark (&:where(.dark, .dark *, [data-theme="dark"], [data-theme="dark"] *));
 
 /* ═══════════════════════════════════════════════════════════════════════
    Mapping des primitives shadcn/ui sur les jetons normatifs INFOSPRO.
