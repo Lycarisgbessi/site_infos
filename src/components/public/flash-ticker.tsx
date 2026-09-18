@@ -29,7 +29,7 @@ function TickerTrack({
   return (
     <div aria-hidden={ariaHidden} className="flex shrink-0 items-center whitespace-nowrap">
       {items.map((item) => {
-        const href = item.articleId ? `/admin/preview/${item.articleId}` : item.externalUrl;
+        const href = item.articleId ? `/article/${item.articleId}` : item.externalUrl;
         return (
           <span key={`${ariaHidden ?? "v"}-${item.id}`} className="flex items-center">
             {href ? (

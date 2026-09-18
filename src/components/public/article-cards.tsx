@@ -9,7 +9,7 @@ import type { PublicArticle } from "@/lib/public/homepage-data";
  */
 
 export function articleHref(a: PublicArticle): string {
-  return `/admin/preview/${a.id}`;
+  return `/article/${a.slug}`;
 }
 
 export function timeAgo(date: Date | null, now: Date, labels: { today: string; yesterday: string }): string {

@@ -97,7 +97,7 @@ export async function VideoSection({ articles, title, playLabel }: { articles: P
         </header>
         <div className="flex snap-x gap-4 overflow-x-auto pb-2">
           {articles.map((a) => (
-            <a key={a.id} href={`/admin/preview/${a.id}`} className="group relative w-[260px] shrink-0 snap-start md:w-[320px]">
+            <a key={a.id} href={`/article/${a.slug}`} className="group relative w-[260px] shrink-0 snap-start md:w-[320px]">
               <div className="relative overflow-hidden">
                 {a.cover ? (
                   <img
@@ -135,7 +135,7 @@ export async function WorldGrid({ articles }: { articles: PublicArticle[] }) {
   return (
     <div className="grid gap-x-6 gap-y-5 sm:grid-cols-2 lg:grid-cols-4">
       {articles.slice(0, 4).map((a) => (
-        <a key={a.id} href={`/admin/preview/${a.id}`} className="group block">
+        <a key={a.id} href={`/article/${a.slug}`} className="group block">
           <Cover article={a} className="aspect-[16/10] w-full transition-transform duration-500 group-hover:scale-[1.03]" />
           <p className="kicker mt-2 text-[0.65rem] text-brand-red">{a.category?.name}</p>
           <h3 className="mt-1 line-clamp-3 font-serif text-sm font-bold leading-snug transition-colors duration-200 group-hover:text-brand-red">
@@ -155,7 +155,7 @@ export async function OpinionCards({ articles }: { articles: PublicArticle[] }) 
       {articles.slice(0, 4).map((a) => (
         <a
           key={a.id}
-          href={`/admin/preview/${a.id}`}
+          href={`/article/${a.slug}`}
           className="group flex flex-col border border-rule bg-paper-alt p-4 transition-colors duration-200 hover:border-ink"
         >
           <p className="kicker text-brand-red">{a.category?.name}</p>
