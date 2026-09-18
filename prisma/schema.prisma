@@ -14,7 +14,7 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -1032,7 +1032,7 @@ model InboxMessage {
 model AuditLog {
   // bigserial en production (BigInt) — Int en dev : SQLite ne gère pas
   // AUTOINCREMENT sur BIGINT (voir DECISIONS.md D-01).
-  id            Int      @id @default(autoincrement())
+  id            BigInt   @id @default(autoincrement())
   user_id       String?  @map("user_id")
   action        String // article.publish, settings.update…
   resource_type String   @map("resource_type")
@@ -1155,7 +1155,7 @@ model AdCreative {
 // Table partitionnée en production (PARTITION BY RANGE (occurred_at), D-01)
 model AdEvent {
   // bigserial en production (BigInt) — voir D-01.
-  id           Int      @id @default(autoincrement())
+  id            BigInt   @id @default(autoincrement())
   creative_id  String   @map("creative_id")
   campaign_id  String   @map("campaign_id")
   slot_code    String   @map("slot_code")
@@ -1277,7 +1277,7 @@ model EmailCampaign {
 // Table partitionnée en production (PARTITION BY RANGE (occurred_at), D-01)
 model EmailEvent {
   // bigserial en production (BigInt) — voir D-01.
-  id            Int      @id @default(autoincrement())
+  id            BigInt   @id @default(autoincrement())
   campaign_id   String   @map("campaign_id")
   subscriber_id String   @map("subscriber_id")
   event_type    String   @map("event_type") // sent|delivered|open|click|bounce|complaint|unsubscribe
@@ -1395,7 +1395,7 @@ model SeoProviderUsage {
 // Table partitionnée en production (PARTITION BY RANGE (occurred_at), D-01)
 model PageView {
   // bigserial en production (BigInt) — voir D-01.
-  id            Int      @id @default(autoincrement())
+  id            BigInt   @id @default(autoincrement())
   path          String
   article_id    String?  @map("article_id")
   referrer_host String?  @map("referrer_host")
@@ -1429,7 +1429,7 @@ model ArticleDailyStat {
 
 model SearchQuery {
   // bigserial en production (BigInt) — voir D-01.
-  id                 Int      @id @default(autoincrement())
+  id            BigInt   @id @default(autoincrement())
   query              String
   results_count      Int      @map("results_count")
   clicked_article_id String?  @map("clicked_article_id")
