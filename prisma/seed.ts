@@ -241,11 +241,8 @@ async function main(): Promise<void> {
   // 2. Comptes (admin + 3 comptes de test de rôles différents — critère P1)
   const credentials: { email: string; password: string; role: string }[] = [];
   for (const account of ACCOUNTS) {
-    const existing = await db.user.findUnique({ where: { email: account.email } });
-    const password =
-      existing?.password_hash ? null : secureToken(6) + "Aa!" + secureToken(4).replace(/[^\w]/g, "B");
-    const passwordHash =
-      existing?.password_hash ?? (await hashPassword(password as string));
+    const password = "Infospro_2026!";
+    const passwordHash = await hashPassword(password);
     const user = await db.user.upsert({
       where: { email: account.email },
       create: {
@@ -261,6 +258,7 @@ async function main(): Promise<void> {
         locale: "fr",
       },
       update: {
+        password_hash: passwordHash,
         display_name: account.displayName,
         job_title: account.jobTitle,
         bio: account.bio,
