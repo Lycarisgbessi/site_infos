@@ -130,6 +130,75 @@ const DEMO_COVER_SLOTS = [
   "reportage",
 ] as const;
 
+/** Real cover photos from Unsplash (free, no API key) keyed by category slug + variant (1-4). */
+const UNSPLASH_COVERS: Record<string, string[]> = {
+  politique: [
+    "https://images.unsplash.com/photo-1529107386315-e1a2ed48a620?w=1600&h=900&fit=crop&q=80",
+    "https://images.unsplash.com/photo-1541872703-74c5e44368f9?w=1600&h=900&fit=crop&q=80",
+    "https://images.unsplash.com/photo-1575320181282-9afab399332c?w=1600&h=900&fit=crop&q=80",
+    "https://images.unsplash.com/photo-1606761568499-6d2451b23c66?w=1600&h=900&fit=crop&q=80",
+  ],
+  economie: [
+    "https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=1600&h=900&fit=crop&q=80",
+    "https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=1600&h=900&fit=crop&q=80",
+    "https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?w=1600&h=900&fit=crop&q=80",
+    "https://images.unsplash.com/photo-1579532537598-459ecdaf39cc?w=1600&h=900&fit=crop&q=80",
+  ],
+  mines: [
+    "https://images.unsplash.com/photo-1605100804763-247f67b3557e?w=1600&h=900&fit=crop&q=80",
+    "https://images.unsplash.com/photo-1513828583688-c52646db42da?w=1600&h=900&fit=crop&q=80",
+    "https://images.unsplash.com/photo-1518709766631-a6a7f45921c3?w=1600&h=900&fit=crop&q=80",
+    "https://images.unsplash.com/photo-1581093458791-9d42cc87a068?w=1600&h=900&fit=crop&q=80",
+  ],
+  societe: [
+    "https://images.unsplash.com/photo-1529156069898-49953e39b3ac?w=1600&h=900&fit=crop&q=80",
+    "https://images.unsplash.com/photo-1491438590914-bc09fcaaf77a?w=1600&h=900&fit=crop&q=80",
+    "https://images.unsplash.com/photo-1517457373958-b7bdd4587205?w=1600&h=900&fit=crop&q=80",
+    "https://images.unsplash.com/photo-1511632765486-a01980e01a18?w=1600&h=900&fit=crop&q=80",
+  ],
+  sport: [
+    "https://images.unsplash.com/photo-1461896836934-bd45ea8a726c?w=1600&h=900&fit=crop&q=80",
+    "https://images.unsplash.com/photo-1579952363873-27f3bade9f55?w=1600&h=900&fit=crop&q=80",
+    "https://images.unsplash.com/photo-1517649763962-0c623066013b?w=1600&h=900&fit=crop&q=80",
+    "https://images.unsplash.com/photo-1552674605-db6ffd4facb5?w=1600&h=900&fit=crop&q=80",
+  ],
+  culture: [
+    "https://images.unsplash.com/photo-1513364776144-60967b0f800f?w=1600&h=900&fit=crop&q=80",
+    "https://images.unsplash.com/photo-1518998053901-5348d3961a04?w=1600&h=900&fit=crop&q=80",
+    "https://images.unsplash.com/photo-1499364615650-ec38552f4f34?w=1600&h=900&fit=crop&q=80",
+    "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=1600&h=900&fit=crop&q=80",
+  ],
+  environnement: [
+    "https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=1600&h=900&fit=crop&q=80",
+    "https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?w=1600&h=900&fit=crop&q=80",
+    "https://images.unsplash.com/photo-1542601906990-b4d3fb778b09?w=1600&h=900&fit=crop&q=80",
+    "https://images.unsplash.com/photo-1473448912268-2022ce9509d8?w=1600&h=900&fit=crop&q=80",
+  ],
+  tech: [
+    "https://images.unsplash.com/photo-1518770660439-4636190af475?w=1600&h=900&fit=crop&q=80",
+    "https://images.unsplash.com/photo-1488590528505-98d2b5aba04b?w=1600&h=900&fit=crop&q=80",
+    "https://images.unsplash.com/photo-1531297484001-80022131f5a1?w=1600&h=900&fit=crop&q=80",
+    "https://images.unsplash.com/photo-1550751827-4bd374c3f58b?w=1600&h=900&fit=crop&q=80",
+  ],
+  international: [
+    "https://images.unsplash.com/photo-1526470608268-f674ce90ebd4?w=1600&h=900&fit=crop&q=80",
+    "https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=1600&h=900&fit=crop&q=80",
+    "https://images.unsplash.com/photo-1521295121783-8a321d551ad2?w=1600&h=900&fit=crop&q=80",
+    "https://images.unsplash.com/photo-1509099836639-18ba1795216d?w=1600&h=900&fit=crop&q=80",
+  ],
+  reportage: [
+    "https://images.unsplash.com/photo-1504711434969-e33886168d6c?w=1600&h=900&fit=crop&q=80",
+    "https://images.unsplash.com/photo-1495020689067-958852a7765e?w=1600&h=900&fit=crop&q=80",
+    "https://images.unsplash.com/photo-1585829365295-ab7cd400c167?w=1600&h=900&fit=crop&q=80",
+    "https://images.unsplash.com/photo-1557804506-669a67965ba0?w=1600&h=900&fit=crop&q=80",
+  ],
+};
+
+function unsplashCoverUrl(categorySlug: string, variant: number): string {
+  const urls = UNSPLASH_COVERS[categorySlug] ?? UNSPLASH_COVERS["reportage"]!;
+  return urls[(variant - 1) % urls.length];
+}
+
 function coverSlug(categorySlug: string, index: number): string {
   const slot = (DEMO_COVER_SLOTS as readonly string[]).includes(categorySlug)
     ? categorySlug
@@ -529,24 +598,26 @@ async function main(): Promise<void> {
       const existing = await db.media.findFirst({
         where: { storage_key: `media-demo/${fileName}` },
       });
+      const realUrl = unsplashCoverUrl(slot, variant);
       let mediaId: string;
       if (existing) {
+        await db.media.update({ where: { id: existing.id }, data: { url: realUrl, mime_type: "image/jpeg" } });
         mediaId = existing.id;
       } else {
         const created = await db.media.create({
           data: {
             type: "image",
             storage_key: `media-demo/${fileName}`,
-            url: `/media-demo/${fileName}`,
-            mime_type: "image/svg+xml",
+            url: realUrl,
+            mime_type: "image/jpeg",
             file_size: BigInt(readFileSync(join(DEMO_MEDIA_DIR, fileName), "utf8").length),
             width: 1600,
             height: 900,
             title: `Couverture ${slot} ${variant}`,
             alt_text: `Illustration éditoriale INFOSPRO — ${slot}`,
             caption: "Illustration produite par la rédaction INFOSPRO.",
-            credit: "Rédaction INFOSPRO",
-            license: "Production INFOSPRO — usage éditorial",
+            credit: "Unsplash — libre de droits",
+            license: "Unsplash License — usage éditorial",
             checksum,
             variants: stringifyJsonArray([]),
             crops: stringifyJsonObject({}),

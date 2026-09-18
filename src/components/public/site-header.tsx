@@ -1,5 +1,6 @@
 import { getTranslations } from "@/lib/i18n";
 import { getMainMenu, type NavItem } from "@/lib/public/homepage-data";
+import { MobileMenu, ThemeToggle } from "./mobile-nav";
 
 /**
  * Barre utilitaire + en-tête + menu principal (§05.2).
@@ -101,15 +102,19 @@ export async function SiteHeader() {
         className="sticky top-0 z-40 border-y border-rule bg-paper/95 backdrop-blur supports-[backdrop-filter]:bg-paper/85"
       >
         <div className="container-page flex items-center justify-between">
-          <div className="flex items-center overflow-x-auto">
+          <MobileMenu items={items} deskLabel={translate("public.topbar.desk")} deskHref="/login?next=/admin" />
+          <div className="hidden items-center overflow-x-auto md:flex">
             <NavLinks items={items} />
           </div>
-          <a
-            href="/login?next=/admin"
-            className="hidden h-11 shrink-0 items-center border-l border-rule px-4 text-sm font-semibold text-ink-soft transition-colors duration-200 hover:text-brand-red md:flex"
-          >
-            {translate("public.topbar.desk")}
-          </a>
+          <div className="flex items-center gap-1">
+            <ThemeToggle />
+            <a
+              href="/login?next=/admin"
+              className="hidden h-11 shrink-0 items-center border-l border-rule px-4 text-sm font-semibold text-ink-soft transition-colors duration-200 hover:text-brand-red md:flex"
+            >
+              {translate("public.topbar.desk")}
+            </a>
+          </div>
         </div>
       </nav>
     </header>
