@@ -24,7 +24,7 @@ import { ROLE_SEEDS, rolePermissionMatrix } from "./seed-data/roles";
 import { CATEGORIES } from "./seed-data/categories";
 import { GEO_ZONES, WEATHER_CITIES } from "./seed-data/geo";
 import { MENUS, HOMEPAGE_BLOCKS } from "./seed-data/menus";
-import { AD_SLOTS, NEWSLETTER_LISTS } from "./seed-data/ads-newsletters";
+import { AD_SLOTS, AD_SLOT_RENDER, NEWSLETTER_LISTS } from "./seed-data/ads-newsletters";
 import { SETTINGS, TRANSLATIONS } from "./seed-data/settings";
 import { PAGES } from "./seed-data/pages";
 import { DEMO_ARTICLES } from "./seed-data/demo-articles";
@@ -482,6 +482,9 @@ async function main(): Promise<void> {
         refresh_sec: slot.refreshSec ?? null,
         max_refresh: slot.maxRefresh ?? 5,
         position: slot.position,
+        format: AD_SLOT_RENDER[slot.code]?.format ?? "leaderboard",
+        width: AD_SLOT_RENDER[slot.code]?.width ?? null,
+        height: AD_SLOT_RENDER[slot.code]?.height ?? null,
       },
       update: {
         name: slot.name,
@@ -490,6 +493,9 @@ async function main(): Promise<void> {
         sizes: stringifyJsonArray(slot.sizes),
         pages: stringifyJsonArray(slot.pages),
         position: slot.position,
+        format: AD_SLOT_RENDER[slot.code]?.format ?? "leaderboard",
+        width: AD_SLOT_RENDER[slot.code]?.width ?? null,
+        height: AD_SLOT_RENDER[slot.code]?.height ?? null,
       },
     });
   }

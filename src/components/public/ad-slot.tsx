@@ -1,13 +1,26 @@
 import { getTranslations } from "@/lib/i18n";
+import type { AdCampaignMap, PublicAdCampaign } from "@/lib/public/homepage-data";
+import { AdCreativeView } from "@/components/public/ad-creative-client";
 
 /**
  * Emplacements publicitaires du front-office (§13.1, slots AD-01→AD-19).
- * Composants SERVEUR. Créatives de démonstration professionnelles par
- * emplacement, marges compactes (jamais de grand vide autour d'une pub).
+ * Composants SERVEUR. Depuis la régie réelle (2026-10) : chaque emplacement
+ * consomme la campagne active qui lui correspond (voir getAdCampaigns) ;
+ * sans campagne active, l'emplacement n'affiche RIEN (plus de créative de
+ * démonstration), sauf auto-promotion maison (AdSelfPromo, AD-19).
  * Task ID: 9-ADS
  */
 
-type AdFormat = "leaderboard" | "billboard" | "pave" | "halfpage" | "native" | "footer" | "promo";
+type AdFormat =
+  | "leaderboard"
+  | "billboard"
+  | "pave"
+  | "halfpage"
+  | "native"
+  | "footer"
+  | "promo"
+  | "sticky"
+  | "video";
 
 const FORMAT_BY_SLOT: Record<string, AdFormat> = {
   "AD-01": "billboard",
@@ -18,10 +31,28 @@ const FORMAT_BY_SLOT: Record<string, AdFormat> = {
   "AD-06": "pave",
   "AD-07": "leaderboard",
   "AD-08": "native",
+  "AD-10": "leaderboard",
+  "AD-11": "video",
+  "AD-12": "sticky",
+  "AD-13": "native",
   "AD-14": "leaderboard",
   "AD-15": "footer",
   "AD-16": "native",
+  "AD-17": "native",
+  "AD-18": "native",
   "AD-19": "promo",
+};
+
+const HEIGHTS: Record<AdFormat, string> = {
+  leaderboard: "h-[90px]",
+  billboard: "h-[140px] md:h-[180px]",
+  pave: "h-[250px]",
+  halfpage: "h-[400px]",
+  native: "h-[110px]",
+  footer: "h-[110px]",
+  promo: "h-[200px]",
+  sticky: "h-[50px]",
+  video: "h-[180px] md:h-[220px]",
 };
 
 function SlotShell({
@@ -41,7 +72,7 @@ function SlotShell({
       data-ad-slot={code}
       className={`group relative border border-rule bg-paper-alt ${className}`}
     >
-      <span className="absolute -top-2 right-2 bg-paper px-1.5 text-[0.6rem] font-bold uppercase tracking-[0.18em] text-ink-faint">
+      <span className="absolute -top-2 right-2 z-20 bg-paper px-1.5 text-[0.6rem] font-bold uppercase tracking-[0.18em] text-ink-faint">
         {label}
       </span>
       {children}
@@ -49,85 +80,38 @@ function SlotShell({
   );
 }
 
-function DemoCreative({
+/** Bannière par emplacement — créative réelle si campagne active, sinon rien. */
+export async function AdBanner({
   code,
-  format,
-  title,
-  text,
-  cta,
-  dark = false,
+  campaigns,
+  className = "",
 }: {
   code: string;
-  format: AdFormat;
-  title: string;
-  text: string;
-  cta: string;
-  dark?: boolean;
+  campaigns: AdCampaignMap;
+  className?: string;
 }) {
-  return (
-    <div
-      className={`flex h-full w-full items-center justify-between gap-4 px-5 ${
-        dark ? "bg-ink text-paper" : "bg-paper-alt text-ink"
-      }`}
-    >
-      <div className="flex min-w-0 items-center gap-4">
-        <span
-          aria-hidden
-          className={`flex shrink-0 items-center justify-center rounded-sm bg-brand-red font-serif font-black text-white ${
-            format === "native" ? "size-9 text-base" : "size-11 text-lg"
-          }`}
-        >
-          iP
-        </span>
-        <div className="min-w-0">
-          <p className={`truncate font-serif font-bold ${format === "native" ? "text-sm" : "text-base md:text-lg"}`}>
-            {title}
-          </p>
-          <p className={`truncate text-ink-soft ${format === "native" ? "text-xs" : "text-xs md:text-sm"}`}>{text}</p>
-        </div>
-      </div>
-      <div className="flex shrink-0 flex-col items-end gap-1">
-        <span className="hidden bg-brand-red px-3 py-1.5 text-xs font-bold text-white transition-colors duration-200 group-hover:bg-red-deep sm:inline-block">
-          {cta}
-        </span>
-        <span className="font-mono text-[0.6rem] tracking-widest text-ink-faint">{code}</span>
-      </div>
-    </div>
-  );
-}
-
-/** Bannière par emplacement — marges compactes. */
-export async function AdBanner({ code, className = "" }: { code: string; className?: string }) {
   const { translate } = await getTranslations();
+  const campaign: PublicAdCampaign | undefined = campaigns[code];
+  if (!campaign) return null;
+
   const format = FORMAT_BY_SLOT[code] ?? "leaderboard";
-
-  const heights: Record<AdFormat, string> = {
-    leaderboard: "h-[90px]",
-    billboard: "h-[140px] md:h-[180px]",
-    pave: "h-[250px]",
-    halfpage: "h-[400px]",
-    native: "h-[110px]",
-    footer: "h-[110px]",
-    promo: "h-[200px]",
-  };
-
   return (
-    <SlotShell code={code} label={translate("public.ad.label")} className={`w-full ${heights[format]} ${className}`}>
-      <DemoCreative
-        code={code}
-        format={format}
-        title={translate("public.ad.demoTitle")}
-        text={translate("public.ad.demoText")}
-        cta={translate("public.ad.demoCta")}
-        dark={format === "billboard"}
-      />
+    <SlotShell
+      code={code}
+      label={translate("public.ad.label")}
+      className={`w-full overflow-hidden ${HEIGHTS[format]} ${className}`}
+    >
+      <AdCreativeView campaign={campaign} />
     </SlotShell>
   );
 }
 
-/** Créative native — carte dans le fil (AD-08, AD-16). */
-export async function AdNativeCard({ code, sponsor }: { code: string; sponsor: string }) {
+/** Créative native — carte au gabarit éditorial dans le fil (AD-08, AD-16). */
+export async function AdNativeCard({ code, campaigns }: { code: string; campaigns: AdCampaignMap }) {
   const { translate } = await getTranslations();
+  const campaign: PublicAdCampaign | undefined = campaigns[code];
+  if (!campaign) return null;
+
   return (
     <aside
       aria-label={`${translate("public.ad.label")} ${code}`}
@@ -135,13 +119,26 @@ export async function AdNativeCard({ code, sponsor }: { code: string; sponsor: s
       className="relative border border-rule bg-paper-alt p-4"
     >
       <p className="kicker text-[0.6rem] text-ink-faint">
-        {translate("public.ad.label")} · {sponsor}
+        {translate("public.ad.label")} · {campaign.advertiser}
       </p>
-      <p className="mt-2 font-serif text-base font-bold leading-snug">{translate("public.ad.demoTitle")}</p>
-      <p className="mt-1 text-sm text-ink-soft">{translate("public.ad.demoText")}</p>
-      <span className="mt-3 inline-block bg-brand-red px-3 py-1.5 text-xs font-bold text-white transition-colors duration-200 hover:bg-red-deep">
-        {translate("public.ad.demoCta")}
-      </span>
+      {campaign.mediaKind !== "video" && campaign.imageUrl ? (
+        <img
+          src={campaign.imageUrl}
+          alt={campaign.alt}
+          className="mt-2 h-28 w-full object-cover"
+          loading="lazy"
+          decoding="async"
+        />
+      ) : null}
+      <p className="mt-2 font-serif text-base font-bold leading-snug">{campaign.name}</p>
+      <a
+        href={campaign.clickUrl}
+        target="_blank"
+        rel="sponsored nofollow noopener"
+        className="mt-3 inline-block bg-brand-red px-3 py-1.5 text-xs font-bold text-white transition-colors duration-200 hover:bg-red-deep"
+      >
+        {translate("public.ad.cta")}
+      </a>
     </aside>
   );
 }

@@ -50,4 +50,10 @@ export const frDictionary: Record<string, string> = {
 
   // ─── Bandeaux du site ───────────────────────────────────────────
   "public.banner.close": "Fermer le bandeau",
+
+  // ─── Régie publicitaire (régie réelle 2026-10) ───────────────────
+  "public.ad.label": "Publicité",
+  "public.ad.cta": "Découvrir",
+  "public.ad.weatherSponsor": "Présenté par un partenaire",
+  "admin.nav.adregie": "Régie publicitaire",
 };

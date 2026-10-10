@@ -1069,6 +1069,13 @@ model AdSlot {
   base_cpm           Float?  @map("base_cpm")
   position           Int     @default(0)
 
+  // Colonnes additives (régie simplifiée 2026-10) — format de rendu front
+  // (leaderboard|billboard|pave|halfpage|native|footer|promo|sticky|video)
+  // et dimensions nominales de la créative attendue.
+  format             String  @default("leaderboard")
+  width              Int?
+  height             Int?
+
   creatives AdCreative[]
 
   @@map("ad_slots")
@@ -1109,6 +1116,10 @@ model AdCampaign {
   frequency_cap Int?            @map("frequency_cap") // impressions / visiteur / jour
   targeting     String          @default("{}") // jsonb adapté (voir §06.3)
   created_by    String?         @map("created_by")
+  // Compteurs cumulés dénormalisés (régie simplifiée) — mis à jour par les
+  // routes publiques /api/public/ads/*, en complément des ad_events.
+  impressions   Int             @default(0)
+  clicks        Int             @default(0)
   created_at    DateTime        @default(now()) @map("created_at")
   updated_at    DateTime        @default(now()) @updatedAt @map("updated_at")
   deleted_at    DateTime?       @map("deleted_at")
@@ -1134,6 +1145,8 @@ model AdCreative {
   native_text  String?       @map("native_text")
   native_cta   String?       @map("native_cta")
   native_brand String?       @map("native_brand")
+  // URL d'une vidéo externe (YouTube ou mp4) pour les créatives vidéo.
+  video_url    String?       @map("video_url")
   click_url    String        @map("click_url")
   alt_text     String        @map("alt_text")
   width        Int?

@@ -12,6 +12,7 @@ import {
   getSiteBanners,
   getWeather,
   getWorldArticles,
+  getAdCampaigns,
 } from "@/lib/public/homepage-data";
 import { TopBar, SiteHeader } from "@/components/public/site-header";
 import { FlashTicker } from "@/components/public/flash-ticker";
@@ -49,7 +50,7 @@ export default async function HomePage() {
   const { translate } = await getTranslations();
   const now = new Date();
 
-  const [hero, latest, mostRead, live, videos, dossier, banners, opinions, world, weather, ...sections] =
+  const [hero, latest, mostRead, live, videos, dossier, banners, opinions, world, weather, adCampaigns, ...sections] =
     await Promise.all([
       getHeroArticles(5),
       getLatestArticles(12),
@@ -61,6 +62,7 @@ export default async function HomePage() {
       getOpinionArticles(4),
       getWorldArticles(8),
       getWeather(),
+      getAdCampaigns(),
       ...SECTIONS.map((s) => getSectionArticles(s.slug, 5)),
     ]);
 
@@ -77,7 +79,7 @@ export default async function HomePage() {
       <main id="contenu" className="flex-1 pb-10">
         {/* ── Z-02 : Leaderboard d'en-tête (compact) ─────────────────────── */}
         <div className="container-page mt-4">
-          <AdBanner code="AD-02" />
+          <AdBanner code="AD-02" campaigns={adCampaigns} />
         </div>
 
         {/* ── Z-04 : À la une (composeur home_lead) ──────────────────────── */}
@@ -119,7 +121,7 @@ export default async function HomePage() {
 
         {/* ── AD-03 : Billboard sous la une ──────────────────────────────── */}
         <div className="container-page mt-6">
-          <AdBanner code="AD-03" />
+          <AdBanner code="AD-03" campaigns={adCampaigns} />
         </div>
 
         {/* ── Corps : sections + colonne latérale ────────────────────────── */}
@@ -135,12 +137,12 @@ export default async function HomePage() {
                 adSlot={
                   idx === 0 ? (
                     <div className="mt-6">
-                      <AdBanner code="AD-07" />
+                      <AdBanner code="AD-07" campaigns={adCampaigns} />
                     </div>
                   ) : idx === 1 ? (
                     <div className="mt-6 grid gap-4 sm:grid-cols-2">
-                      <AdNativeCard code="AD-08" sponsor="Partenaire" />
-                      <AdNativeCard code="AD-16" sponsor="Météo" />
+                      <AdNativeCard code="AD-08" campaigns={adCampaigns} />
+                      <AdNativeCard code="AD-16" campaigns={adCampaigns} />
                     </div>
                   ) : undefined
                 }
@@ -169,7 +171,7 @@ export default async function HomePage() {
                 adSlot={
                   idx === 2 ? (
                     <div className="mt-6">
-                      <AdNativeCard code="AD-08" sponsor="Partenaire" />
+                      <AdNativeCard code="AD-08" campaigns={adCampaigns} />
                     </div>
                   ) : undefined
                 }
@@ -221,7 +223,7 @@ export default async function HomePage() {
             {sectionData.slice(6).map(({ slug, articles }) => (
               <SectionBlock key={slug} id={slug} title={articles[0]?.category?.name ?? slug} articles={articles} />
             ))}
-            <AdBanner code="AD-14" />
+            <AdBanner code="AD-14" campaigns={adCampaigns} />
           </div>
 
           {/* ── Colonne latérale (Z-06) ──────────────────────────────────── */}
@@ -240,7 +242,7 @@ export default async function HomePage() {
             </section>
 
             {/* AD-04 : pavé latéral */}
-            <AdBanner code="AD-04" />
+            <AdBanner code="AD-04" campaigns={adCampaigns} />
 
             {/* Les plus lus */}
             <section aria-label={translate("public.list.mostRead")} className="border border-rule bg-paper-alt p-4">
@@ -267,17 +269,16 @@ export default async function HomePage() {
 
         {/* ── AD-15 : bannière pied de page ─────────────────────────────── */}
         <div className="container-page mt-10">
-          <AdBanner code="AD-15" />
+          <AdBanner code="AD-15" campaigns={adCampaigns} />
         </div>
       </main>
 
       <SiteFooter />
       <MobileStickyAd
         label={translate("public.ad.label")}
-        title={translate("public.ad.demoTitle")}
-        text={translate("public.ad.demoText")}
-        cta={translate("public.ad.demoCta")}
+        cta={translate("public.ad.cta")}
         closeLabel={translate("common.close")}
+        campaign={adCampaigns["AD-12"] ?? null}
       />
     </div>
   );

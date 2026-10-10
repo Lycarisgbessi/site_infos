@@ -27,7 +27,7 @@ export const ADMIN_NAV: AdminNavItem[] = [
   { href: "/admin/menus", labelKey: "admin.nav.menus", permission: "menu.manage", phase: 2, icon: "ListTree" },
   { href: "/admin/homepage", labelKey: "admin.nav.homepage", permission: "homepage.compose", phase: 2, icon: "LayoutTemplate" },
   { href: "/admin/seo", labelKey: "admin.nav.seo", permission: "seo.read", phase: 6, icon: "Search" },
-  { href: "/admin/publicite", labelKey: "admin.nav.ads", permission: "ads.read", phase: 7, icon: "Megaphone" },
+  { href: "/admin/ads", labelKey: "admin.nav.adregie", permission: "ads.read", phase: 2, icon: "Megaphone" },
   { href: "/admin/newsletter", labelKey: "admin.nav.newsletter", permission: "newsletter.read", phase: 7, icon: "Mail" },
   { href: "/admin/moderation", labelKey: "admin.nav.moderation", permission: "comment.moderate", phase: 2, icon: "MessageSquare" },
   { href: "/admin/analytics", labelKey: "admin.nav.analytics", permission: "analytics.read", phase: 3, icon: "BarChart3" },

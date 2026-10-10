@@ -326,6 +326,85 @@ export interface NavItem {
   href: string;
 }
 
+// ─── Régie publicitaire (régie simplifiée 2026-10) ─────────────────────
+
+export interface PublicAdCampaign {
+  creativeId: string;
+  campaignId: string;
+  slotCode: string;
+  advertiser: string;
+  name: string;
+  mediaKind: "image" | "gif" | "video";
+  imageUrl: string | null;
+  alt: string;
+  videoUrl: string | null;
+  clickUrl: string;
+}
+
+export type AdCampaignMap = Record<string, PublicAdCampaign>;
+
+/** Campagnes publicitaires actives : status running + fenêtre de dates,
+ * créative active, emplacement actif — triées par priorité décroissante,
+ * puis réduites à une créative par emplacement (slot_code). */
+export async function getAdCampaigns(): Promise<AdCampaignMap> {
+  const now = new Date();
+  const rows = await db.adCampaign.findMany({
+    where: {
+      deleted_at: null,
+      status: "running",
+      starts_at: { lte: now },
+      ends_at: { gt: now },
+      creatives: { some: { is_active: true, slot: { is_active: true } } },
+    },
+    orderBy: { priority: "desc" },
+    select: {
+      id: true,
+      name: true,
+      priority: true,
+      advertiser: { select: { name: true } },
+      creatives: {
+        where: { is_active: true },
+        orderBy: { weight: "desc" },
+        take: 1,
+        select: {
+          id: true,
+          slot_code: true,
+          type: true,
+          video_url: true,
+          click_url: true,
+          alt_text: true,
+          media: { select: { url: true, alt_text: true, mime_type: true } },
+        },
+      },
+    },
+  });
+
+  const bySlot: AdCampaignMap = {};
+  for (const row of rows) {
+    const creative = row.creatives[0];
+    if (!creative || bySlot[creative.slot_code]) continue; // priorité maximale déjà retenue
+    const mediaKind: PublicAdCampaign["mediaKind"] =
+      creative.type === "video" || creative.video_url
+        ? "video"
+        : creative.media?.mime_type === "image/gif"
+          ? "gif"
+          : "image";
+    bySlot[creative.slot_code] = {
+      creativeId: creative.id,
+      campaignId: row.id,
+      slotCode: creative.slot_code,
+      advertiser: row.advertiser.name,
+      name: row.name,
+      mediaKind,
+      imageUrl: creative.media?.url ?? null,
+      alt: creative.media?.alt_text || creative.alt_text || row.name,
+      videoUrl: creative.video_url ?? null,
+      clickUrl: creative.click_url,
+    };
+  }
+  return bySlot;
+}
+
 /** Menu principal — cible category → ancre de section sur l'accueil ;
  * page/dossier/tag → routes dédiées. Résolution des slugs en une requête
  * par type (pas de N+1). */

@@ -187,6 +187,34 @@ export const AD_SLOTS: AdSlotSeed[] = [
   },
 ];
 
+/**
+ * Rendu front (régie simplifiée 2026-10) : format de rendu et dimensions
+ * nominales par emplacement — alignés sur FORMAT_BY_SLOT de
+ * src/components/public/ad-slot.tsx. width/height null = format fluide
+ * (natif, vidéo, habillage piloté par la créative).
+ */
+export const AD_SLOT_RENDER: Record<string, { format: string; width: number | null; height: number | null }> = {
+  "AD-01": { format: "billboard", width: 1800, height: 1000 },
+  "AD-02": { format: "leaderboard", width: 970, height: 90 },
+  "AD-03": { format: "billboard", width: 970, height: 250 },
+  "AD-04": { format: "pave", width: 300, height: 250 },
+  "AD-05": { format: "halfpage", width: 300, height: 600 },
+  "AD-06": { format: "pave", width: 300, height: 250 },
+  "AD-07": { format: "leaderboard", width: 728, height: 90 },
+  "AD-08": { format: "native", width: null, height: null },
+  "AD-09": { format: "native", width: null, height: null },
+  "AD-10": { format: "leaderboard", width: 600, height: 150 },
+  "AD-11": { format: "video", width: null, height: null },
+  "AD-12": { format: "sticky", width: 320, height: 50 },
+  "AD-13": { format: "native", width: null, height: null },
+  "AD-14": { format: "leaderboard", width: 728, height: 90 },
+  "AD-15": { format: "footer", width: 728, height: 90 },
+  "AD-16": { format: "native", width: null, height: null },
+  "AD-17": { format: "native", width: null, height: null },
+  "AD-18": { format: "native", width: null, height: null },
+  "AD-19": { format: "promo", width: null, height: null },
+};
+
 // ─── Catalogue newsletter (§14.1, contractuel) ─────────────────────────
 
 export interface NewsletterListSeed {
