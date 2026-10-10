@@ -6,6 +6,7 @@ import { MediaPicture } from '@/components/blocks/BlockRenderer';
 import { RichTextView } from '@/components/blocks/RichTextView';
 import { parseBlocks } from '@/types/blocks';
 import { parseJsonArrayObjects } from '@/lib/json';
+import { getTranslations, localeTag } from '@/lib/i18n';
 import { SiteHeader } from '@/components/public/site-header';
 import { SiteFooter } from '@/components/public/site-footer';
 
@@ -98,7 +99,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
 export default async function ArticlePage({ params }: PageProps) {
   const { slug } = await params;
-  
+  const { translate, locale } = await getTranslations();
+
   const article = await db.article.findFirst({
     where: { 
       OR: [{ slug: slug }, { id: slug }],
@@ -153,8 +155,8 @@ export default async function ArticlePage({ params }: PageProps) {
   const articleTitles = new Map<string, string>(relatedRows.map((r) => [r.id, r.title]));
 
   const publishedLabel = article.published_at
-    ? new Intl.DateTimeFormat('fr-FR', { dateStyle: 'long', timeStyle: 'short' }).format(article.published_at)
-    : 'Non publié';
+    ? new Intl.DateTimeFormat(localeTag(locale), { dateStyle: 'long', timeStyle: 'short' }).format(article.published_at)
+    : translate('public.article.unpublished');
 
   const canonical = `${SITE_URL}/article/${article.slug}`;
   const description = article.lede ? truncate(article.lede, 160) : `Article publié sur ${SITE_NAME}.`;
@@ -200,7 +202,7 @@ export default async function ArticlePage({ params }: PageProps) {
       <SiteHeader />
       <main className="min-h-screen bg-paper pb-20">
         <article className="mx-auto max-w-3xl px-6 py-10">
-          <nav className="kicker" aria-label="Fil d'ariane">
+          <nav className="kicker" aria-label={translate('public.article.breadcrumb')}>
             {article.category?.parent?.slug ? `${article.category.parent.slug} › ` : ''}
             {article.category?.name}
           </nav>
@@ -211,12 +213,12 @@ export default async function ArticlePage({ params }: PageProps) {
 
           <div className="mt-6 flex flex-wrap items-center gap-x-3 gap-y-1 border-y border-rule py-3 text-xs text-ink-faint">
             <span className="font-semibold text-ink-soft">
-              {article.authors.map((a) => a.user.display_name).join(', ') || 'Rédaction INFOSPRO'}
+              {article.authors.map((a) => a.user.display_name).join(', ') || translate('public.article.staffByline')}
             </span>
             <span>{publishedLabel}</span>
-            <span>{article.reading_time_min} min de lecture</span>
+            <span>{article.reading_time_min} {translate('public.card.readTime')}</span>
             {article.dateline && <span>{article.dateline}</span>}
-            {article.source_agency && <span>Source : {article.source_agency}</span>}
+            {article.source_agency && <span>{translate('public.article.source')} : {article.source_agency}</span>}
           </div>
 
           {article.coverMedia && (
@@ -266,7 +268,7 @@ export default async function ArticlePage({ params }: PageProps) {
             if (sources.length === 0) return null;
             return (
               <section className="mt-8 border border-rule bg-paper-alt p-5">
-                <p className="kicker">Sources</p>
+                <p className="kicker">{translate('public.article.sources')}</p>
                 <ul className="mt-2 space-y-1 text-sm">
                   {sources.map((s, i) => (
                     <li key={i}>
@@ -282,7 +284,7 @@ export default async function ArticlePage({ params }: PageProps) {
 
           {article.correction_note && (
             <p className="mt-6 rounded-sm border border-rule bg-paper-alt p-3 text-xs text-ink-soft">
-              <strong>Note de correction :</strong> <RichTextView value={[{ text: article.correction_note }]} />
+              <strong>{translate('public.article.correctionNote')}</strong> <RichTextView value={[{ text: article.correction_note }]} />
             </p>
           )}
         </article>

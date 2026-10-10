@@ -1,21 +1,80 @@
 /**
  * Dictionnaire FR statique (§03 lib/i18n/).
- * Complète les traductions chargées depuis la table `translations` :
+ * Base des dictionnaires statiques multilingues (fr, en, es, ar, zh) :
  * toute nouvelle chaîne du front public y est déclarée (repli si la clé
- * n'est pas encore en base). Langue par défaut : `fr`.
+ * n'est pas en base). Langue par défaut : `fr`.
+ *
+ * CONTRAT : les autres dictionnaires (en, es, ar, zh) sont typés
+ * `Dictionary` (= typeof frDictionary) — l'exhaustivité des clés est
+ * garantie par TypeScript strict.
  */
 
-export const frDictionary: Record<string, string> = {
-  // ─── Lecteur audio flottant ─────────────────────────────────────
+export const frDictionary = {
+  // ─── Commun ──────────────────────────────────────────────────────
+  "common.close": "Fermer",
+  "common.loading": "Chargement…",
+
+  // ─── Bandeau utilitaire (TopBar) ────────────────────────────────
+  "public.topbar.edition": "Édition",
+  "public.topbar.newsletters": "Newsletters",
+  "public.topbar.contact": "Contact",
+  "public.topbar.advertise": "Publicité",
+  "public.topbar.desk": "Rédaction",
+  "public.topbar.city": "Conakry, Guinée",
+
+  // ─── En-tête ─────────────────────────────────────────────────────
+  "public.header.tagline": "L'information de Guinée, sans détour",
+  "public.nav.menu": "Menu principal",
+
+  // ─── Flash info ──────────────────────────────────────────────────
+  "public.flash.label": "Flash Info",
+  "public.flash.urgent": "URGENT",
+
+  // ─── À la une ────────────────────────────────────────────────────
+  "public.une.title": "À la une",
+  "public.une.live": "EN DIRECT",
+  "public.une.liveCta": "Suivre le direct",
+
+  // ─── Cartes article ──────────────────────────────────────────────
+  "public.card.breaking": "ALERTE",
+  "public.card.video": "VIDÉO",
+  "public.card.sponsored": "SPONSORISÉ",
+  "public.card.readTime": "min de lecture",
+
+  // ─── Dates relatives ─────────────────────────────────────────────
+  "public.time.today": "Aujourd'hui",
+  "public.time.yesterday": "Hier",
+
+  // ─── Sections ────────────────────────────────────────────────────
+  "public.section.all": "Tout voir",
+  "public.world.title": "Monde",
+  "public.opinion.title": "Opinions",
+  "public.opinion.subtitle": "Éditoriaux, tribunes et chroniques",
+  "public.dossier.kicker": "DOSSIER",
+  "public.list.continuous": "En continu",
+  "public.list.mostRead": "Les plus lus",
+
+  // ─── Lecteur audio flottant ──────────────────────────────────────
   "public.audio.listen": "Écouter",
   "public.audio.play": "Lecture",
   "public.audio.pause": "Pause",
   "public.audio.close": "Fermer le lecteur",
   "public.audio.nowPlaying": "En écoute",
 
-  // ─── Pages vidéos ───────────────────────────────────────────────
+
+  // ─── PWA : installation + notifications ────────────────────────
+  "public.pwa.installTitle": "Installer INFOSPRO",
+  "public.pwa.installHint": "Accès rapide depuis votre écran d'accueil.",
+  "public.pwa.notificationsHint": "Recevez une alerte à chaque nouvelle publication.",
+  "public.pwa.notificationsOn": "Notifications activées",
+  "public.pwa.enableNotifications": "Activer les notifications",
+  "public.pwa.install": "Installer",
+  "public.pwa.close": "Fermer",
+
+  // ─── Pages vidéos ────────────────────────────────────────────────
   "public.video.pageTitle": "Vidéos",
-  "public.video.pageSubtitle": "Reportages, interviews et documentaires de la rédaction et de nos envoyés spéciaux.",
+  "public.video.pageSubtitle":
+    "Reportages, interviews et documentaires de la rédaction et de nos envoyés spéciaux.",
   "public.video.none": "Aucune vidéo disponible pour le moment.",
   "public.video.watch": "Voir la vidéo",
   "public.video.related": "Autres vidéos",
@@ -23,19 +82,58 @@ export const frDictionary: Record<string, string> = {
   "public.video.shareOk": "Lien copié !",
   "public.video.shareError": "Impossible de copier le lien.",
   "public.video.back": "← Toutes les vidéos",
+  "public.video.section": "Reportages vidéo",
+  "public.video.play": "Lire la vidéo",
 
-  // ─── Pages statiques (contact, publicité, newsletter) ──────────
+  // ─── Article ─────────────────────────────────────────────────────
+  "public.article.breadcrumb": "Fil d'Ariane",
+  "public.article.unpublished": "Non publié",
+  "public.article.staffByline": "Rédaction INFOSPRO",
+  "public.article.source": "Source",
+  "public.article.sources": "Sources",
+  "public.article.correctionNote": "Note de correction :",
+
+  // ─── Newsletter ──────────────────────────────────────────────────
+  "public.newsletter.kicker": "NEWSLETTER",
+  "public.newsletter.morningTitle": "L'essentiel du matin",
+  "public.newsletter.morningDesc":
+    "Chaque matin, recevez les informations importantes de Guinée et du monde directement dans votre boîte mail.",
+  "public.newsletter.placeholder": "Votre adresse e-mail",
+  "public.newsletter.cta": "S'inscrire",
+  "public.newsletter.ok": "Inscription réussie ! Vérifiez votre boîte mail.",
+  "public.newsletter.error": "Une erreur est survenue. Veuillez réessayer.",
+  "public.newsletter.loading": "Inscription en cours…",
+
+  // ─── Météo ───────────────────────────────────────────────────────
+  "public.weather.title": "Météo",
+  "public.weather.humidity": "Humidité",
+
+  // ─── Régie publicitaire ──────────────────────────────────────────
+  "public.ad.label": "Publicité",
+  "public.ad.cta": "Découvrir",
+  "public.ad.weatherSponsor": "Présenté par un partenaire",
+  "public.ad.demoTitle": "Votre publicité ici",
+  "public.ad.demoText": "Contactez notre régie pour réserver cet emplacement.",
+  "public.ad.demoCta": "Nous contacter",
+  "admin.nav.adregie": "Régie publicitaire",
+
+  // ─── Bandeaux du site ────────────────────────────────────────────
+  "public.banner.close": "Fermer le bandeau",
+
+  // ─── Pages statiques (contact, publicité, newsletter) ────────────
   "public.pages.contact.title": "Contact",
   "public.pages.contact.subtitle": "Écrivez-nous, nous lisons tous les messages.",
   "public.pages.contact.email": "E-mail",
   "public.pages.contact.phone": "Téléphone",
   "public.pages.contact.address": "Adresse",
   "public.pages.contact.addressValue": "Conakry, Guinée",
-  "public.pages.contact.formHint": "Le formulaire en ligne arrive prochainement — en attendant, écrivez-nous par e-mail.",
+  "public.pages.contact.formHint":
+    "Le formulaire en ligne arrive prochainement — en attendant, écrivez-nous par e-mail.",
 
   "public.pages.advertise.title": "Publicité",
   "public.pages.advertise.subtitle": "Diffusez votre message auprès des lecteurs d'INFOSPRO.net",
-  "public.pages.advertise.pitch": "INFOSPRO.net est un média numérique guinéen indépendant. Nos formats publicitaires (bannières, natifs, sponsoring météo et newsletters) touchent une audience engageante en Guinée et dans la diaspora.",
+  "public.pages.advertise.pitch":
+    "INFOSPRO.net est un média numérique guinéen indépendant. Nos formats publicitaires (bannières, natifs, sponsoring météo et newsletters) touchent une audience engageante en Guinée et dans la diaspora.",
   "public.pages.advertise.formats": "Formats disponibles",
   "public.pages.advertise.format1": "Bannières display (leaderboard, billboard, pavés latéraux)",
   "public.pages.advertise.format2": "Articles sponsorisés et contenus natifs",
@@ -48,12 +146,18 @@ export const frDictionary: Record<string, string> = {
   "public.pages.notFound": "Page introuvable.",
   "public.pages.backHome": "Accueil",
 
-  // ─── Bandeaux du site ───────────────────────────────────────────
-  "public.banner.close": "Fermer le bandeau",
+  // ─── Pied de page ────────────────────────────────────────────────
+  "public.footer.about":
+    "INFOSPRO.net est un média numérique guinéen indépendant couvrant l'actualité politique, économique, sociale et culturelle de la Guinée et de l'Afrique de l'Ouest.",
+  "public.footer.rights": "Tous droits réservés.",
+  "public.footer.madeIn": "Fait à Conakry avec ❤",
 
-  // ─── Régie publicitaire (régie réelle 2026-10) ───────────────────
-  "public.ad.label": "Publicité",
-  "public.ad.cta": "Découvrir",
-  "public.ad.weatherSponsor": "Présenté par un partenaire",
-  "admin.nav.adregie": "Régie publicitaire",
+  // ─── Sélecteur de langue ─────────────────────────────────────────
+  "public.language.label": "Langue",
+  "public.language.switcher": "Changer de langue",
+} as const satisfies Record<string, string>;
+
+/** Contrat d'exhaustivité : chaque dictionnaire doit couvrir TOUTES les clés FR. */
+export type Dictionary = {
+  -readonly [K in keyof typeof frDictionary]: string;
 };

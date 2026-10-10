@@ -18,6 +18,7 @@ import type {
   ArticleUpdateInput,
 } from "@/schemas/article";
 import type { AuthenticatedSession } from "@/lib/auth/types";
+import { sendPushNewPublication } from "@/server/services/push";
 
 /**
  * Service articles (§11.2 éditeur, §06.2 articles) — logique métier :
@@ -542,6 +543,17 @@ export async function updateArticle(
 
   if (isPublished) {
     invalidateOnArticlePublish({ slug: (data.slug as string) ?? current.slug, categoryId: (data.category_id as string) ?? current.category_id });
+  }
+
+  // Notification push lors d'une nouvelle publication (non bloquant)
+  const newlyPublished =
+    (data.status === "published" || data.status === "updated") && !isPublished;
+  if (newlyPublished) {
+    void sendPushNewPublication({
+      titre: String((data.title as string) ?? current.title),
+      url: `/article/${(data.slug as string) ?? current.slug}`,
+      type: "article",
+    }).catch(() => {});
   }
 
   return {

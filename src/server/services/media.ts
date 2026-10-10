@@ -1,6 +1,6 @@
 import sharp from "sharp";
 import { db } from "@/lib/db";
-import { putObject, deleteObject, checksumOf } from "@/lib/storage";
+import { putObject, deleteObject, checksumOf, isCloudinaryActive, transformUrl } from "@/lib/storage";
 import { stringifyJsonArray, stringifyJsonObject, parseJsonObject } from "@/lib/json";
 import { auditLog } from "@/lib/audit";
 import { ValidationError } from "@/lib/api/respond";
@@ -95,7 +95,37 @@ export async function uploadMedia(
   let originalKey: string;
   let originalUrl: string;
 
-  if (isImage) {
+  if (isImage && isCloudinaryActive()) {
+    // Mode Cloudinary : l'original est uploadé une seule fois (WebP 90 sans
+    // EXIF, ou octets d'origine pour les GIF animés — jamais réencodés) et
+    // les variantes sont des transformations à la volée (f_auto,q_auto,w_N)
+    // insérées dans l'URL — le front consomme variants[].url, format inchangé.
+    const gif = input.mimeType === "image/gif";
+    const meta = await sharp(input.buffer, { failOn: "none" }).metadata();
+    width = meta.width ?? null;
+    height = meta.height ?? null;
+
+    if (gif) {
+      // GIF : upload tel quel (resource_type=image, aucune transformation) —
+      // l'animation est préservée, pas de réencodage WebP statique.
+      originalKey = `${yyyy}/${mm}/${baseName}.gif`;
+      const put = await putObject(originalKey, input.buffer, "image/gif");
+      originalUrl = put.url;
+    } else {
+      const originalBuffer = await sharp(input.buffer, { failOn: "none" })
+        .rotate()
+        .webp({ quality: 90 })
+        .toBuffer();
+      originalKey = `${yyyy}/${mm}/${baseName}.webp`;
+      const put = await putObject(originalKey, originalBuffer, "image/webp");
+      originalUrl = put.url;
+    }
+    variants.push({ w: width ?? 0, format: gif ? "gif" : "webp", url: originalUrl, size: 0 });
+    for (const w of VARIANT_WIDTHS) {
+      if (width && w >= width * 1.25) continue; // pas d'agrandissement inutile
+      variants.push({ w, format: "auto", url: transformUrl(originalUrl, { width: w }), size: 0 });
+    }
+  } else if (isImage) {
     // EXIF sensibles supprimés : sharp réencode sans métadonnées ;
     // rotate() applique l'orientation EXIF puis la retire.
     const pipeline = sharp(input.buffer, { failOn: "none" }).rotate();
@@ -136,7 +166,7 @@ export async function uploadMedia(
       type: kind,
       storage_key: originalKey,
       url: originalUrl,
-      mime_type: isImage ? "image/webp" : input.mimeType,
+      mime_type: isImage && input.mimeType !== "image/gif" ? "image/webp" : input.mimeType,
       file_size: BigInt(input.buffer.byteLength),
       width,
       height,

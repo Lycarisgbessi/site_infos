@@ -1,0 +1,152 @@
+import type { Dictionary } from "./fr";
+
+/**
+ * Dictionnaire AR statique (RTL) — typé `Dictionary` : TypeScript
+ * garantit que toutes les clés du dictionnaire FR sont couvertes.
+ */
+
+export const arDictionary: Dictionary = {
+  // ─── عام ─────────────────────────────────────────────────────────
+  "common.close": "إغلاق",
+  "common.loading": "جارٍ التحميل…",
+
+  // ─── الشريط العلوي ───────────────────────────────────────────────
+  "public.topbar.edition": "النسخة",
+  "public.topbar.newsletters": "النشرات البريدية",
+  "public.topbar.contact": "اتصل بنا",
+  "public.topbar.advertise": "الإعلانات",
+  "public.topbar.desk": "غرفة التحرير",
+  "public.topbar.city": "كوناكري، غينيا",
+
+  // ─── الترويسة ────────────────────────────────────────────────────
+  "public.header.tagline": "أخبار غينيا بلا مواربة",
+  "public.nav.menu": "القائمة الرئيسية",
+
+  // ─── موجز إخباري ─────────────────────────────────────────────────
+  "public.flash.label": "موجز إخباري",
+  "public.flash.urgent": "عاجل",
+
+  // ─── الصفحة الرئيسية ─────────────────────────────────────────────
+  "public.une.title": "الرئيسية",
+  "public.une.live": "مباشر",
+  "public.une.liveCta": "تابع البث المباشر",
+
+  // ─── بطاقات المقالات ─────────────────────────────────────────────
+  "public.card.breaking": "عاجل",
+  "public.card.video": "فيديو",
+  "public.card.sponsored": "برعاية",
+  "public.card.readTime": "دقيقة قراءة",
+
+  // ─── تواريخ نسبية ────────────────────────────────────────────────
+  "public.time.today": "اليوم",
+  "public.time.yesterday": "أمس",
+
+  // ─── الأقسام ─────────────────────────────────────────────────────
+  "public.section.all": "عرض الكل",
+  "public.world.title": "العالم",
+  "public.opinion.title": "آراء",
+  "public.opinion.subtitle": "افتتاحيات ومقالات رأي وأعمدة صحفية",
+  "public.dossier.kicker": "ملف خاص",
+  "public.list.continuous": "آخر المستجدات",
+  "public.list.mostRead": "الأكثر قراءة",
+
+  // ─── مشغّل الصوت العائم ──────────────────────────────────────────
+  "public.audio.listen": "استمع",
+  "public.audio.play": "تشغيل",
+  "public.audio.pause": "إيقاف مؤقت",
+  "public.audio.close": "إغلاق المشغّل",
+  "public.audio.nowPlaying": "قيد التشغيل",
+
+  // ─── صفحات الفيديو ───────────────────────────────────────────────
+  "public.video.pageTitle": "فيديوهات",
+  "public.video.pageSubtitle": "تقارير وحوارات وأفلام وثائقية من غرفة التحرير ومراسلينا الخاصين.",
+  "public.video.none": "لا توجد فيديوهات متاحة حاليًا.",
+  "public.video.watch": "شاهد الفيديو",
+  "public.video.related": "فيديوهات أخرى",
+  "public.video.share": "مشاركة",
+  "public.video.shareOk": "تم نسخ الرابط!",
+  "public.video.shareError": "تعذّر نسخ الرابط.",
+  "public.video.back": "→ جميع الفيديوهات",
+  "public.video.section": "تقارير مصوّرة",
+  "public.video.play": "تشغيل الفيديو",
+
+  // ─── المقال ──────────────────────────────────────────────────────
+  "public.article.breadcrumb": "مسار التصفح",
+  "public.article.unpublished": "غير منشور",
+  "public.article.staffByline": "غرفة تحرير INFOSPRO",
+  "public.article.source": "المصدر",
+  "public.article.sources": "المصادر",
+  "public.article.correctionNote": "تنويه تصحيح:",
+
+  // ─── النشرة البريدية ─────────────────────────────────────────────
+  "public.newsletter.kicker": "نشرة بريدية",
+  "public.newsletter.morningTitle": "أهم أخبار الصباح",
+  "public.newsletter.morningDesc":
+    "كل صباح، تصلك أهم أخبار غينيا والعالم مباشرة إلى بريدك الإلكتروني.",
+  "public.newsletter.placeholder": "بريدك الإلكتروني",
+  "public.newsletter.cta": "اشترك",
+  "public.newsletter.ok": "تم الاشتراك بنجاح! يرجى التحقق من بريدك الإلكتروني.",
+  "public.newsletter.error": "حدث خطأ. يرجى المحاولة مرة أخرى.",
+  "public.newsletter.loading": "جارٍ الاشتراك…",
+
+  // ─── الطقس ───────────────────────────────────────────────────────
+  "public.weather.title": "الطقس",
+  "public.weather.humidity": "الرطوبة",
+
+  // ─── الإعلانات ───────────────────────────────────────────────────
+  "public.ad.label": "إعلان",
+  "public.ad.cta": "اكتشف المزيد",
+  "public.ad.weatherSponsor": "مقدَّم من شريك",
+  "public.ad.demoTitle": "مساحتك الإعلانية هنا",
+  "public.ad.demoText": "تواصل مع قسم الإعلانات لدينا لحجز هذه المساحة.",
+  "public.ad.demoCta": "اتصل بنا",
+  "admin.nav.adregie": "إدارة الإعلانات",
+
+  // ─── شرائط الموقع ────────────────────────────────────────────────
+  "public.banner.close": "إغلاق الشريط",
+
+  // ─── الصفحات الثابتة ─────────────────────────────────────────────
+  "public.pages.contact.title": "اتصل بنا",
+  "public.pages.contact.subtitle": "راسلنا، نقرأ كل الرسائل.",
+  "public.pages.contact.email": "البريد الإلكتروني",
+  "public.pages.contact.phone": "الهاتف",
+  "public.pages.contact.address": "العنوان",
+  "public.pages.contact.addressValue": "كوناكري، غينيا",
+  "public.pages.contact.formHint":
+    "سيصبح النموذج الإلكتروني متاحًا قريبًا — إلى ذلك الحين، راسلنا عبر البريد الإلكتروني.",
+
+  "public.pages.advertise.title": "الإعلانات",
+  "public.pages.advertise.subtitle": "اعرض رسالتك أمام قرّاء INFOSPRO.net",
+  "public.pages.advertise.pitch":
+    "INFOSPRO.net منصة إخبارية رقمية غينية مستقلة. تصل صيغنا الإعلانية (اللافتات، المحتوى المدعوم، رعاية الطقس والنشرات البريدية) إلى جمهور تفاعلي في غينيا وفي المهجر.",
+  "public.pages.advertise.formats": "الصيغ المتاحة",
+  "public.pages.advertise.format1": "لافتات إعلانية (لوحة عنوان، لوحة كبيرة، مساحات جانبية)",
+  "public.pages.advertise.format2": "مقالات مدعومة ومحتوى أصلي",
+  "public.pages.advertise.format3": "رعاية قسم الطقس والنشرات البريدية",
+  "public.pages.advertise.cta": "تواصل مع قسم الإعلانات",
+
+  "public.pages.newsletter.title": "النشرة البريدية",
+  "public.pages.newsletter.subtitle": "خلاصة الأخبار مباشرة إلى بريدك الإلكتروني.",
+
+  "public.pages.notFound": "الصفحة غير موجودة.",
+  "public.pages.backHome": "الصفحة الرئيسية",
+
+  // ─── تذييل الصفحة ────────────────────────────────────────────────
+  "public.footer.about":
+    "INFOSPRO.net منصة إخبارية رقمية غينية مستقلة تغطي الأحداث السياسية والاقتصادية والاجتماعية والثقافية في غينيا وغرب أفريقيا.",
+  "public.footer.rights": "جميع الحقوق محفوظة.",
+  "public.footer.madeIn": "صُنع في كوناكري بكل حب ❤",
+
+  // ─── مبدّل اللغة ─────────────────────────────────────────────────
+  "public.language.label": "اللغة",
+  "public.language.switcher": "تغيير اللغة",
+  // ─── PWA : installation + notifications ────────────────────────
+  "public.pwa.installTitle": "تثبيت INFOSPRO",
+  "public.pwa.installHint": "وصول سريع من شاشتك الرئيسية.",
+  "public.pwa.notificationsHint": "تلقَّ تنبيهاً عند كل نشرة جديدة.",
+  "public.pwa.notificationsOn": "الإشعارات مفعّلة",
+  "public.pwa.enableNotifications": "تفعيل الإشعارات",
+  "public.pwa.install": "تثبيت",
+  "public.pwa.close": "إغلاق",
+
+};

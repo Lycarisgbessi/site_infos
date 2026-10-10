@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { getTranslations } from "@/lib/i18n";
+import { getTranslations, localeTag } from "@/lib/i18n";
 import { getFooterMenus } from "@/lib/public/homepage-data";
 
 /**
@@ -9,9 +9,9 @@ import { getFooterMenus } from "@/lib/public/homepage-data";
  */
 
 export async function SiteFooter() {
-  const { translate } = await getTranslations();
+  const { translate, locale } = await getTranslations();
   const menus = await getFooterMenus();
-  const year = new Intl.DateTimeFormat("fr-FR", { year: "numeric", timeZone: "Africa/Conakry" }).format(new Date());
+  const year = new Intl.DateTimeFormat(localeTag(locale), { year: "numeric", timeZone: "Africa/Conakry" }).format(new Date());
 
   return (
     <footer className="mt-auto border-t-2 border-ink bg-ink text-paper">

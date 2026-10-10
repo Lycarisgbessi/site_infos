@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { getTranslations } from "@/lib/i18n";
+import { getTranslations, localeTag, type Locale } from "@/lib/i18n";
+import { LanguageSwitcher } from "@/lib/i18n/language-switcher";
 import { getMainMenu, type NavItem } from "@/lib/public/homepage-data";
 import { MobileMenu, ThemeToggle } from "./mobile-nav";
 
@@ -11,7 +12,7 @@ import { MobileMenu, ThemeToggle } from "./mobile-nav";
  */
 
 function formatDate(d: Date, locale: string): string {
-  return new Intl.DateTimeFormat(locale === "ar" ? "ar" : "fr-FR", {
+  return new Intl.DateTimeFormat(localeTag(locale), {
     weekday: "long",
     day: "numeric",
     month: "long",
@@ -32,15 +33,17 @@ export async function TopBar() {
           {formatDate(now, locale)}
         </p>
         <nav aria-label={translate("public.topbar.advertise")} className="hidden items-center gap-5 md:flex">
-          <Link href="/pages/newsletters" className="transition-colors duration-200 hover:text-red-bright">
-            {translate("public.topbar.newsletters")}
-          </Link>
-          <Link href="/pages/contact" className="transition-colors duration-200 hover:text-red-bright">
-            {translate("public.topbar.contact")}
-          </Link>
-          <Link href="/pages/publicite" className="transition-colors duration-200 hover:text-red-bright">
-            {translate("public.topbar.advertise")}
-          </Link>
+          <div className="flex items-center gap-5">
+            <Link href="/pages/newsletters" className="transition-colors duration-200 hover:text-red-bright">
+              {translate("public.topbar.newsletters")}
+            </Link>
+            <Link href="/pages/contact" className="transition-colors duration-200 hover:text-red-bright">
+              {translate("public.topbar.contact")}
+            </Link>
+            <Link href="/pages/publicite" className="transition-colors duration-200 hover:text-red-bright">
+              {translate("public.topbar.advertise")}
+            </Link>
+          </div>
           <Link
             href="/login?next=/admin"
             className="bg-brand-red px-2.5 py-1 font-semibold transition-colors duration-200 hover:bg-red-deep"
@@ -66,7 +69,7 @@ function NavLinks({ items }: { items: NavItem[] }) {
           {/* Barre de survol — se déploie de gauche à droite sous l'item */}
           <span
             aria-hidden
-            className="pointer-events-none absolute inset-x-2 bottom-0 h-[3px] origin-left scale-x-0 bg-brand-red transition-transform duration-300 ease-[var(--ease-signal)] group-hover:scale-x-100"
+            className="pointer-events-none absolute inset-x-2 bottom-0 h-[3px] origin-left scale-x-0 bg-brand-red transition-transform duration-300 ease-[var(--ease-signal)] group-hover:scale-x-100 rtl:origin-right"
           />
         </Link>
       ))}
@@ -75,7 +78,7 @@ function NavLinks({ items }: { items: NavItem[] }) {
 }
 
 export async function SiteHeader() {
-  const { translate } = await getTranslations();
+  const { translate, locale } = await getTranslations();
   const items = await getMainMenu();
 
   return (
@@ -108,6 +111,11 @@ export async function SiteHeader() {
             <NavLinks items={items} />
           </div>
           <div className="flex items-center gap-1">
+            <LanguageSwitcher
+              currentLocale={locale as Locale}
+              label={translate("public.language.label")}
+              title={translate("public.language.switcher")}
+            />
             <ThemeToggle />
             <Link
               href="/login?next=/admin"

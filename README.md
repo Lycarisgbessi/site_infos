@@ -73,3 +73,18 @@ seed ; la 2FA (TOTP) est activée à la première connexion, conformément au §
 6. SEO
 7. Monétisation
 8. Finition et lancement
+
+## Stockage Cloudinary
+
+La médiathèque peut stocker les médias sur Cloudinary au lieu du disque local (`public/uploads/`). Renseignez ces 3 variables dans `.env` :
+
+```env
+CLOUDINARY_CLOUD_NAME=""
+CLOUDINARY_API_KEY=""
+CLOUDINARY_API_SECRET=""
+```
+
+- Les uploads passent par l'API REST signée de Cloudinary (SHA-1, `node:crypto`) — aucune dépendance npm ajoutée.
+- Les images sont envoyées une seule fois ; les variantes responsives (320→2000 px) sont des transformations Cloudinary à la volée (`f_auto,q_auto,w_N`) insérées dans l'URL.
+- Les GIF animés sont uploadés sans transformation ni réencodage (l'animation est préservée).
+- Si une variable manque, le site bascule automatiquement sur le stockage disque local actuel (comportement inchangé).

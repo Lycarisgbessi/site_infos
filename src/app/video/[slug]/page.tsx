@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getTranslations } from "@/lib/i18n";
+import { getTranslations, localeTag } from "@/lib/i18n";
 import { db } from "@/lib/db";
 import { parseBlocks } from "@/types/blocks";
 import { getVideoArticles } from "@/lib/public/homepage-data";
@@ -19,7 +19,7 @@ export const dynamic = "force-dynamic";
 
 export default async function VideoPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const { translate } = await getTranslations();
+  const { translate, locale } = await getTranslations();
   const now = new Date();
 
   const article = await db.article.findFirst({
@@ -55,7 +55,7 @@ export default async function VideoPage({ params }: { params: Promise<{ slug: st
   const related = (await getVideoArticles(7)).filter((a) => a.id !== article.id).slice(0, 6);
 
   const publishedLabel = article.published_at
-    ? new Intl.DateTimeFormat("fr-FR", { dateStyle: "long", timeStyle: "short", timeZone: "Africa/Conakry" }).format(article.published_at)
+    ? new Intl.DateTimeFormat(localeTag(locale), { dateStyle: "long", timeStyle: "short", timeZone: "Africa/Conakry" }).format(article.published_at)
     : "";
 
   return (
@@ -98,7 +98,7 @@ export default async function VideoPage({ params }: { params: Promise<{ slug: st
             {translate("public.video.back")}
           </Link>
 
-          <nav className="kicker mt-4" aria-label="Fil d'ariane">
+          <nav className="kicker mt-4" aria-label={translate("public.article.breadcrumb")}>
             {translate("public.video.pageTitle")}
             {article.category ? ` › ${article.category.name}` : ""}
           </nav>
