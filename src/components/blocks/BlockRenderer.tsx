@@ -163,15 +163,15 @@ function BlockView({
         <li key={i} className="my-1.5 leading-relaxed"><RichTextView value={item} /></li>
       ));
       return block.style === "number" ? (
-        <ol className="my-5 list-decimal space-y-1 pl-6">{items}</ol>
+        <ol className="my-5 list-decimal space-y-1 ps-6">{items}</ol>
       ) : (
-        <ul className="my-5 list-disc space-y-1 pl-6">{items}</ul>
+        <ul className="my-5 list-disc space-y-1 ps-6">{items}</ul>
       );
     }
 
     case "quote":
       return (
-        <blockquote className="my-7 border-l-2 border-brand-red pl-5">
+        <blockquote className="my-7 border-s-2 border-brand-red ps-5">
           <p className="font-serif text-xl leading-relaxed">« {block.text} »</p>
           {(block.author || block.role) && (
             <footer className="mt-2 text-sm text-ink-soft">
@@ -209,7 +209,7 @@ function BlockView({
       const media = mediaById.get(block.mediaId);
       if (!media) return null;
       return (
-        <figure className={`my-8 ${block.size === "full" ? "w-screen relative left-1/2 -translate-x-1/2 max-w-[100vw]" : block.size === "wide" ? "" : ""}`}>
+        <figure className={`my-8 ${block.size === "full" ? "w-screen relative start-1/2 -translate-x-1/2 max-w-[100vw] rtl:translate-x-1/2" : block.size === "wide" ? "" : ""}`}>
           <MediaPicture media={media} />
           {(media.caption || media.credit) && (
             <figcaption className="mt-2 text-xs text-ink-faint">
@@ -282,7 +282,7 @@ function BlockView({
             <thead>
               <tr>
                 {block.headers.map((h, i) => (
-                  <th key={i} className="border-b-2 border-rule bg-paper-alt px-3 py-2 text-left font-semibold">{h}</th>
+                  <th key={i} className="border-b-2 border-rule bg-paper-alt px-3 py-2 text-start font-semibold">{h}</th>
                 ))}
               </tr>
             </thead>
@@ -350,10 +350,10 @@ function BlockView({
 
     case "timeline":
       return (
-        <ol className="my-8 space-y-4 border-l-2 border-rule pl-5">
+        <ol className="my-8 space-y-4 border-s-2 border-rule ps-5">
           {block.events.map((ev, i) => (
             <li key={i} className="relative">
-              <span aria-hidden className="absolute -left-[26px] top-1.5 size-2.5 rounded-full bg-brand-red" />
+              <span aria-hidden className="absolute -start-[26px] top-1.5 size-2.5 rounded-full bg-brand-red" />
               <p className="kicker">{ev.date}</p>
               <p className="font-serif font-bold">{ev.title}</p>
               {ev.text && <p className="mt-1 text-sm leading-relaxed text-ink-soft">{ev.text}</p>}
@@ -382,7 +382,7 @@ function BlockView({
 
     case "definition":
       return (
-        <dl className="my-6 border-l-2 border-rule pl-4">
+        <dl className="my-6 border-s-2 border-rule ps-4">
           <dt className="font-semibold">{block.term}</dt>
           <dd className="mt-1 text-[1.02rem] leading-relaxed text-ink-soft">{block.definition}</dd>
         </dl>
@@ -416,7 +416,7 @@ function BlockView({
       return (
         <div className="my-6">
           <p className="font-serif text-lg font-bold">« {block.question} »</p>
-          <p className="mt-2 pl-4 text-[1.05rem] leading-relaxed">
+          <p className="mt-2 ps-4 text-[1.05rem] leading-relaxed">
             <RichTextView value={block.answer} />
           </p>
         </div>

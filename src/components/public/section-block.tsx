@@ -157,7 +157,7 @@ export async function OpinionCards({ articles }: { articles: PublicArticle[] }) 
         <Link
           key={a.id}
           href={`/article/${a.slug}`}
-          className="group flex flex-col border border-rule bg-paper-alt p-4 transition-colors duration-200 hover:border-ink"
+          className="card-lift group flex flex-col border border-rule bg-paper-alt p-4 hover:border-ink"
         >
           <p className="kicker text-brand-red">{a.category?.name}</p>
           <h3 className="mt-2 line-clamp-3 flex-1 font-serif text-base font-bold leading-snug transition-colors duration-200 group-hover:text-brand-red">

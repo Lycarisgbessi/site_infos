@@ -139,7 +139,7 @@ export function InstallBanner({ labels }: { labels: InstallBannerLabels }) {
     <div
       role="complementary"
       aria-label={labels.installTitle}
-      className="fixed inset-x-3 bottom-16 z-40 sm:inset-x-auto sm:right-4 sm:w-80"
+      className="fixed inset-x-3 bottom-16 z-40 sm:inset-x-auto sm:end-4 sm:w-80"
     >
       <div className="flex items-center gap-3 rounded-lg border border-rule bg-ink/97 p-3 text-paper shadow-lg backdrop-blur supports-[backdrop-filter]:bg-ink/92">
         <div className="min-w-0 flex-1">

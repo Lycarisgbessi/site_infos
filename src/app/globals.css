@@ -238,6 +238,101 @@
     }
   }
 
+  /* ── Animations d'interface — discrètes et professionnelles ──────────
+     Entrée de contenu, slide de barres flottantes, pulsation « live »,
+     survol de cartes, squelettes de chargement. Toutes neutralisées par
+     la media query prefers-reduced-motion globale ci-dessous. */
+
+  @keyframes fade-in-up {
+    from {
+      opacity: 0;
+      transform: translateY(12px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  @keyframes slide-in-up {
+    from {
+      transform: translateY(100%);
+    }
+    to {
+      transform: none;
+    }
+  }
+
+  @keyframes live-pulse {
+    0%,
+    100% {
+      opacity: 1;
+      transform: scale(1);
+    }
+    50% {
+      opacity: 0.35;
+      transform: scale(0.85);
+    }
+  }
+
+  @keyframes skeleton-shimmer {
+    from {
+      background-position: 200% 0;
+    }
+    to {
+      background-position: -200% 0;
+    }
+  }
+
+  .animate-fade-in-up {
+    animation: fade-in-up 0.5s var(--ease-out) both;
+  }
+
+  .animate-slide-in-up {
+    animation: slide-in-up 0.35s var(--ease-out) both;
+  }
+
+  /* Point indicateur live / flash-info — pulsation douce */
+  .live-dot {
+    animation: live-pulse 2s ease-in-out infinite;
+  }
+
+  /* Élévation douce au survol des cartes (translateY -2px + ombre) */
+  .card-lift {
+    transition:
+      transform 0.25s var(--ease-out),
+      box-shadow 0.25s var(--ease-out),
+      border-color 0.25s var(--ease-out);
+  }
+  .card-lift:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08);
+  }
+
+  /* Squelette de chargement — shimmer papier */
+  .skeleton {
+    background: linear-gradient(
+      90deg,
+      var(--paper-sunk) 25%,
+      var(--paper-alt) 50%,
+      var(--paper-sunk) 75%
+    );
+    background-size: 200% 100%;
+    animation: skeleton-shimmer 1.6s linear infinite;
+  }
+
+  /* Révélation au scroll (composant <Reveal>) — uniquement si le
+     mouvement est accepté ; sinon le contenu reste visible sans JS. */
+  @media (prefers-reduced-motion: no-preference) {
+    .reveal {
+      opacity: 0;
+    }
+    .reveal.reveal-visible {
+      opacity: 1;
+      animation: fade-in-up 0.5s var(--ease-out) both;
+    }
+  }
+
   /* Conteneur de lecture d'article — max 720 px (§05.3) */
   .reading-width {
     max-width: var(--reading-max);

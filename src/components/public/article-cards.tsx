@@ -89,14 +89,14 @@ export async function HeroCard({ article }: { article: PublicArticle }) {
   const { translate } = await getTranslations();
   const now = new Date();
   return (
-    <Link href={articleHref(article)} className="group block">
+    <Link href={articleHref(article)} className="animate-fade-in-up group block">
       <div className="relative overflow-hidden">
         <Cover
           article={article}
           priority
           className="aspect-[16/9] w-full transition-transform duration-500 ease-[var(--ease-inout)] group-hover:scale-[1.02]"
         />
-        <div className="absolute left-3 top-3 flex gap-2">
+        <div className="absolute start-3 top-3 flex gap-2">
           <Badge article={article} />
         </div>
       </div>

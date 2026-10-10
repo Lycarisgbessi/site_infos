@@ -24,6 +24,7 @@ import { NewsletterBlock } from "@/components/public/newsletter-block";
 import { WeatherStrip } from "@/components/public/weather-strip";
 import { SiteFooter } from "@/components/public/site-footer";
 import { SiteBannerBar } from "@/components/public/site-banner-bar";
+import { Reveal } from "@/components/public/reveal";
 
 /**
  * Route `/` — ACCUEIL ÉDITORIAL PUBLIC (§09.1) piloté par homepage_blocks.
@@ -129,33 +130,36 @@ export default async function HomePage() {
           {/* Colonne principale */}
           <div className="min-w-0 space-y-10">
             {sectionData.slice(0, 3).map(({ slug, articles }, idx) => (
-              <SectionBlock
-                key={slug}
-                id={slug}
-                title={articles[0]?.category?.name ?? slug}
-                articles={articles}
-                adSlot={
-                  idx === 0 ? (
-                    <div className="mt-6">
-                      <AdBanner code="AD-07" campaigns={adCampaigns} />
-                    </div>
-                  ) : idx === 1 ? (
-                    <div className="mt-6 grid gap-4 sm:grid-cols-2">
-                      <AdNativeCard code="AD-08" campaigns={adCampaigns} />
-                      <AdNativeCard code="AD-16" campaigns={adCampaigns} />
-                    </div>
-                  ) : undefined
-                }
-              />
+              <Reveal key={slug}>
+                <SectionBlock
+                  id={slug}
+                  title={articles[0]?.category?.name ?? slug}
+                  articles={articles}
+                  adSlot={
+                    idx === 0 ? (
+                      <div className="mt-6">
+                        <AdBanner code="AD-07" campaigns={adCampaigns} />
+                      </div>
+                    ) : idx === 1 ? (
+                      <div className="mt-6 grid gap-4 sm:grid-cols-2">
+                        <AdNativeCard code="AD-08" campaigns={adCampaigns} />
+                        <AdNativeCard code="AD-16" campaigns={adCampaigns} />
+                      </div>
+                    ) : undefined
+                  }
+                />
+              </Reveal>
             ))}
 
             {/* ── Z-08 : Reportages vidéo ─────────────────────────────────── */}
             <div className="-mx-6 lg:-mx-12">
-              <VideoSection
-                articles={videos}
-                title={translate("public.video.section")}
-                playLabel={translate("public.video.play")}
-              />
+              <Reveal>
+                <VideoSection
+                  articles={videos}
+                  title={translate("public.video.section")}
+                  playLabel={translate("public.video.play")}
+                />
+              </Reveal>
             </div>
 
             {/* ── Z-11 : Dossier immersif ─────────────────────────────────── */}
@@ -163,23 +167,25 @@ export default async function HomePage() {
 
             {/* Sections suivantes */}
             {sectionData.slice(3, 6).map(({ slug, articles }, idx) => (
-              <SectionBlock
-                key={slug}
-                id={slug}
-                title={articles[0]?.category?.name ?? slug}
-                articles={articles}
-                adSlot={
-                  idx === 2 ? (
-                    <div className="mt-6">
-                      <AdNativeCard code="AD-08" campaigns={adCampaigns} />
-                    </div>
-                  ) : undefined
-                }
-              />
+              <Reveal key={slug}>
+                <SectionBlock
+                  id={slug}
+                  title={articles[0]?.category?.name ?? slug}
+                  articles={articles}
+                  adSlot={
+                    idx === 2 ? (
+                      <div className="mt-6">
+                        <AdNativeCard code="AD-08" campaigns={adCampaigns} />
+                      </div>
+                    ) : undefined
+                  }
+                />
+              </Reveal>
             ))}
 
             {/* ── Z-12 : Monde ────────────────────────────────────────────── */}
             {world.length > 0 && (
+              <Reveal>
               <section aria-label={translate("public.world.title")}>
                 <header className="flex items-baseline justify-between border-b-2 border-ink pb-2">
                   <h2 className="font-serif text-xl font-black tracking-tight md:text-2xl">
@@ -190,10 +196,12 @@ export default async function HomePage() {
                   <WorldGrid articles={world} />
                 </div>
               </section>
+              </Reveal>
             )}
 
             {/* ── Z-13 : Opinions ─────────────────────────────────────────── */}
             {opinions.length > 0 && (
+              <Reveal>
               <section aria-label={translate("public.opinion.title")}>
                 <header className="border-b-2 border-ink pb-2">
                   <h2 className="font-serif text-xl font-black tracking-tight md:text-2xl">
@@ -205,6 +213,7 @@ export default async function HomePage() {
                   <OpinionCards articles={opinions} />
                 </div>
               </section>
+              </Reveal>
             )}
 
             {/* ── Z-09 : Newsletter ───────────────────────────────────────── */}
@@ -221,7 +230,9 @@ export default async function HomePage() {
 
             {/* Sections finales + AD-14 */}
             {sectionData.slice(6).map(({ slug, articles }) => (
-              <SectionBlock key={slug} id={slug} title={articles[0]?.category?.name ?? slug} articles={articles} />
+              <Reveal key={slug}>
+                <SectionBlock id={slug} title={articles[0]?.category?.name ?? slug} articles={articles} />
+              </Reveal>
             ))}
             <AdBanner code="AD-14" campaigns={adCampaigns} />
           </div>
@@ -231,7 +242,7 @@ export default async function HomePage() {
             {/* En continu */}
             <section aria-label={translate("public.list.continuous")} className="scroll-mt-20 border border-rule bg-paper-alt p-4">
               <header className="flex items-center gap-2 border-b border-rule pb-2">
-                <span aria-hidden className="size-2 animate-pulse rounded-full bg-brand-red" />
+                <span aria-hidden className="live-dot size-2 rounded-full bg-brand-red" />
                 <h2 className="kicker text-ink">{translate("public.list.continuous")}</h2>
               </header>
               <div className="max-h-[26rem] divide-y divide-rule overflow-y-auto pr-1">

@@ -72,7 +72,7 @@ function SlotShell({
       data-ad-slot={code}
       className={`group relative border border-rule bg-paper-alt ${className}`}
     >
-      <span className="absolute -top-2 right-2 z-20 bg-paper px-1.5 text-[0.6rem] font-bold uppercase tracking-[0.18em] text-ink-faint">
+      <span className="absolute -top-2 end-2 z-20 bg-paper px-1.5 text-[0.6rem] font-bold uppercase tracking-[0.18em] text-ink-faint">
         {label}
       </span>
       {children}
@@ -167,7 +167,7 @@ export async function AdSelfPromo() {
 export async function AdWeatherSponsor() {
   const { translate } = await getTranslations();
   return (
-    <p className="text-right text-[0.65rem] uppercase tracking-[0.14em] text-ink-faint">
+    <p className="text-end text-[0.65rem] uppercase tracking-[0.14em] text-ink-faint">
       {translate("public.ad.weatherSponsor")}
     </p>
   );

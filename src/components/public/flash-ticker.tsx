@@ -42,7 +42,7 @@ function TickerTrack({
                 className="px-6 text-sm font-medium transition-colors duration-200 hover:text-brand-red hover:underline"
               >
                 {item.priority === 1 && (
-                  <span className="mr-2 inline-block bg-ink px-1.5 py-0.5 text-[0.65rem] font-bold uppercase tracking-widest text-paper">
+                  <span className="me-2 inline-block bg-ink px-1.5 py-0.5 text-[0.65rem] font-bold uppercase tracking-widest text-paper">
                     {urgentLabel}
                   </span>
                 )}
@@ -51,7 +51,7 @@ function TickerTrack({
             ) : (
               <span className="px-6 text-sm font-medium">
                 {item.priority === 1 && (
-                  <span className="mr-2 inline-block bg-ink px-1.5 py-0.5 text-[0.65rem] font-bold uppercase tracking-widest text-paper">
+                  <span className="me-2 inline-block bg-ink px-1.5 py-0.5 text-[0.65rem] font-bold uppercase tracking-widest text-paper">
                     {urgentLabel}
                   </span>
                 )}

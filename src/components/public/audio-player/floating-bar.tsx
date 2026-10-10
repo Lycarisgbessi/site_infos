@@ -51,7 +51,7 @@ export function AudioFloatingBar({ labels }: { labels: { play: string; pause: st
     <div
       role="region"
       aria-label={track.title}
-      className="fixed inset-x-0 bottom-0 z-50 border-t border-rule bg-ink/97 text-paper shadow-[0_-4px_16px_rgba(0,0,0,0.25)] backdrop-blur supports-[backdrop-filter]:bg-ink/92"
+      className="animate-slide-in-up fixed inset-x-0 bottom-0 z-50 border-t border-rule bg-ink/97 text-paper shadow-[0_-4px_16px_rgba(0,0,0,0.25)] backdrop-blur supports-[backdrop-filter]:bg-ink/92"
     >
       <audio
         ref={audioRef}
@@ -73,14 +73,14 @@ export function AudioFloatingBar({ labels }: { labels: { play: string; pause: st
           {isPlaying ? (
             <svg aria-hidden viewBox="0 0 16 16" className="size-4 fill-current"><rect x="3" y="2" width="3.5" height="12" /><rect x="9.5" y="2" width="3.5" height="12" /></svg>
           ) : (
-            <svg aria-hidden viewBox="0 0 16 16" className="ml-0.5 size-4 fill-current"><path d="M4 2l9 6-9 6z" /></svg>
+            <svg aria-hidden viewBox="0 0 16 16" className="ms-0.5 size-4 fill-current"><path d="M4 2l9 6-9 6z" /></svg>
           )}
         </button>
 
         <div className="min-w-0 flex-1">
           <p className="truncate font-serif text-sm font-bold">{track.title}</p>
           <div className="mt-1 flex items-center gap-2">
-            <span className="w-9 shrink-0 text-right font-mono text-[0.65rem] text-paper/60">{formatTime(position)}</span>
+            <span className="w-9 shrink-0 text-end font-mono text-[0.65rem] text-paper/60">{formatTime(position)}</span>
             <input
               type="range"
               min={0}

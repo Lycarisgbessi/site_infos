@@ -94,7 +94,7 @@ export async function SiteHeader() {
           </Link>
           <p className="mt-2 hidden text-sm text-ink-soft sm:block">{translate("public.header.tagline")}</p>
         </div>
-        <p className="hidden shrink-0 items-center gap-2 text-right text-xs text-ink-faint md:flex">
+        <p className="hidden shrink-0 items-center gap-2 text-end text-xs text-ink-faint md:flex">
           <span className="inline-block size-2 animate-pulse rounded-full bg-brand-red" aria-hidden />
           {translate("public.topbar.city")}
         </p>

@@ -7,7 +7,7 @@ import {
   LOCALE_COOKIE,
   LOCALE_COOKIE_MAX_AGE,
   type Locale,
-} from "./index";
+} from "./constants";
 
 /**
  * Sélecteur de langue (composant client) : pose le cookie NEXT_LOCALE

@@ -22,35 +22,30 @@ import { zhDictionary } from "./zh";
  * Accept-Language → `fr` (défaut).
  */
 
-export const DEFAULT_LOCALE = "fr" as const;
-
-export const ACTIVE_LOCALES = ["fr", "en", "es", "ar", "zh"] as const;
-
-export type Locale = (typeof ACTIVE_LOCALES)[number];
-
-/** Cookie de locale posé par le sélecteur de langue (durée : 1 an). */
-export const LOCALE_COOKIE = "NEXT_LOCALE";
-export const LOCALE_COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
-
 export type { Dictionary };
 
-export interface LocaleMeta {
-  code: Locale;
-  /** Nom natif de la langue (auto-désignation). */
-  nativeName: string;
-  /** Étiquette courte affichée dans le bouton (FR, EN, ES, AR, ZH). */
-  short: string;
-  dir: "ltr" | "rtl";
-}
+export {
+  DEFAULT_LOCALE,
+  ACTIVE_LOCALES,
+  LOCALE_COOKIE,
+  LOCALE_COOKIE_MAX_AGE,
+  LOCALES_META,
+  isLocale,
+  localeTag,
+  localeDir,
+} from "./constants";
+export type { Locale, LocaleMeta } from "./constants";
 
-/** Métadonnées des locales actives (utilisées par le sélecteur et le layout). */
-export const LOCALES_META: readonly LocaleMeta[] = [
-  { code: "fr", nativeName: "Français", short: "FR", dir: "ltr" },
-  { code: "en", nativeName: "English", short: "EN", dir: "ltr" },
-  { code: "es", nativeName: "Español", short: "ES", dir: "ltr" },
-  { code: "ar", nativeName: "العربية", short: "AR", dir: "rtl" },
-  { code: "zh", nativeName: "中文", short: "ZH", dir: "ltr" },
-];
+import {
+  DEFAULT_LOCALE,
+  ACTIVE_LOCALES,
+  LOCALE_COOKIE,
+  LOCALES_META,
+  isLocale,
+  localeTag,
+  localeDir,
+} from "./constants";
+import type { Locale, LocaleMeta } from "./constants";
 
 const STATIC_DICTIONARIES: Record<Locale, Dictionary> = {
   fr: frDictionary,
@@ -61,31 +56,6 @@ const STATIC_DICTIONARIES: Record<Locale, Dictionary> = {
 };
 
 const FR_FALLBACK = frDictionary as unknown as Record<string, string>;
-
-export function isLocale(value: string | undefined | null): value is Locale {
-  return !!value && (ACTIVE_LOCALES as readonly string[]).includes(value);
-}
-
-/** Étiquette BCP-47 pour Intl (dates, nombres). */
-export function localeTag(locale: string): string {
-  switch (locale) {
-    case "en":
-      return "en-GB";
-    case "es":
-      return "es-ES";
-    case "ar":
-      return "ar";
-    case "zh":
-      return "zh-CN";
-    default:
-      return "fr-FR";
-  }
-}
-
-/** Sens de lecture de la locale — à brancher sur `<html dir>` dans layout.tsx. */
-export function localeDir(locale: string): "ltr" | "rtl" {
-  return locale === "ar" ? "rtl" : "ltr";
-}
 
 /** Parse Accept-Language et renvoie la première locale active supportée. */
 function localeFromAcceptLanguage(header: string | null): Locale | null {
