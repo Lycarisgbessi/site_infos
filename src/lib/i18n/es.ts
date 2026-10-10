@@ -69,7 +69,20 @@ export const esDictionary: Dictionary = {
   "public.video.shareError": "No se pudo copiar el enlace.",
   "public.video.back": "← Todos los vídeos",
   "public.video.section": "Reportajes en vídeo",
+  "public.video.liveTitle": "En directo",
   "public.video.play": "Reproducir vídeo",
+
+  // ─── Podcast / FM ────────────────────────────────────────────────
+  "public.podcast.pageTitle": "Podcast / FM",
+  "public.podcast.pageSubtitle":
+    "Programas, crónicas y grandes entrevistas de la redacción — para escuchar sin interrupción, dondequiera que esté.",
+  "public.podcast.stats": "{seasons} temporada(s) · {episodes} episodio(s)",
+  "public.podcast.noneTitle": "Aún no hay programas",
+  "public.podcast.noneText": "Nuevos episodios llegarán pronto — vuelva pronto para escucharnos.",
+  "public.podcast.episode": "Episodio",
+  "public.podcast.episodesCount": "{count} episodio(s)",
+  "public.podcast.noDuration": "Duración desconocida",
+  "public.podcast.nowPlaying": "En reproducción",
 
   // ─── Artículo ────────────────────────────────────────────────────
   "public.article.breadcrumb": "Ruta de navegación",
@@ -102,6 +115,7 @@ export const esDictionary: Dictionary = {
   "public.ad.demoText": "Contacte con nuestro equipo comercial para reservar este espacio.",
   "public.ad.demoCta": "Contactarnos",
   "admin.nav.adregie": "Gestión publicitaria",
+  "admin.nav.podcast": "Podcast / FM",
 
   // ─── Banners del sitio ───────────────────────────────────────────
   "public.banner.close": "Cerrar el banner",

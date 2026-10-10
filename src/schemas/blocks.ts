@@ -9,8 +9,8 @@ import { z } from "zod";
 export const richTextFragmentSchema = z.object({
   text: z.string().max(10_000),
   marks: z
-    .array(z.enum(["bold", "italic", "underline", "strike", "code", "sup", "sub"]))
-    .max(7)
+    .array(z.enum(["bold", "italic", "underline", "strike", "code", "highlight", "sup", "sub"]))
+    .max(8)
     .optional(),
   link: z
     .object({
@@ -83,8 +83,11 @@ export const blockSchema = z.discriminatedUnion("type", [
   z.object({
     ...blockBase,
     type: z.literal("audio"),
-    mediaId: z.string().min(1),
+    mediaId: z.string().min(1).optional(),
     title: z.string().max(300).optional(),
+    url: z.string().max(2000).optional(),
+    driveUrl: z.string().max(2000).optional(),
+    source: z.enum(["media", "url", "drive"]).optional(),
   }),
   z.object({
     ...blockBase,

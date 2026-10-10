@@ -1,6 +1,8 @@
 import Link from "next/link";
+import { notFound } from "next/navigation";
 import { getTranslations } from "@/lib/i18n";
 import { getVideoArticles } from "@/lib/public/homepage-data";
+import { getSettingsValues } from "@/server/services/settings";
 import { TopBar, SiteHeader } from "@/components/public/site-header";
 import { SiteFooter } from "@/components/public/site-footer";
 import { Cover } from "@/components/public/article-cards";
@@ -9,12 +11,46 @@ import { Cover } from "@/components/public/article-cards";
  * Route `/video` — liste de tous les contenus vidéo (format vidéo ou bloc
  * vidéo dans le corps de l'article). Chaque carte mène à la page dédiée
  * à la lecture `/video/{slug}` (grand lecteur, pas de pop-up).
+ *
+ * Module désactivable : `features.tv` à false → 404 (notFound).
+ * Section « En direct » en tête si `features.live` est actif ET qu'une
+ * URL `direct.live_url` est configurée (embed YouTube ou iframe sandbox).
  */
 
 export const dynamic = "force-dynamic";
 
+/** Extrait l'ID d'une URL YouTube (watch, shorts, live, embed, youtu.be). */
+function youtubeId(url: string): string | null {
+  try {
+    const u = new URL(url);
+    const host = u.hostname.replace(/^www\./i, "");
+    if (host === "youtu.be") return u.pathname.slice(1) || null;
+    if (host !== "youtube.com") return null;
+    if (u.pathname === "/watch") return u.searchParams.get("v");
+    const m = u.pathname.match(/^\/(embed|shorts|live)\/([A-Za-z0-9_-]+)/);
+    return m?.[2] ?? null;
+  } catch {
+    return null;
+  }
+}
+
 export default async function VideoListPage() {
   const { translate } = await getTranslations();
+
+  const settings = await getSettingsValues([
+    "features.tv",
+    "features.live",
+    "direct.live_url",
+    "direct.live_title",
+  ]);
+  if (settings["features.tv"] === "false") notFound();
+
+  const liveUrl = settings["direct.live_url"] ?? "";
+  const liveTitleSetting = settings["direct.live_title"] ?? "";
+  const showLive = settings["features.live"] !== "false" && liveUrl !== "";
+  const ytId = showLive ? youtubeId(liveUrl) : null;
+  const liveTitle = liveTitleSetting !== "" ? liveTitleSetting : translate("public.video.liveTitle");
+
   const videos = await getVideoArticles(24);
 
   return (
@@ -24,6 +60,37 @@ export default async function VideoListPage() {
 
       <main id="contenu" className="flex-1 pb-16">
         <div className="container-page pt-10">
+          {showLive && (
+            <section aria-label={translate("public.video.liveTitle")} className="mb-10">
+              <div className="flex items-center gap-3">
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-brand-red px-2.5 py-1 text-[0.7rem] font-black uppercase tracking-widest text-white">
+                  <span aria-hidden className="size-2 animate-pulse rounded-full bg-white" />
+                  {translate("public.une.live")}
+                </span>
+                <h2 className="font-serif text-lg font-bold tracking-tight md:text-xl">{liveTitle}</h2>
+              </div>
+              <div className="mt-3 aspect-video w-full overflow-hidden bg-ink">
+                {ytId ? (
+                  <iframe
+                    src={`https://www.youtube-nocookie.com/embed/${ytId}`}
+                    title={liveTitle}
+                    allowFullScreen
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    className="h-full w-full border-0"
+                  />
+                ) : (
+                  <iframe
+                    src={liveUrl}
+                    title={liveTitle}
+                    allowFullScreen
+                    sandbox="allow-scripts allow-popups allow-presentation"
+                    className="h-full w-full border-0"
+                  />
+                )}
+              </div>
+            </section>
+          )}
+
           <header className="border-b-2 border-ink pb-3">
             <h1 className="font-serif text-3xl font-black tracking-tight md:text-4xl">
               ▶ {translate("public.video.pageTitle")}

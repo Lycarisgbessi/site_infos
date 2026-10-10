@@ -83,7 +83,20 @@ export const frDictionary = {
   "public.video.shareError": "Impossible de copier le lien.",
   "public.video.back": "← Toutes les vidéos",
   "public.video.section": "Reportages vidéo",
+  "public.video.liveTitle": "En direct",
   "public.video.play": "Lire la vidéo",
+
+  // ─── Podcast / FM ────────────────────────────────────────────────
+  "public.podcast.pageTitle": "Podcast / FM",
+  "public.podcast.pageSubtitle":
+    "Émissions, chroniques et grands entretiens de la rédaction — à écouter en continu, où que vous soyez.",
+  "public.podcast.stats": "{seasons} saison(s) · {episodes} épisode(s)",
+  "public.podcast.noneTitle": "Aucune émission pour le moment",
+  "public.podcast.noneText": "De nouveaux épisodes arrivent bientôt — revenez vite nous écouter.",
+  "public.podcast.episode": "Épisode",
+  "public.podcast.episodesCount": "{count} épisode(s)",
+  "public.podcast.noDuration": "Durée inconnue",
+  "public.podcast.nowPlaying": "En cours de lecture",
 
   // ─── Article ─────────────────────────────────────────────────────
   "public.article.breadcrumb": "Fil d'Ariane",
@@ -116,6 +129,7 @@ export const frDictionary = {
   "public.ad.demoText": "Contactez notre régie pour réserver cet emplacement.",
   "public.ad.demoCta": "Nous contacter",
   "admin.nav.adregie": "Régie publicitaire",
+  "admin.nav.podcast": "Podcast / FM",
 
   // ─── Bandeaux du site ────────────────────────────────────────────
   "public.banner.close": "Fermer le bandeau",

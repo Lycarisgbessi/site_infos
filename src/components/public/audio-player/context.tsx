@@ -12,6 +12,8 @@ export interface AudioTrack {
   url: string;
   title: string;
   mime?: string | null;
+  /** URL d'aperçu intégré Google Drive — repli iframe si le flux direct échoue. */
+  driveEmbedUrl?: string;
 }
 
 interface AudioPlayerContextValue {

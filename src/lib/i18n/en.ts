@@ -69,7 +69,20 @@ export const enDictionary: Dictionary = {
   "public.video.shareError": "Could not copy the link.",
   "public.video.back": "← All videos",
   "public.video.section": "Video reports",
+  "public.video.liveTitle": "Live",
   "public.video.play": "Play video",
+
+  // ─── Podcast / FM ────────────────────────────────────────────────
+  "public.podcast.pageTitle": "Podcast / FM",
+  "public.podcast.pageSubtitle":
+    "Shows, columns and in-depth interviews from the newsroom — listen on the go, wherever you are.",
+  "public.podcast.stats": "{seasons} season(s) · {episodes} episode(s)",
+  "public.podcast.noneTitle": "No shows yet",
+  "public.podcast.noneText": "New episodes are coming soon — check back soon to listen.",
+  "public.podcast.episode": "Episode",
+  "public.podcast.episodesCount": "{count} episode(s)",
+  "public.podcast.noDuration": "Unknown duration",
+  "public.podcast.nowPlaying": "Now playing",
 
   // ─── Article ─────────────────────────────────────────────────────
   "public.article.breadcrumb": "Breadcrumb",
@@ -102,6 +115,7 @@ export const enDictionary: Dictionary = {
   "public.ad.demoText": "Contact our sales team to book this slot.",
   "public.ad.demoCta": "Contact us",
   "admin.nav.adregie": "Ad management",
+  "admin.nav.podcast": "Podcast / FM",
 
   // ─── Site banners ────────────────────────────────────────────────
   "public.banner.close": "Close the banner",

@@ -3,6 +3,7 @@ import { getTranslations } from "@/lib/i18n";
 import { parseJsonObject, parseJsonArrayObjects } from "@/lib/json";
 import { RichTextView } from "./RichTextView";
 import { AudioInlineBlock } from "@/components/public/audio-player/audio-inline";
+import { isDriveLink, toDriveLink } from "@/lib/drive";
 import type { Block } from "@/types/blocks";
 
 /**
@@ -109,15 +110,27 @@ export function BlockRenderer({ blocks, mediaById, articleTitles, articleSlugs, 
 }
 
 /** Bloc audio — lecteur inline + déclenchement de la barre flottante. */
-async function AudioBlock({ media, title }: { media: MediaLike; title?: string }) {
+async function AudioBlock({
+  url,
+  mime,
+  title,
+  driveEmbedUrl,
+}: {
+  url: string;
+  mime?: string | null;
+  title?: string;
+  driveEmbedUrl?: string;
+}) {
   const { translate } = await getTranslations();
   return (
     <AudioInlineBlock
-      url={media.url}
-      mime={media.mime_type}
+      url={url}
+      mime={mime}
       title={title}
       listenLabel={translate("public.audio.listen")}
       nowPlayingLabel={translate("public.audio.nowPlaying")}
+      driveEmbedUrl={driveEmbedUrl}
+      unavailableLabel="Lecture directe indisponible — aperçu Google Drive :"
     />
   );
 }
@@ -270,9 +283,17 @@ function BlockView({
     }
 
     case "audio": {
-      const media = mediaById.get(block.mediaId);
+      // Source externe (URL directe ou Google Drive converti) prioritaire sur la médiathèque.
+      if (block.url) {
+        const isDrive = block.source === "drive" || isDriveLink(block.url);
+        const driveEmbedUrl = isDrive
+          ? (toDriveLink(block.driveUrl ?? block.url)?.embedUrl ?? undefined)
+          : undefined;
+        return <AudioBlock url={block.url} title={block.title} driveEmbedUrl={driveEmbedUrl} />;
+      }
+      const media = block.mediaId ? mediaById.get(block.mediaId) : undefined;
       if (!media) return null;
-      return <AudioBlock media={media} title={block.title} />;
+      return <AudioBlock url={media.url} mime={media.mime_type} title={block.title} />;
     }
 
     case "table":

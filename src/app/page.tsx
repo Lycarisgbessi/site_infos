@@ -289,7 +289,7 @@ export default async function HomePage() {
         label={translate("public.ad.label")}
         cta={translate("public.ad.cta")}
         closeLabel={translate("common.close")}
-        campaign={adCampaigns["AD-12"] ?? null}
+        campaigns={adCampaigns["AD-12"] ?? []}
       />
     </div>
   );

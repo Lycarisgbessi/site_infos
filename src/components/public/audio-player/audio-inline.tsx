@@ -1,10 +1,13 @@
 "use client";
 
+import { useState } from "react";
 import { useAudioPlayer } from "./context";
 
 /**
  * Bloc audio inline : lecteur natif dans l'article ET bouton « Écouter »
  * qui déclenche la lecture dans la barre flottante persistante.
+ * `driveEmbedUrl` : pour une source Google Drive — si le flux direct est
+ * refusé (erreur <audio>), on bascule sur l'aperçu intégré Drive (iframe).
  */
 export function AudioInlineBlock({
   url,
@@ -12,25 +15,50 @@ export function AudioInlineBlock({
   title,
   listenLabel,
   nowPlayingLabel,
+  driveEmbedUrl,
+  unavailableLabel,
 }: {
   url: string;
   mime?: string | null;
   title?: string;
   listenLabel: string;
   nowPlayingLabel: string;
+  /** URL d'aperçu intégré Drive (https://drive.google.com/file/d/{id}/preview). */
+  driveEmbedUrl?: string;
+  /** Libellé affiché lorsque le flux direct échoue (repli Drive). */
+  unavailableLabel?: string;
 }) {
   const { play, track, isPlaying } = useAudioPlayer();
+  const [streamFailed, setStreamFailed] = useState(false);
   const isCurrent = track?.url === url && isPlaying;
+  const useDriveEmbed = streamFailed && driveEmbedUrl;
 
   return (
     <figure className="my-8 border border-rule p-4">
       {title && <figcaption className="mb-2 text-sm font-semibold">{title}</figcaption>}
-      <audio controls preload="metadata" className="w-full">
-        <source src={url} type={mime ?? undefined} />
-      </audio>
+      {useDriveEmbed ? (
+        <>
+          {unavailableLabel && <p className="mb-2 text-xs text-ink-faint">{unavailableLabel}</p>}
+          <iframe
+            src={driveEmbedUrl}
+            title={title ?? "Lecteur audio"}
+            allow="autoplay"
+            loading="lazy"
+            className="h-[90px] w-full border-0"
+          />
+        </>
+      ) : (
+        <audio
+          controls
+          preload="metadata"
+          src={url}
+          onError={() => driveEmbedUrl && setStreamFailed(true)}
+          className="w-full"
+        />
+      )}
       <button
         type="button"
-        onClick={() => !isCurrent && play({ url, title: title ?? nowPlayingLabel, mime })}
+        onClick={() => !isCurrent && play({ url, title: title ?? nowPlayingLabel, mime, driveEmbedUrl })}
         aria-pressed={isCurrent}
         className={`mt-3 inline-flex h-9 items-center gap-2 px-3 text-xs font-bold uppercase tracking-widest text-white transition-colors duration-200 ${
           isCurrent ? "bg-red-deep" : "bg-brand-red hover:bg-red-deep"

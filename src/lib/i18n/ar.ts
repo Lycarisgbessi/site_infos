@@ -68,7 +68,20 @@ export const arDictionary: Dictionary = {
   "public.video.shareError": "تعذّر نسخ الرابط.",
   "public.video.back": "→ جميع الفيديوهات",
   "public.video.section": "تقارير مصوّرة",
+  "public.video.liveTitle": "بث مباشر",
   "public.video.play": "تشغيل الفيديو",
+
+  // ─── Podcast / FM ────────────────────────────────────────────────
+  "public.podcast.pageTitle": "بودكاست / إف إم",
+  "public.podcast.pageSubtitle":
+    "برامج وأعمدة وحوارات موسعة من غرفة التحرير — استمع إليها دون انقطاع، أينما كنت.",
+  "public.podcast.stats": "{seasons} موسم · {episodes} حلقة",
+  "public.podcast.noneTitle": "لا توجد برامج حاليًا",
+  "public.podcast.noneText": "حلقات جديدة قادمة قريبًا — عد قريبًا للاستماع إلينا.",
+  "public.podcast.episode": "حلقة",
+  "public.podcast.episodesCount": "{count} حلقة",
+  "public.podcast.noDuration": "مدة غير معروفة",
+  "public.podcast.nowPlaying": "قيد التشغيل",
 
   // ─── المقال ──────────────────────────────────────────────────────
   "public.article.breadcrumb": "مسار التصفح",
@@ -101,6 +114,7 @@ export const arDictionary: Dictionary = {
   "public.ad.demoText": "تواصل مع قسم الإعلانات لدينا لحجز هذه المساحة.",
   "public.ad.demoCta": "اتصل بنا",
   "admin.nav.adregie": "إدارة الإعلانات",
+  "admin.nav.podcast": "بودكاست / إذاعة",
 
   // ─── شرائط الموقع ────────────────────────────────────────────────
   "public.banner.close": "إغلاق الشريط",

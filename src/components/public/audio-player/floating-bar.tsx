@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useAudioPlayer } from "./context";
 
 function formatTime(s: number): string {
@@ -19,6 +19,10 @@ export function AudioFloatingBar({ labels }: { labels: { play: string; pause: st
   const { track, isPlaying, position, duration, volume, toggle, seek, setVolume, close, __report } = useAudioPlayer();
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const lastUrlRef = useRef<string>("");
+  // Flux Drive refusé : repli sur l'aperçu intégré (iframe).
+  const [streamFailed, setStreamFailed] = useState(false);
+
+  useEffect(() => setStreamFailed(false), [track?.url]);
 
   // Changement de piste : (re)charge la source et reprend à la position mémorisée.
   useEffect(() => {
@@ -61,8 +65,33 @@ export function AudioFloatingBar({ labels }: { labels: { play: string; pause: st
         onEnded={() => __report({ isPlaying: false, position: 0 })}
         onTimeUpdate={(e) => __report({ position: e.currentTarget.currentTime })}
         onDurationChange={(e) => __report({ duration: e.currentTarget.duration })}
+        onError={() => track.driveEmbedUrl && setStreamFailed(true)}
         className="hidden"
       />
+      {streamFailed && track.driveEmbedUrl ? (
+        <div className="container-page flex items-center gap-3 px-4 py-2.5">
+          <p className="min-w-0 flex-1 truncate text-xs text-paper/60">
+            Lecture directe indisponible — aperçu Google Drive :
+          </p>
+          <iframe
+            src={track.driveEmbedUrl}
+            title={track.title}
+            allow="autoplay"
+            loading="lazy"
+            className="h-[70px] w-[280px] shrink-0 border-0"
+          />
+          <button
+            type="button"
+            onClick={close}
+            aria-label={labels.close}
+            className="flex size-8 shrink-0 items-center justify-center text-paper/60 transition-colors duration-200 hover:text-paper"
+          >
+            <svg aria-hidden viewBox="0 0 16 16" className="size-3.5 fill-none stroke-current" strokeWidth="1.8">
+              <path d="M3 3l10 10M13 3L3 13" strokeLinecap="round" />
+            </svg>
+          </button>
+        </div>
+      ) : (
       <div className="container-page flex items-center gap-3 px-4 py-2.5">
         <button
           type="button"
@@ -126,6 +155,7 @@ export function AudioFloatingBar({ labels }: { labels: { play: string; pause: st
           </svg>
         </button>
       </div>
+      )}
     </div>
   );
 }

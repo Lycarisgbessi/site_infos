@@ -68,7 +68,19 @@ export const zhDictionary: Dictionary = {
   "public.video.shareError": "无法复制链接。",
   "public.video.back": "← 所有视频",
   "public.video.section": "视频报道",
+  "public.video.liveTitle": "直播",
   "public.video.play": "播放视频",
+
+  // ─── Podcast / FM ────────────────────────────────────────────────
+  "public.podcast.pageTitle": "播客 / 电台",
+  "public.podcast.pageSubtitle": "编辑部出品的节目、评论与深度访谈——随时随地，连续收听。",
+  "public.podcast.stats": "{seasons} 季 · {episodes} 集",
+  "public.podcast.noneTitle": "暂无节目",
+  "public.podcast.noneText": "新剧集即将上线——欢迎常来回听。",
+  "public.podcast.episode": "集",
+  "public.podcast.episodesCount": "{count} 集",
+  "public.podcast.noDuration": "时长未知",
+  "public.podcast.nowPlaying": "正在播放",
 
   // ─── 文章 ────────────────────────────────────────────────────────
   "public.article.breadcrumb": "面包屑导航",
@@ -100,6 +112,7 @@ export const zhDictionary: Dictionary = {
   "public.ad.demoText": "请联系我们的广告部预订此广告位。",
   "public.ad.demoCta": "联系我们",
   "admin.nav.adregie": "广告管理",
+  "admin.nav.podcast": "播客 / 电台",
 
   // ─── 网站横幅 ────────────────────────────────────────────────────
   "public.banner.close": "关闭横幅",

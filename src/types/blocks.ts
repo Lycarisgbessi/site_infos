@@ -11,6 +11,7 @@ export type RichTextMark =
   | "underline"
   | "strike"
   | "code"
+  | "highlight"
   | "sup"
   | "sub";
 
@@ -46,7 +47,19 @@ export type Block =
       caption?: string;
       autoplayMuted?: boolean;
     }
-  | { id: string; type: "audio"; mediaId: string; title?: string }
+  | {
+      id: string;
+      type: "audio";
+      /** Médiatek : identifiant du média audio local. */
+      mediaId?: string;
+      title?: string;
+      /** Source externe : URL de lecture directe (ou flux converti Drive). */
+      url?: string;
+      /** Lien Google Drive d'origine converti (aperçu intégré, repli iframe). */
+      driveUrl?: string;
+      /** Provenance du son : médiathèque, URL directe ou Google Drive. */
+      source?: "media" | "url" | "drive";
+    }
   | {
       id: string;
       type: "table";

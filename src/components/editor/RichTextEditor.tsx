@@ -6,8 +6,10 @@ import Underline from "@tiptap/extension-underline";
 import Link from "@tiptap/extension-link";
 import Superscript from "@tiptap/extension-superscript";
 import Subscript from "@tiptap/extension-subscript";
+import Highlight from "@tiptap/extension-highlight";
 import Placeholder from "@tiptap/extension-placeholder";
-import { useCallback, useEffect } from "react";
+import { Highlighter } from "lucide-react";
+import { useEffect } from "react";
 import type { RichText, RichTextMark } from "@/types/blocks";
 
 /**
@@ -32,6 +34,7 @@ const MARK_TAGS: Record<RichTextMark, string[]> = {
   underline: ["u"],
   strike: ["s"],
   code: ["code"],
+  highlight: ["mark"],
   sup: ["sup"],
   sub: ["sub"],
 };
@@ -45,7 +48,7 @@ export function richTextToHtml(rich: RichText): string {
       }
       const marks = fragment.marks ?? [];
       // sup/sub enveloppent en premier (avant les marques en ligne)
-      for (const mark of (["sub", "sup", "code", "underline", "strike", "italic", "bold"] as RichTextMark[]).reverse()) {
+      for (const mark of (["sub", "sup", "code", "underline", "strike", "italic", "bold", "highlight"] as RichTextMark[]).reverse()) {
         if (marks.includes(mark)) {
           for (const tag of MARK_TAGS[mark]) inner = `<${tag}>${inner}</${tag}>`;
         }
@@ -68,6 +71,7 @@ const TIPTAP_MARK_TO_RICH: Record<string, RichTextMark> = {
   underline: "underline",
   strike: "strike",
   code: "code",
+  highlight: "highlight",
   superscript: "sup",
   subscript: "sub",
 };
@@ -133,6 +137,7 @@ export function RichTextEditor({ value, onChange, placeholder, ariaLabel }: Rich
       Link.configure({ openOnClick: false, autolink: true }),
       Superscript,
       Subscript,
+      Highlight,
       Placeholder.configure({ placeholder: placeholder ?? "" }),
     ],
     content: initialHtml || "",
@@ -157,25 +162,6 @@ export function RichTextEditor({ value, onChange, placeholder, ariaLabel }: Rich
     }
      
   }, [JSON.stringify(value)]);
-
-  const toggle = useCallback(
-    (action: () => void, active: boolean) => (
-      <button
-        key={String(active)}
-        type="button"
-        onMouseDown={(e) => {
-          e.preventDefault();
-          action();
-        }}
-        aria-pressed={active}
-        className={`rounded-sm px-2 py-1 text-xs font-semibold ${active ? "bg-ink text-paper" : "bg-paper-alt text-ink-soft hover:bg-rule"}`}
-      >
-        {null}
-      </button>
-    ),
-    []
-  );
-  void toggle;
 
   if (!editor) {
     return <div className="min-h-[3rem] rounded-sm border border-rule bg-paper px-3 py-2 text-sm text-ink-faint">Chargement…</div>;
@@ -208,6 +194,23 @@ export function RichTextEditor({ value, onChange, placeholder, ariaLabel }: Rich
         {btn("S", "Souligné", () => editor.chain().focus().toggleUnderline().run(), editor.isActive("underline"))}
         {btn("B", "Barré", () => editor.chain().focus().toggleStrike().run(), editor.isActive("strike"))}
         {btn("</>", "Code", () => editor.chain().focus().toggleCode().run(), editor.isActive("code"))}
+        <button
+          type="button"
+          title="Surligner"
+          aria-label="Surligner"
+          aria-pressed={editor.isActive("highlight")}
+          onMouseDown={(e) => {
+            e.preventDefault();
+            editor.chain().focus().toggleHighlight().run();
+          }}
+          className={`inline-flex min-w-7 items-center justify-center rounded-sm px-2 py-1 text-xs font-semibold transition-colors ${
+            editor.isActive("highlight")
+              ? "bg-ink text-paper"
+              : "bg-paper-alt text-ink-soft hover:bg-rule"
+          }`}
+        >
+          <Highlighter className="h-3.5 w-3.5" aria-hidden />
+        </button>
         {btn("x²", "Exposant", () => editor.chain().focus().toggleSuperscript().run(), editor.isActive("superscript"))}
         {btn("x₂", "Indice", () => editor.chain().focus().toggleSubscript().run(), editor.isActive("subscript"))}
         {btn("Lien", "Lien", () => {

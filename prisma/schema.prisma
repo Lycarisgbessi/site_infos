@@ -329,6 +329,7 @@ model Media {
   featuredOver   FeaturedSlot[] @relation("FeaturedOverrideMedia")
   liveBlogs      LiveBlog[]
   creatives      AdCreative[]
+  podcastEpisodes PodcastEpisode[] @relation("PodcastEpisodeCoverMedia")
 
   @@index([type], map: "idx_media_type")
   @@index([checksum], map: "idx_media_checksum")
@@ -1462,4 +1463,46 @@ model PushSubscription {
   last_sent_at DateTime? @map("last_sent_at")
 
   @@map("push_subscriptions")
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// PODCAST / FM (§ saisons & épisodes, audio hébergé Google Drive)
+// ═══════════════════════════════════════════════════════════════════
+
+model PodcastSeason {
+  id          String   @id @default(uuid(7))
+  title       String // titre libre (« Saison 1 », « Été 2026 »…)
+  slug        String   @unique
+  description String?
+  position    Int      @default(0)
+  is_active   Boolean  @default(true) @map("is_active")
+  created_at  DateTime @default(now()) @map("created_at")
+  updated_at  DateTime @default(now()) @updatedAt @map("updated_at")
+
+  episodes PodcastEpisode[]
+
+  @@map("podcast_seasons")
+}
+
+model PodcastEpisode {
+  id             String    @id @default(uuid(7))
+  title          String
+  slug           String    @unique
+  description    String?
+  season_id      String    @map("season_id")
+  position       Int       @default(0)
+  audio_url      String    @map("audio_url") // URL directe OU lien Drive converti (streamUrl)
+  drive_file_id  String?   @map("drive_file_id")
+  duration_sec   Int?      @map("duration_sec")
+  cover_media_id String?   @map("cover_media_id")
+  published_at   DateTime  @default(now()) @map("published_at")
+  is_active      Boolean   @default(true) @map("is_active")
+  created_at     DateTime  @default(now()) @map("created_at")
+  updated_at     DateTime  @default(now()) @updatedAt @map("updated_at")
+
+  season PodcastSeason @relation(fields: [season_id], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  cover  Media?        @relation("PodcastEpisodeCoverMedia", fields: [cover_media_id], references: [id], onDelete: SetNull, onUpdate: Cascade)
+
+  @@index([season_id, position])
+  @@map("podcast_episodes")
 }

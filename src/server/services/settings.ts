@@ -108,10 +108,25 @@ export const SETTING_GROUPS: { group: string; label: string; fields: SettingFiel
     label: "Modules",
     fields: [
       { key: "features.weather", label: "Météo", type: "boolean" },
+      { key: "features.tv", label: "TV / Vidéos", type: "boolean" },
+      { key: "features.fm", label: "FM / Podcasts", type: "boolean" },
       { key: "features.live", label: "Direct", type: "boolean" },
       { key: "features.comments", label: "Commentaires", type: "boolean" },
       { key: "features.push", label: "Notifications push", type: "boolean" },
       { key: "features.donations", label: "Dons", type: "boolean" },
+    ],
+  },
+  {
+    group: "direct",
+    label: "Direct",
+    fields: [
+      {
+        key: "direct.live_url",
+        label: "URL du direct",
+        type: "text",
+        help: "Lien YouTube (watch/shorts/live) ou URL d'iframe http(s). Vide = section « En direct » masquée sur /video.",
+      },
+      { key: "direct.live_title", label: "Titre du direct", type: "text" },
     ],
   },
   {
@@ -126,9 +141,44 @@ export const SETTING_GROUPS: { group: string; label: string; fields: SettingFiel
   },
 ];
 
+/**
+ * Valeurs par défaut des clés dont la ligne est absente de la table
+ * `settings` (comportement identique au seed sans réécrire la base).
+ */
+export const SETTING_DEFAULTS: Record<string, string> = {
+  "features.tv": "true",
+  "features.fm": "true",
+  "direct.live_url": "",
+  "direct.live_title": "En direct",
+};
+
 export async function getSettingsByGroup(group?: string) {
   const where = group ? { group_key: group } : {};
-  return db.setting.findMany({ where, orderBy: [{ group_key: "asc" }, { key: "asc" }] });
+  const rows = await db.setting.findMany({ where, orderBy: [{ group_key: "asc" }, { key: "asc" }] });
+  // Complète avec les valeurs par défaut des clés absentes de la base
+  const known = new Set(rows.map((r) => r.key));
+  const missing = Object.entries(SETTING_DEFAULTS)
+    .filter(([key]) => !known.has(key) && (!group || key.split(".")[0] === group))
+    .map(([key, value]) => ({ key, value, group_key: key.split(".")[0], label: null, updated_at: new Date(0) }));
+  return [...rows, ...(missing as unknown as typeof rows)];
+}
+
+/** Valeurs décodées (JSON) d'un lot de clés — défaut `SETTING_DEFAULTS` sinon. */
+export async function getSettingsValues(keys: string[]): Promise<Record<string, string>> {
+  const rows = await db.setting.findMany({ where: { key: { in: keys } } });
+  const byKey = new Map(rows.map((r) => [r.key, r.value]));
+  const out: Record<string, string> = {};
+  for (const key of keys) {
+    const raw = byKey.get(key) ?? SETTING_DEFAULTS[key];
+    if (raw == null) continue;
+    try {
+      const parsed: unknown = JSON.parse(raw);
+      out[key] = typeof parsed === "string" ? parsed : String(parsed);
+    } catch {
+      out[key] = raw;
+    }
+  }
+  return out;
 }
 
 export async function updateSettingsGroup(
@@ -140,6 +190,18 @@ export async function updateSettingsGroup(
   for (const u of updates) {
     if (!known.has(u.key)) {
       throw new ValidationError(`Clé de réglage inconnue : ${u.key}`);
+    }
+    // direct.live_url : vide ou URL http(s) valide (valeur sérialisée JSON)
+    if (u.key === "direct.live_url") {
+      let decoded = u.value;
+      try {
+        decoded = JSON.parse(u.value) as unknown as string;
+      } catch {
+        // valeur brute — conservée telle quelle
+      }
+      if (typeof decoded === "string" && decoded !== "" && !/^https?:\/\//i.test(decoded)) {
+        throw new ValidationError("direct.live_url doit être une URL http(s) valide ou vide.");
+      }
     }
   }
   const before = await db.setting.findMany({ where: { key: { in: updates.map((u) => u.key) } } });

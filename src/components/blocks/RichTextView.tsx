@@ -23,6 +23,9 @@ function FragmentSpan({ fragment }: { fragment: RichTextFragment }) {
   if (fragment.marks?.includes("code")) {
     node = <code className="rounded bg-paper-alt px-1 py-0.5 font-mono text-[0.92em]">{node}</code>;
   }
+  if (fragment.marks?.includes("highlight")) {
+    node = <mark className="rounded-sm bg-amber-200/80 px-0.5 text-inherit dark:bg-amber-400/30">{node}</mark>;
+  }
   if (fragment.marks?.includes("sup")) node = <sup>{node}</sup>;
   if (fragment.marks?.includes("sub")) node = <sub>{node}</sub>;
   if (fragment.marks?.includes("bold")) node = <strong className="font-bold">{node}</strong>;

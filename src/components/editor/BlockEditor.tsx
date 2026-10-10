@@ -31,6 +31,7 @@ import {
   GripVertical, Plus, Copy, Trash2, ChevronUp, ChevronDown, Image as ImageIcon, Wrench,
 } from "lucide-react";
 import type { Block, RichText } from "@/types/blocks";
+import { isDriveLink, drivePlaybackUrl } from "@/lib/drive";
 import { newBlockId } from "@/lib/blocks";
 
 /**
@@ -250,7 +251,7 @@ export function BlockEditor({ blocks, onChange, lockedBlocks, onToggleLock }: Bl
         onSelect={(media: MediaItem) => {
           if (!target) return;
           if (pickerState.kind === "image") update(target.id, { mediaId: media.id } as Partial<Block>);
-          if (pickerState.kind === "audio") update(target.id, { mediaId: media.id } as Partial<Block>);
+          if (pickerState.kind === "audio") update(target.id, { mediaId: media.id, url: undefined, driveUrl: undefined, source: "media" } as Partial<Block>);
           if (pickerState.kind === "video") update(target.id, { mediaId: media.id } as Partial<Block>);
           if (pickerState.kind === "beforeafter") {
             update(target.id, {
@@ -501,11 +502,35 @@ function SortableBlockRow({
           </div>
         )}
         {block.type === "audio" && (
-          <div className="flex gap-2">
-            <Button type="button" variant="outline" size="sm" onClick={() => onOpenPicker("audio")}>
-              {block.mediaId ? "Changer de son" : "Choisir un son"}
-            </Button>
-            <Input value={block.title ?? ""} onChange={(e) => onUpdate({ title: e.target.value } as Partial<Block>)} placeholder="Titre du podcast" aria-label="Titre audio" />
+          <div className="grid gap-2">
+            <div className="flex gap-2">
+              <Button type="button" variant="outline" size="sm" onClick={() => onOpenPicker("audio")}>
+                {block.mediaId ? "Changer de son" : "Choisir un son"}
+              </Button>
+              <Input value={block.title ?? ""} onChange={(e) => onUpdate({ title: e.target.value } as Partial<Block>)} placeholder="Titre du podcast" aria-label="Titre audio" />
+            </div>
+            <Input
+              value={block.source === "drive" ? (block.driveUrl ?? "") : (block.url ?? "")}
+              onChange={(e) => {
+                const v = e.target.value.trim();
+                if (v && isDriveLink(v)) {
+                  // Lien Google Drive : on stocke le flux direct converti + le lien d'origine (repli iframe).
+                  onUpdate({ url: drivePlaybackUrl(v) ?? v, driveUrl: v, source: "drive", mediaId: "" } as Partial<Block>);
+                } else {
+                  // URL directe (ou champ vidé) : on nettoie la source externe ;
+                  // le média médiathèque n'est écrasé que si une URL est réellement saisie.
+                  const patch: Partial<Block> = v
+                    ? { url: v, driveUrl: undefined, source: "url", mediaId: "" }
+                    : { url: "", driveUrl: undefined, source: undefined };
+                  onUpdate(patch);
+                }
+              }}
+              placeholder="URL audio (ou lien Google Drive)"
+              aria-label="URL audio ou lien Google Drive"
+            />
+            {block.source === "drive" && (
+              <p className="text-xs text-ink-faint">Source : Google Drive — repli automatique sur l'aperçu intégré si le flux direct est refusé.</p>
+            )}
           </div>
         )}
         {block.type === "table" && <TableEditor block={block} onUpdate={onUpdate} />}

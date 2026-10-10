@@ -4,10 +4,12 @@ import { getTranslations, localeTag } from "@/lib/i18n";
 import { db } from "@/lib/db";
 import { parseBlocks } from "@/types/blocks";
 import { getVideoArticles } from "@/lib/public/homepage-data";
+import { getSettingsValues } from "@/server/services/settings";
 import { TopBar, SiteHeader } from "@/components/public/site-header";
 import { SiteFooter } from "@/components/public/site-footer";
 import { Cover } from "@/components/public/article-cards";
 import { ShareButton } from "../share-button";
+import { trackPageView } from "@/server/services/analytics";
 
 /**
  * Route `/video/{slug}` — page dédiée à la lecture : grand lecteur 16:9
@@ -21,6 +23,10 @@ export default async function VideoPage({ params }: { params: Promise<{ slug: st
   const { slug } = await params;
   const { translate, locale } = await getTranslations();
   const now = new Date();
+
+  // Module TV désactivé (features.tv à false) → 404 comme la liste /video
+  const settings = await getSettingsValues(["features.tv"]);
+  if (settings["features.tv"] === "false") notFound();
 
   const article = await db.article.findFirst({
     where: { OR: [{ slug }, { id: slug }], deleted_at: null, status: "published", published_at: { lte: now } },
@@ -38,6 +44,10 @@ export default async function VideoPage({ params }: { params: Promise<{ slug: st
     },
   });
   if (!article) notFound();
+
+  // Suivi d'audience : un rendu = une vue (force-dynamic) ; fire-and-forget,
+  // anti-doublonnage 30 min géré par le service (§11.2 statistiques).
+  await trackPageView({ path: `/video/${article.slug}`, articleId: article.id });
 
   const blocks = parseBlocks(article.body);
   const videoBlocks = blocks.filter((b): b is Extract<typeof b, { type: "video" }> => b.type === "video");

@@ -7,6 +7,7 @@ import { RichTextView } from '@/components/blocks/RichTextView';
 import { parseBlocks } from '@/types/blocks';
 import { parseJsonArrayObjects } from '@/lib/json';
 import { getTranslations, localeTag } from '@/lib/i18n';
+import { trackPageView } from '@/server/services/analytics';
 import { SiteHeader } from '@/components/public/site-header';
 import { SiteFooter } from '@/components/public/site-footer';
 
@@ -123,6 +124,10 @@ export default async function ArticlePage({ params }: PageProps) {
     notFound();
   }
 
+  // Suivi d'audience : un rendu = une vue (force-dynamic) ; fire-and-forget,
+  // anti-doublonnage 30 min géré par le service (§11.2 statistiques).
+  await trackPageView({ path: `/article/${article.slug}`, articleId: article.id });
+
   let blocks = parseBlocks(article.body);
   if (blocks.length > 0 && blocks[0].type === 'image' && blocks[0].mediaId === article.cover_media_id) {
     blocks = blocks.slice(1);
@@ -133,7 +138,7 @@ export default async function ArticlePage({ params }: PageProps) {
     if (b.type === 'image') mediaIds.add(b.mediaId);
     if (b.type === 'gallery') b.mediaIds.forEach((m) => mediaIds.add(m));
     if (b.type === 'video' && b.mediaId) mediaIds.add(b.mediaId);
-    if (b.type === 'audio') mediaIds.add(b.mediaId);
+    if (b.type === 'audio' && b.mediaId) mediaIds.add(b.mediaId);
     if (b.type === 'beforeafter') {
       mediaIds.add(b.beforeMediaId);
       mediaIds.add(b.afterMediaId);

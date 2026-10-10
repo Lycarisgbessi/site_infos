@@ -334,6 +334,7 @@ export interface PublicAdCampaign {
   slotCode: string;
   advertiser: string;
   name: string;
+  priority: number;
   mediaKind: "image" | "gif" | "video";
   imageUrl: string | null;
   alt: string;
@@ -341,11 +342,14 @@ export interface PublicAdCampaign {
   clickUrl: string;
 }
 
-export type AdCampaignMap = Record<string, PublicAdCampaign>;
+/** Toutes les campagnes actives d'un emplacement, triées par priorité décroissante. */
+export type AdCampaignMap = Record<string, PublicAdCampaign[]>;
 
 /** Campagnes publicitaires actives : status running + fenêtre de dates,
- * créative active, emplacement actif — triées par priorité décroissante,
- * puis réduites à une créative par emplacement (slot_code). */
+ * créative active, emplacement actif — triées par priorité décroissante.
+ * Depuis la rotation (2026-10) : TOUTES les campagnes actives d'un slot
+ * sont renvoyées (une créative principale par campagne, take 1 par weight) ;
+ * le choix pondéré parmi elles se fait côté client (AdRotation). */
 export async function getAdCampaigns(): Promise<AdCampaignMap> {
   const now = new Date();
   const rows = await db.adCampaign.findMany({
@@ -382,25 +386,26 @@ export async function getAdCampaigns(): Promise<AdCampaignMap> {
   const bySlot: AdCampaignMap = {};
   for (const row of rows) {
     const creative = row.creatives[0];
-    if (!creative || bySlot[creative.slot_code]) continue; // priorité maximale déjà retenue
+    if (!creative) continue;
     const mediaKind: PublicAdCampaign["mediaKind"] =
       creative.type === "video" || creative.video_url
         ? "video"
         : creative.media?.mime_type === "image/gif"
           ? "gif"
           : "image";
-    bySlot[creative.slot_code] = {
+    (bySlot[creative.slot_code] ??= []).push({
       creativeId: creative.id,
       campaignId: row.id,
       slotCode: creative.slot_code,
       advertiser: row.advertiser.name,
       name: row.name,
+      priority: row.priority,
       mediaKind,
       imageUrl: creative.media?.url ?? null,
       alt: creative.media?.alt_text || creative.alt_text || row.name,
       videoUrl: creative.video_url ?? null,
       clickUrl: creative.click_url,
-    };
+    });
   }
   return bySlot;
 }

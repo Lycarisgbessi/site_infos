@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import type { PublicAdCampaign } from "@/lib/public/homepage-data";
 
 /**
@@ -8,6 +8,11 @@ import type { PublicAdCampaign } from "@/lib/public/homepage-data";
  * image, GIF (URL originale, sans réencodage) ou vidéo (YouTube / mp4).
  * Clic compté via /api/public/ads/[id]/click puis ouverture dans un nouvel
  * onglet ; impression comptée au montage, fire-and-forget (jamais bloquant).
+ *
+ * Contient aussi AdRotation : wrapper de rotation pondérée qui affiche
+ * successivement les campagnes d'un même emplacement (tirage initial côté
+ * client + rotation toutes les 30 s avec fondu 500 ms, en pause quand
+ * l'onglet est masqué). AdCreativeView reste le renderer d'UNE campagne.
  */
 
 function youtubeEmbedId(url: string): string | null {
@@ -99,5 +104,87 @@ export function AdCreativeView({ campaign }: { campaign: PublicAdCampaign }) {
         decoding="async"
       />
     </a>
+  );
+}
+
+// ─── Rotation pondérée (2026-10) ─────────────────────────────────────────
+
+const ROTATE_INTERVAL_MS = 30_000;
+const FADE_MS = 500;
+
+/** Tirage pondéré par priorité : weight = priority + 1 (une campagne de
+ * priorité 4 a 5 fois plus de chances qu'une priorité 0). `exclude` permet
+ * d'éviter de re-tirer la campagne courante lors des rotations suivantes. */
+function pickWeightedIndex(campaigns: PublicAdCampaign[], exclude = -1): number {
+  const pool = campaigns.map((c, i) => ({ i, w: Math.max(1, c.priority + 1) }));
+  const filtered = pool.filter((p) => p.i !== exclude);
+  const candidates = filtered.length > 0 ? filtered : pool;
+  const total = candidates.reduce((sum, c) => sum + c.w, 0);
+  let roll = Math.random() * total;
+  for (const c of candidates) {
+    roll -= c.w;
+    if (roll < 0) return c.i;
+  }
+  return candidates[candidates.length - 1].i;
+}
+
+/** Rotation des campagnes d'un emplacement : tirage pondéré au chargement
+ * (côté client, pour répartir entre les visites), puis rotation temporisée
+ * toutes les 30 s si plusieurs campagnes — fondu 500 ms, pause quand
+ * l'onglet est masqué (visibilitychange). Chaque créative affichée remonte
+ * AdCreativeView (key = creativeId) : l'impression est donc comptée à chaque
+ * apparition via son effet existant, inchangé. */
+export function AdRotation({ campaigns }: { campaigns: PublicAdCampaign[] }) {
+  const [index, setIndex] = useState(0);
+  const [visible, setVisible] = useState(true);
+
+  // Tirage initial pondéré, côté client uniquement (évite le mismatch
+  // d'hydratation : le serveur rend la première campagne de la liste).
+  useEffect(() => {
+    setIndex((prev) => (prev === 0 ? pickWeightedIndex(campaigns) : prev));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Rotation temporisée, en pause quand l'onglet est masqué.
+  useEffect(() => {
+    if (campaigns.length < 2) return;
+    let interval: number | undefined;
+    let fadeTimeout: number | undefined;
+    const rotate = () => {
+      setVisible(false);
+      fadeTimeout = window.setTimeout(() => {
+        setIndex((prev) => pickWeightedIndex(campaigns, prev));
+        setVisible(true);
+      }, FADE_MS);
+    };
+    const start = () => {
+      if (interval === undefined) interval = window.setInterval(rotate, ROTATE_INTERVAL_MS);
+    };
+    const stop = () => {
+      if (interval !== undefined) {
+        window.clearInterval(interval);
+        interval = undefined;
+      }
+    };
+    const onVisibility = () => (document.hidden ? stop() : start());
+    document.addEventListener("visibilitychange", onVisibility);
+    if (!document.hidden) start();
+    return () => {
+      stop();
+      if (fadeTimeout !== undefined) window.clearTimeout(fadeTimeout);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, [campaigns]);
+
+  if (campaigns.length === 0) return null;
+  const campaign = campaigns[Math.min(index, campaigns.length - 1)];
+
+  return (
+    <div
+      className="h-full w-full transition-opacity duration-500 ease-in-out"
+      style={{ opacity: visible ? 1 : 0 }}
+    >
+      <AdCreativeView key={campaign.creativeId} campaign={campaign} />
+    </div>
   );
 }

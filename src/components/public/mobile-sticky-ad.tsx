@@ -5,24 +5,48 @@ import type { PublicAdCampaign } from "@/lib/public/homepage-data";
 
 /**
  * Bandeau collant mobile (AD-12) — refermable, mobile uniquement.
- * Consomme la campagne réelle du slot AD-12 si elle existe ; sans campagne,
- * le bandeau ne s'affiche pas. Le clic est compté avant l'ouverture
- * (fire-and-forget), l'impression au montage.
+ * Depuis la rotation (2026-10) : reçoit TOUTES les campagnes actives du
+ * slot et en tire une au hasard, pondérée par priorité (weight =
+ * priority + 1), côté client au chargement — pas de rotation temporisée
+ * pour ce format intrusif, mais répartition entre les visites. Le clic est
+ * compté avant l'ouverture (fire-and-forget), l'impression au montage.
  * Task ID: 9-ADS
  */
+
+/** Tirage pondéré par priorité (weight = priority + 1). */
+function pickWeightedIndex(campaigns: PublicAdCampaign[]): number {
+  const total = campaigns.reduce((sum, c) => sum + Math.max(1, c.priority + 1), 0);
+  let roll = Math.random() * total;
+  for (let i = 0; i < campaigns.length; i++) {
+    roll -= Math.max(1, campaigns[i].priority + 1);
+    if (roll < 0) return i;
+  }
+  return campaigns.length - 1;
+}
 
 export function MobileStickyAd({
   label,
   cta,
   closeLabel,
-  campaign,
+  campaigns,
 }: {
   label: string;
   cta: string;
   closeLabel: string;
-  campaign: PublicAdCampaign | null;
+  campaigns: PublicAdCampaign[];
 }) {
   const [closed, setClosed] = useState(false);
+  // Tirage côté client uniquement (pas de mismatch d'hydratation) : tant
+  // que picked est null, le bandeau ne s'affiche pas.
+  const [picked, setPicked] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (campaigns.length === 0) return;
+    setPicked((prev) => (prev === null ? pickWeightedIndex(campaigns) : prev));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const campaign = picked !== null ? campaigns[picked] : null;
 
   useEffect(() => {
     if (!campaign) return;

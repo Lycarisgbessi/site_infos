@@ -1,13 +1,14 @@
 import { getTranslations } from "@/lib/i18n";
 import type { AdCampaignMap, PublicAdCampaign } from "@/lib/public/homepage-data";
-import { AdCreativeView } from "@/components/public/ad-creative-client";
+import { AdRotation } from "@/components/public/ad-creative-client";
 
 /**
  * Emplacements publicitaires du front-office (§13.1, slots AD-01→AD-19).
- * Composants SERVEUR. Depuis la régie réelle (2026-10) : chaque emplacement
- * consomme la campagne active qui lui correspond (voir getAdCampaigns) ;
- * sans campagne active, l'emplacement n'affiche RIEN (plus de créative de
- * démonstration), sauf auto-promotion maison (AdSelfPromo, AD-19).
+ * Composants SERVEUR. Depuis la rotation (2026-10) : chaque emplacement
+ * reçoit TOUTES les campagnes actives de son slot et les fait tourner
+ * (tirage pondéré par priorité côté client + rotation 30 s) via AdRotation ;
+ * sans campagne active, l'emplacement n'affiche RIEN, sauf auto-promotion
+ * maison (AdSelfPromo, AD-19).
  * Task ID: 9-ADS
  */
 
@@ -80,7 +81,8 @@ function SlotShell({
   );
 }
 
-/** Bannière par emplacement — créative réelle si campagne active, sinon rien. */
+/** Bannière par emplacement — rotation pondérée des campagnes actives du
+ * slot (voir AdRotation), sinon rien. */
 export async function AdBanner({
   code,
   campaigns,
@@ -91,8 +93,8 @@ export async function AdBanner({
   className?: string;
 }) {
   const { translate } = await getTranslations();
-  const campaign: PublicAdCampaign | undefined = campaigns[code];
-  if (!campaign) return null;
+  const slotCampaigns: PublicAdCampaign[] | undefined = campaigns[code];
+  if (!slotCampaigns || slotCampaigns.length === 0) return null;
 
   const format = FORMAT_BY_SLOT[code] ?? "leaderboard";
   return (
@@ -101,15 +103,17 @@ export async function AdBanner({
       label={translate("public.ad.label")}
       className={`w-full overflow-hidden ${HEIGHTS[format]} ${className}`}
     >
-      <AdCreativeView campaign={campaign} />
+      <AdRotation campaigns={slotCampaigns} />
     </SlotShell>
   );
 }
 
-/** Créative native — carte au gabarit éditorial dans le fil (AD-08, AD-16). */
+/** Créative native — carte au gabarit éditorial dans le fil (AD-08, AD-16).
+ * Carte serveur : la campagne affichée est la première du slot (priorité
+ * maximale), pas de rotation temporisée pour ce format. */
 export async function AdNativeCard({ code, campaigns }: { code: string; campaigns: AdCampaignMap }) {
   const { translate } = await getTranslations();
-  const campaign: PublicAdCampaign | undefined = campaigns[code];
+  const campaign: PublicAdCampaign | undefined = campaigns[code]?.[0];
   if (!campaign) return null;
 
   return (

@@ -78,7 +78,7 @@ export default async function AdminPreviewPage({ params, searchParams }: Preview
     if (b.type === "image") mediaIds.add(b.mediaId);
     if (b.type === "gallery") b.mediaIds.forEach((m) => mediaIds.add(m));
     if (b.type === "video" && b.mediaId) mediaIds.add(b.mediaId);
-    if (b.type === "audio") mediaIds.add(b.mediaId);
+    if (b.type === "audio" && b.mediaId) mediaIds.add(b.mediaId);
     if (b.type === "beforeafter") {
       mediaIds.add(b.beforeMediaId);
       mediaIds.add(b.afterMediaId);
