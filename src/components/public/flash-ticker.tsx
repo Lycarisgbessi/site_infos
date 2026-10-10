@@ -1,5 +1,6 @@
+import Link from "next/link";
 import { getTranslations } from "@/lib/i18n";
-import { getFlashItems } from "@/lib/public/homepage-data";
+import { getFlashItems, type FlashItemView } from "@/lib/public/homepage-data";
 
 /**
  * Bandeau flash info — défilement horizontal automatique et continu.
@@ -13,7 +14,7 @@ interface FlashItem {
   id: string;
   text: string;
   priority: number;
-  articleId: string | null;
+  articleSlug: string | null;
   externalUrl: string | null;
 }
 
@@ -29,12 +30,14 @@ function TickerTrack({
   return (
     <div aria-hidden={ariaHidden} className="flex shrink-0 items-center whitespace-nowrap">
       {items.map((item) => {
-        const href = item.articleId ? `/article/${item.articleId}` : item.externalUrl;
+        const href = item.articleSlug ? `/article/${item.articleSlug}` : item.externalUrl;
+        const internal = Boolean(item.articleSlug);
         return (
           <span key={`${ariaHidden ?? "v"}-${item.id}`} className="flex items-center">
             {href ? (
-              <a
+              <Link
                 href={href}
+                {...(internal ? {} : { target: "_blank", rel: "noopener noreferrer" })}
                 tabIndex={ariaHidden ? -1 : undefined}
                 className="px-6 text-sm font-medium transition-colors duration-200 hover:text-brand-red hover:underline"
               >
@@ -44,7 +47,7 @@ function TickerTrack({
                   </span>
                 )}
                 <span>{item.text}</span>
-              </a>
+              </Link>
             ) : (
               <span className="px-6 text-sm font-medium">
                 {item.priority === 1 && (

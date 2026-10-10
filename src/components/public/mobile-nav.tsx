@@ -1,3 +1,4 @@
+import Link from "next/link";
 "use client";
 
 import { useState, useEffect } from "react";
@@ -56,11 +57,11 @@ export function MobileMenu({ items, deskLabel, deskHref }: { items: NavItem[]; d
             </div>
             <ul className="divide-y divide-rule overflow-y-auto px-2 py-2">
               {items.map((item) => (
-                <li key={item.label}><a href={item.href} onClick={() => setOpen(false)} className="block px-3 py-3 text-sm font-semibold text-ink transition-colors hover:bg-paper-alt hover:text-brand-red">{item.label}</a></li>
+                <li key={item.label}><Link href={item.href} onClick={() => setOpen(false)} className="block px-3 py-3 text-sm font-semibold text-ink transition-colors hover:bg-paper-alt hover:text-brand-red">{item.label}</Link></li>
               ))}
             </ul>
             <div className="border-t border-rule p-4">
-              <a href={deskHref} className="block bg-brand-red px-4 py-2.5 text-center text-sm font-bold text-white transition-colors hover:bg-red-deep">{deskLabel}</a>
+              <Link href={deskHref} className="block bg-brand-red px-4 py-2.5 text-center text-sm font-bold text-white transition-colors hover:bg-red-deep">{deskLabel}</Link>
             </div>
           </nav>
         </div>

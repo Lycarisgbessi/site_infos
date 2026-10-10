@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { getTranslations } from "@/lib/i18n";
 import type { PublicArticle } from "@/lib/public/homepage-data";
 import { Cover, HeroCard, RowCard } from "./article-cards";
@@ -31,12 +32,12 @@ export async function SectionBlock({
         <h2 id={`${id}-title`} className="font-serif text-xl font-black tracking-tight md:text-2xl">
           {title}
         </h2>
-        <a
+        <Link
           href={`/#${id}`}
           className="text-xs font-semibold uppercase tracking-widest text-ink-faint transition-colors duration-200 hover:text-brand-red"
         >
           {translate("public.section.all")} →
-        </a>
+        </Link>
       </header>
 
       <div className="grid gap-x-8 gap-y-4 pt-4 md:grid-cols-2">
@@ -97,7 +98,7 @@ export async function VideoSection({ articles, title, playLabel }: { articles: P
         </header>
         <div className="flex snap-x gap-4 overflow-x-auto pb-2">
           {articles.map((a) => (
-            <a key={a.id} href={`/article/${a.slug}`} className="group relative w-[260px] shrink-0 snap-start md:w-[320px]">
+            <Link key={a.id} href={`/video/${a.slug}`} className="group relative w-[260px] shrink-0 snap-start md:w-[320px]">
               <div className="relative overflow-hidden">
                 {a.cover ? (
                   <img
@@ -121,7 +122,7 @@ export async function VideoSection({ articles, title, playLabel }: { articles: P
                 {a.shortTitle ?? a.title}
               </h3>
               <p className="sr-only">{playLabel}</p>
-            </a>
+            </Link>
           ))}
         </div>
       </div>
@@ -135,13 +136,13 @@ export async function WorldGrid({ articles }: { articles: PublicArticle[] }) {
   return (
     <div className="grid gap-x-6 gap-y-5 sm:grid-cols-2 lg:grid-cols-4">
       {articles.slice(0, 4).map((a) => (
-        <a key={a.id} href={`/article/${a.slug}`} className="group block">
+        <Link key={a.id} href={`/article/${a.slug}`} className="group block">
           <Cover article={a} className="aspect-[16/10] w-full transition-transform duration-500 group-hover:scale-[1.03]" />
           <p className="kicker mt-2 text-[0.65rem] text-brand-red">{a.category?.name}</p>
           <h3 className="mt-1 line-clamp-3 font-serif text-sm font-bold leading-snug transition-colors duration-200 group-hover:text-brand-red">
             {a.shortTitle ?? a.title}
           </h3>
-        </a>
+        </Link>
       ))}
     </div>
   );
@@ -153,7 +154,7 @@ export async function OpinionCards({ articles }: { articles: PublicArticle[] }) 
   return (
     <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
       {articles.slice(0, 4).map((a) => (
-        <a
+        <Link
           key={a.id}
           href={`/article/${a.slug}`}
           className="group flex flex-col border border-rule bg-paper-alt p-4 transition-colors duration-200 hover:border-ink"
@@ -168,7 +169,7 @@ export async function OpinionCards({ articles }: { articles: PublicArticle[] }) 
               {a.authors[0].role ? ` — ${a.authors[0].role}` : ""}
             </p>
           )}
-        </a>
+        </Link>
       ))}
     </div>
   );

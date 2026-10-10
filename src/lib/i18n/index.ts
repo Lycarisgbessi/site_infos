@@ -1,5 +1,6 @@
 import { db } from "@/lib/db";
 import { CACHE_TAGS, invalidateTags } from "@/lib/cache";
+import { frDictionary } from "./fr";
 
 /**
  * Noyau i18n (§03 lib/i18n/, §18.2).
@@ -90,7 +91,7 @@ export async function t(
     const fallbackMap = await loadLocaleMap(DEFAULT_LOCALE);
     value = fallbackMap.get(key);
   }
-
+  if (value == null) value = frDictionary[key];
   if (value == null && opts?.fallback != null) return opts.fallback;
   if (value == null) return key;
 
@@ -109,7 +110,7 @@ export async function getTranslations(locale: string = DEFAULT_LOCALE) {
   return {
     locale,
     translate: (key: string, vars?: Record<string, string | number>): string => {
-      const value = map.get(key) ?? fallbackMap.get(key);
+      const value = map.get(key) ?? fallbackMap.get(key) ?? frDictionary[key];
       if (value == null) return key;
       return interpolate(value, vars);
     },

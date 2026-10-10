@@ -368,13 +368,18 @@ export function ArticleEditorClient({
     try {
       await apiFetch("/api/admin/flash", {
         method: "POST",
-        json: { text: article.title.slice(0, 300), priority: 1, link: null },
+        // Lien vers l'article : slug courant du formulaire (définitif après création/publication)
+        json: {
+          text: article.title.slice(0, 300),
+          priority: 1,
+          link: article.slug.trim() ? `/article/${article.slug.trim()}` : null,
+        },
       });
       toast({ title: "Flash publié en urgence" });
     } catch (error) {
       toast({ title: "Publication flash refusée", description: errorMessage(error), variant: "destructive" });
     }
-  }, [article.title, toast]);
+  }, [article.title, article.slug, toast]);
 
   const isSponsored = article.is_sponsored;
 

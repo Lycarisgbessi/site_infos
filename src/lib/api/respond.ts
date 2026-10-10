@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { headers as nextHeaders } from "next/headers";
 import { ZodError } from "zod";
 import { getSession } from "@/lib/auth/session";
 import { UnauthenticatedError, PermissionError } from "@/lib/permissions";
@@ -54,6 +55,13 @@ export class ValidationError extends Error {
   }
 }
 
+export class CsrfError extends Error {
+  constructor(message = "Requête inter-origine refusée (CSRF).") {
+    super(message);
+    this.name = "CsrfError";
+  }
+}
+
 /** Convertit une exception en réponse HTTP normalisée. */
 export function toErrorResponse(error: unknown): NextResponse {
   if (error instanceof UnauthenticatedError) {
@@ -73,18 +81,76 @@ export function toErrorResponse(error: unknown): NextResponse {
   if (error instanceof ValidationError) {
     return apiError(422, "VALIDATION", error.message);
   }
+  if (error instanceof CsrfError) {
+    return apiError(403, "CSRF", error.message);
+  }
   console.error("[api] erreur interne :", error);
   return apiError(500, "INTERNAL", "Erreur interne du serveur.");
 }
 
 // ─── Garde de session pour les Route Handlers ──────────────────────────
 
-/** Exige une session valide, sinon lève UnauthenticatedError (401). */
+const ALLOWED_FETCH_SITES = new Set(["same-origin", "same-site", "none"]);
+
+/** L'origine déclarée est-elle de confiance pour cette requête ? */
+function isOriginAllowed(originHeader: string, hdrs: Headers): boolean {
+  let origin: URL;
+  try {
+    origin = new URL(originHeader);
+  } catch {
+    return false; // « null » ou valeur invalide : refus
+  }
+  // Same-origin : l'Origin correspond au Host servi (couvre prod et dev)
+  const host = hdrs.get("host");
+  if (host && origin.host === host) return true;
+  // NEXT_PUBLIC_SITE_URL configuré (prod)
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL;
+  if (siteUrl) {
+    try {
+      if (new URL(siteUrl).host === origin.host) return true;
+    } catch {
+      // NEXT_PUBLIC_SITE_URL mal formé : ignorer
+    }
+  }
+  // Dev local
+  if (
+    process.env.NODE_ENV !== "production" &&
+    (origin.host === "localhost:3000" || origin.host === "127.0.0.1:3000")
+  ) {
+    return true;
+  }
+  return false;
+}
+
+/**
+ * Vérification d'origine anti-CSRF (§17) :
+ * - absence d'Origin et de Sec-Fetch-Site (curl, tests serveur) = autorisé ;
+ * - Origin présent → doit être same-host, NEXT_PUBLIC_SITE_URL, ou localhost:3000 en dev ;
+ * - Sec-Fetch-Site présent → same-origin / same-site / none uniquement.
+ */
+function assertSameOrigin(hdrs: Headers): void {
+  const origin = hdrs.get("origin");
+  const fetchSite = hdrs.get("sec-fetch-site");
+  if (!origin && !fetchSite) return; // client non-navigateur
+  if (origin && !isOriginAllowed(origin, hdrs)) {
+    throw new CsrfError("Origine non autorisée pour cette requête.");
+  }
+  if (fetchSite && !ALLOWED_FETCH_SITES.has(fetchSite)) {
+    throw new CsrfError("Requête inter-origine (Sec-Fetch-Site: cross-site) refusée.");
+  }
+}
+
+/**
+ * Exige une session valide, sinon lève UnauthenticatedError (401).
+ * Vérifie aussi l'origine de la requête (anti-CSRF) — les requêtes serveur
+ * sans en-têtes de navigateur restent autorisées.
+ */
 export async function requireApiSession(): Promise<AuthenticatedSession> {
   const session = await getSession();
   if (!session) {
     throw new UnauthenticatedError();
   }
+  assertSameOrigin(await nextHeaders());
   return session;
 }
 

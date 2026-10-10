@@ -1,4 +1,5 @@
 import { notFound } from 'next/navigation';
+import type { Metadata } from 'next';
 import { db } from '@/lib/db';
 import { BlockRenderer, type MediaLike } from '@/components/blocks/BlockRenderer';
 import { MediaPicture } from '@/components/blocks/BlockRenderer';
@@ -10,8 +11,89 @@ import { SiteFooter } from '@/components/public/site-footer';
 
 export const dynamic = 'force-dynamic';
 
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://site-infos-six.vercel.app';
+const SITE_NAME = 'INFOSPRO';
+
 interface PageProps {
   params: Promise<{ slug: string }>;
+}
+
+function truncate(text: string, max = 160): string {
+  const clean = text.replace(/\s+/g, ' ').trim();
+  if (clean.length <= max) return clean;
+  return clean.slice(0, max - 1).trimEnd() + '…';
+}
+
+/** URL d'image OG : variante webp/avif ≥1200px si dispo, sinon URL originale. */
+function ogImage(cover: { url: string; variants: string } | null): string | undefined {
+  if (!cover) return undefined;
+  try {
+    const parsed: unknown = JSON.parse(cover.variants);
+    if (Array.isArray(parsed)) {
+      const valid = parsed.filter(
+        (v): v is { w: number; format: string; url: string } =>
+          typeof v === 'object' && v !== null && 'url' in v && 'w' in v && 'format' in v
+      );
+      const candidates = valid
+        .filter((v) => (v.format === 'webp' || v.format === 'jpeg' || v.format === 'jpg') && v.w >= 1200)
+        .sort((a, b) => a.w - b.w);
+      const fallback = valid.filter((v) => v.w >= 1000).sort((a, b) => a.w - b.w);
+      const best = candidates[0] ?? fallback[0];
+      if (best) return best.url;
+    }
+  } catch {
+    // variants invalides : repli sur l'URL originale
+  }
+  return cover.url;
+}
+
+export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+  const { slug } = await params;
+  const article = await db.article.findFirst({
+    where: {
+      OR: [{ slug: slug }, { id: slug }],
+      deleted_at: null,
+      status: 'published',
+      published_at: { lte: new Date() },
+    },
+    select: {
+      title: true,
+      lede: true,
+      slug: true,
+      published_at: true,
+      updated_at: true,
+      coverMedia: { select: { url: true, variants: true } },
+    },
+  });
+
+  if (!article) return {};
+
+  const canonical = `${SITE_URL}/article/${article.slug}`;
+  const description = article.lede ? truncate(article.lede, 160) : `Article publié sur ${SITE_NAME}.`;
+  const image = ogImage(article.coverMedia);
+
+  return {
+    title: article.title,
+    description,
+    alternates: { canonical },
+    openGraph: {
+      title: `${article.title} · ${SITE_NAME}`,
+      description,
+      url: canonical,
+      type: 'article',
+      siteName: SITE_NAME,
+      locale: 'fr_FR',
+      ...(image ? { images: [{ url: image, width: 1200, alt: article.title }] } : {}),
+      ...(article.published_at ? { publishedTime: article.published_at.toISOString() } : {}),
+      modifiedTime: article.updated_at.toISOString(),
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: article.title,
+      description,
+      ...(image ? { images: [image] } : {}),
+    },
+  };
 }
 
 export default async function ArticlePage({ params }: PageProps) {
@@ -74,8 +156,47 @@ export default async function ArticlePage({ params }: PageProps) {
     ? new Intl.DateTimeFormat('fr-FR', { dateStyle: 'long', timeStyle: 'short' }).format(article.published_at)
     : 'Non publié';
 
+  const canonical = `${SITE_URL}/article/${article.slug}`;
+  const description = article.lede ? truncate(article.lede, 160) : `Article publié sur ${SITE_NAME}.`;
+  const image = ogImage(article.coverMedia ? { url: article.coverMedia.url, variants: article.coverMedia.variants } : null);
+  const authorNames = article.authors.map((a) => a.user.display_name);
+
+  const newsArticleLd = {
+    '@context': 'https://schema.org',
+    '@type': 'NewsArticle',
+    headline: article.title,
+    description,
+    ...(image ? { image: [image] } : {}),
+    ...(article.published_at ? { datePublished: article.published_at.toISOString() } : {}),
+    dateModified: article.updated_at.toISOString(),
+    mainEntityOfPage: { '@type': 'WebPage', '@id': canonical },
+    author: { '@type': 'Organization', name: authorNames.length > 0 ? authorNames.join(', ') : `Rédaction ${SITE_NAME}` },
+    publisher: { '@type': 'Organization', name: SITE_NAME, ...(image ? { logo: { '@type': 'ImageObject', url: `${SITE_URL}/favicon.ico` } } : {}) },
+    inLanguage: 'fr-FR',
+  };
+
+  const breadcrumbLd = {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: 'Accueil', item: SITE_URL },
+      ...(article.category
+        ? [{ '@type': 'ListItem', position: 2, name: article.category.name, item: `${SITE_URL}/#${article.category.slug}` }]
+        : []),
+      { '@type': 'ListItem', position: article.category ? 3 : 2, name: article.title, item: canonical },
+    ],
+  };
+
   return (
     <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(newsArticleLd) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbLd) }}
+      />
       <SiteHeader />
       <main className="min-h-screen bg-paper pb-20">
         <article className="mx-auto max-w-3xl px-6 py-10">
@@ -115,7 +236,7 @@ export default async function ArticlePage({ params }: PageProps) {
                 }}
                 sizes="(max-width: 768px) 100vw, 768px"
               />
-              ${(article.coverMedia.caption || article.coverMedia.credit) && (
+              {(article.coverMedia.caption || article.coverMedia.credit) && (
                 <figcaption className="mt-2 text-xs text-ink-faint">
                   {article.coverMedia.caption}
                   {article.coverMedia.credit ? ` © ${article.coverMedia.credit}` : ''}

@@ -3,6 +3,9 @@ import { ThemeProvider } from "next-themes";
 import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
 import { fontVariables } from "@/lib/fonts";
+import { getTranslations } from "@/lib/i18n";
+import { AudioPlayerProvider } from "@/components/public/audio-player/context";
+import { AudioFloatingBar } from "@/components/public/audio-player/floating-bar";
 
 /**
  * Layout racine. La langue du produit est le français (§00.2 règle 10).
@@ -17,7 +20,7 @@ export const metadata: Metadata = {
   description:
     "Plateforme média numérique INFOSPRO — l'information de Guinée et du monde.",
   applicationName: "INFOSPRO",
-  robots: { index: false, follow: false }, // PHASE 1 : socle interne, pas d'indexation
+  robots: { index: true, follow: true },
 };
 
 export const viewport: Viewport = {
@@ -29,11 +32,13 @@ export const viewport: Viewport = {
   ],
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const { translate } = await getTranslations();
+
   return (
     <html lang="fr" suppressHydrationWarning>
       <body className={`${fontVariables} antialiased bg-background text-foreground`}>
@@ -43,7 +48,17 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          {children}
+          {/* Lecteur audio flottant — état global persistant à travers la navigation */}
+          <AudioPlayerProvider>
+            {children}
+            <AudioFloatingBar
+              labels={{
+                play: translate("public.audio.play"),
+                pause: translate("public.audio.pause"),
+                close: translate("public.audio.close"),
+              }}
+            />
+          </AudioPlayerProvider>
           <Toaster />
         </ThemeProvider>
       </body>

@@ -1,5 +1,8 @@
+import Link from "next/link";
+import { getTranslations } from "@/lib/i18n";
 import { parseJsonObject, parseJsonArrayObjects } from "@/lib/json";
 import { RichTextView } from "./RichTextView";
+import { AudioInlineBlock } from "@/components/public/audio-player/audio-inline";
 import type { Block } from "@/types/blocks";
 
 /**
@@ -27,6 +30,8 @@ export interface BlockRendererProps {
   blocks: Block[];
   mediaById: Map<string, MediaLike>;
   articleTitles: Map<string, string>;
+  /** Slugs des articles liés (bloc readmore) — sinon repli sur l'identifiant. */
+  articleSlugs?: Map<string, string>;
   adsEnabled?: boolean;
 }
 
@@ -85,15 +90,35 @@ export function withAutoAdBlocks(blocks: Block[]): Block[] {
   return out;
 }
 
-export function BlockRenderer({ blocks, mediaById, articleTitles, adsEnabled = true }: BlockRendererProps) {
+export function BlockRenderer({ blocks, mediaById, articleTitles, articleSlugs, adsEnabled = true }: BlockRendererProps) {
   const list = adsEnabled ? withAutoAdBlocks(blocks) : blocks;
 
   return (
     <div className="article-blocks">
       {list.map((block) => (
-        <BlockView key={block.id} block={block} mediaById={mediaById} articleTitles={articleTitles} />
+        <BlockView
+          key={block.id}
+          block={block}
+          mediaById={mediaById}
+          articleTitles={articleTitles}
+          articleSlugs={articleSlugs}
+        />
       ))}
     </div>
+  );
+}
+
+/** Bloc audio — lecteur inline + déclenchement de la barre flottante. */
+async function AudioBlock({ media, title }: { media: MediaLike; title?: string }) {
+  const { translate } = await getTranslations();
+  return (
+    <AudioInlineBlock
+      url={media.url}
+      mime={media.mime_type}
+      title={title}
+      listenLabel={translate("public.audio.listen")}
+      nowPlayingLabel={translate("public.audio.nowPlaying")}
+    />
   );
 }
 
@@ -109,10 +134,12 @@ function BlockView({
   block,
   mediaById,
   articleTitles,
+  articleSlugs,
 }: {
   block: Block;
   mediaById: Map<string, MediaLike>;
   articleTitles: Map<string, string>;
+  articleSlugs?: Map<string, string>;
 }) {
   switch (block.type) {
     case "paragraph":
@@ -245,14 +272,7 @@ function BlockView({
     case "audio": {
       const media = mediaById.get(block.mediaId);
       if (!media) return null;
-      return (
-        <figure className="my-8 border border-rule p-4">
-          {block.title && <figcaption className="mb-2 text-sm font-semibold">{block.title}</figcaption>}
-          <audio controls preload="metadata" className="w-full">
-            <source src={media.url} type={media.mime_type ?? undefined} />
-          </audio>
-        </figure>
-      );
+      return <AudioBlock media={media} title={block.title} />;
     }
 
     case "table":
@@ -302,7 +322,7 @@ function BlockView({
             src={embedSrc}
             title="Contenu intégré"
             loading="lazy"
-            sandbox="allow-scripts allow-same-origin allow-popups"
+            sandbox="allow-scripts allow-popups"
             referrerPolicy="no-referrer"
             className="h-full w-full border-0"
           />
@@ -376,9 +396,15 @@ function BlockView({
             {block.articleIds.map((id) => {
               const title = articleTitles.get(id);
               if (!title) return null;
+              const slugOrId = articleSlugs?.get(id) ?? id;
               return (
                 <li key={id} className="font-serif font-semibold leading-snug">
-                  {title}
+                  <Link
+                    href={`/article/${slugOrId}`}
+                    className="transition-colors duration-200 hover:text-brand-red"
+                  >
+                    {title}
+                  </Link>
                 </li>
               );
             })}

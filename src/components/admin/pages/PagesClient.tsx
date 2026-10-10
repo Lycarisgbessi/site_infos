@@ -615,6 +615,15 @@ export function PagesClient() {
       toast({ title: "Le message est obligatoire.", variant: "destructive" });
       return;
     }
+    const linkUrl = bannerForm.link_url.trim();
+    if (linkUrl && !/^https?:\/\/\S+$/.test(linkUrl)) {
+      toast({
+        title: "Lien invalide",
+        description: "Le lien de la bannière doit être une URL valide commençant par http:// ou https:// (ou rester vide).",
+        variant: "destructive",
+      });
+      return;
+    }
     setBannerSaving(true);
     try {
       await apiFetch("/api/admin/banners", {
@@ -623,7 +632,7 @@ export function PagesClient() {
           kind: "banner",
           ...(bannerEditing ? { id: bannerEditing.id } : {}),
           message,
-          link_url: bannerForm.link_url.trim() || null,
+          link_url: linkUrl || null,
           link_label: bannerForm.link_label.trim() || null,
           style: bannerForm.style,
           is_dismissible: bannerForm.is_dismissible,

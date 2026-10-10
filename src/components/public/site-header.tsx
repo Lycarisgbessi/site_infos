@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { getTranslations } from "@/lib/i18n";
 import { getMainMenu, type NavItem } from "@/lib/public/homepage-data";
 import { MobileMenu, ThemeToggle } from "./mobile-nav";
@@ -31,21 +32,21 @@ export async function TopBar() {
           {formatDate(now, locale)}
         </p>
         <nav aria-label={translate("public.topbar.advertise")} className="hidden items-center gap-5 md:flex">
-          <a href="/pages/newsletters" className="transition-colors duration-200 hover:text-red-bright">
+          <Link href="/pages/newsletters" className="transition-colors duration-200 hover:text-red-bright">
             {translate("public.topbar.newsletters")}
-          </a>
-          <a href="/pages/contact" className="transition-colors duration-200 hover:text-red-bright">
+          </Link>
+          <Link href="/pages/contact" className="transition-colors duration-200 hover:text-red-bright">
             {translate("public.topbar.contact")}
-          </a>
-          <a href="/pages/publicite" className="transition-colors duration-200 hover:text-red-bright">
+          </Link>
+          <Link href="/pages/publicite" className="transition-colors duration-200 hover:text-red-bright">
             {translate("public.topbar.advertise")}
-          </a>
-          <a
+          </Link>
+          <Link
             href="/login?next=/admin"
             className="bg-brand-red px-2.5 py-1 font-semibold transition-colors duration-200 hover:bg-red-deep"
           >
             {translate("public.topbar.desk")}
-          </a>
+          </Link>
         </nav>
       </div>
     </div>
@@ -56,7 +57,7 @@ function NavLinks({ items }: { items: NavItem[] }) {
   return (
     <>
       {items.map((item) => (
-        <a
+        <Link
           key={item.label}
           href={item.href}
           className="group relative flex h-11 items-center whitespace-nowrap px-3 text-sm font-semibold tracking-wide text-ink transition-colors duration-200 hover:text-brand-red lg:px-4"
@@ -67,7 +68,7 @@ function NavLinks({ items }: { items: NavItem[] }) {
             aria-hidden
             className="pointer-events-none absolute inset-x-2 bottom-0 h-[3px] origin-left scale-x-0 bg-brand-red transition-transform duration-300 ease-[var(--ease-signal)] group-hover:scale-x-100"
           />
-        </a>
+        </Link>
       ))}
     </>
   );
@@ -82,12 +83,12 @@ export async function SiteHeader() {
       {/* Bloc marque */}
       <div className="container-page flex items-end justify-between gap-6 pb-4 pt-6">
         <div>
-          <a href="/" className="inline-block" aria-label="INFOSPRO.net — Accueil">
+          <Link href="/" className="inline-block" aria-label="INFOSPRO.net — Accueil">
             <span className="font-serif text-4xl font-black leading-none tracking-tight md:text-5xl">
               INFOS<span className="text-brand-red">PRO</span>
               <span className="text-xl font-normal text-ink-faint md:text-2xl">.net</span>
             </span>
-          </a>
+          </Link>
           <p className="mt-2 hidden text-sm text-ink-soft sm:block">{translate("public.header.tagline")}</p>
         </div>
         <p className="hidden shrink-0 items-center gap-2 text-right text-xs text-ink-faint md:flex">
@@ -108,12 +109,12 @@ export async function SiteHeader() {
           </div>
           <div className="flex items-center gap-1">
             <ThemeToggle />
-            <a
+            <Link
               href="/login?next=/admin"
               className="hidden h-11 shrink-0 items-center border-l border-rule px-4 text-sm font-semibold text-ink-soft transition-colors duration-200 hover:text-brand-red md:flex"
             >
               {translate("public.topbar.desk")}
-            </a>
+            </Link>
           </div>
         </div>
       </nav>

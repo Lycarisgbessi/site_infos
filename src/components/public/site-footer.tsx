@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { getTranslations } from "@/lib/i18n";
 import { getFooterMenus } from "@/lib/public/homepage-data";
 
@@ -32,9 +33,9 @@ export async function SiteFooter() {
               <ul className="mt-3 space-y-2">
                 {menu.items.map((item) => (
                   <li key={item.label}>
-                    <a href={item.href} className="text-xs text-paper/80 transition-colors duration-200 hover:text-red-bright">
+                    <Link href={item.href} className="text-xs text-paper/80 transition-colors duration-200 hover:text-red-bright">
                       {item.label}
-                    </a>
+                    </Link>
                   </li>
                 ))}
               </ul>

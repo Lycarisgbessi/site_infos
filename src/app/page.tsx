@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { getTranslations } from "@/lib/i18n";
 import {
   getActiveLive,
@@ -8,6 +9,7 @@ import {
   getSectionArticles,
   getVideoArticles,
   getFeaturedDossier,
+  getSiteBanners,
   getWeather,
   getWorldArticles,
 } from "@/lib/public/homepage-data";
@@ -20,6 +22,7 @@ import { DossierBlock, OpinionCards, SectionBlock, VideoSection, WorldGrid } fro
 import { NewsletterBlock } from "@/components/public/newsletter-block";
 import { WeatherStrip } from "@/components/public/weather-strip";
 import { SiteFooter } from "@/components/public/site-footer";
+import { SiteBannerBar } from "@/components/public/site-banner-bar";
 
 /**
  * Route `/` — ACCUEIL ÉDITORIAL PUBLIC (§09.1) piloté par homepage_blocks.
@@ -46,7 +49,7 @@ export default async function HomePage() {
   const { translate } = await getTranslations();
   const now = new Date();
 
-  const [hero, latest, mostRead, live, videos, dossier, opinions, world, weather, ...sections] =
+  const [hero, latest, mostRead, live, videos, dossier, banners, opinions, world, weather, ...sections] =
     await Promise.all([
       getHeroArticles(5),
       getLatestArticles(12),
@@ -54,6 +57,7 @@ export default async function HomePage() {
       getActiveLive(),
       getVideoArticles(6),
       getFeaturedDossier(),
+      getSiteBanners("/"),
       getOpinionArticles(4),
       getWorldArticles(8),
       getWeather(),
@@ -65,6 +69,7 @@ export default async function HomePage() {
 
   return (
     <div className="flex min-h-screen flex-col bg-paper">
+      <SiteBannerBar banners={banners} closeLabel={translate("public.banner.close")} />
       <TopBar />
       <SiteHeader />
       <FlashTicker />
@@ -96,7 +101,7 @@ export default async function HomePage() {
         {/* ── Z-05 : Bandeau direct ──────────────────────────────────────── */}
         {live && (
           <div className="container-page mt-6">
-            <a
+            <Link
               href="#en-continu"
               className="group flex items-center gap-4 border border-rule bg-paper-alt px-4 py-3 transition-colors duration-200 hover:border-rule-strong"
             >
@@ -108,7 +113,7 @@ export default async function HomePage() {
               <span className="hidden shrink-0 text-xs font-semibold uppercase tracking-widest text-ink-faint transition-colors duration-200 group-hover:text-brand-red md:block">
                 {translate("public.une.liveCta")} →
               </span>
-            </a>
+            </Link>
           </div>
         )}
 

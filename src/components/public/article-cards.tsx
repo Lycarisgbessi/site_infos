@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { getTranslations } from "@/lib/i18n";
 import type { PublicArticle } from "@/lib/public/homepage-data";
 
@@ -88,7 +89,7 @@ export async function HeroCard({ article }: { article: PublicArticle }) {
   const { translate } = await getTranslations();
   const now = new Date();
   return (
-    <a href={articleHref(article)} className="group block">
+    <Link href={articleHref(article)} className="group block">
       <div className="relative overflow-hidden">
         <Cover
           article={article}
@@ -111,7 +112,7 @@ export async function HeroCard({ article }: { article: PublicArticle }) {
           {article.readingTimeMin} {translate("public.card.readTime")}
         </p>
       </div>
-    </a>
+    </Link>
   );
 }
 
@@ -120,7 +121,7 @@ export async function SideCard({ article }: { article: PublicArticle }) {
   const { translate } = await getTranslations();
   const now = new Date();
   return (
-    <a
+    <Link
       href={articleHref(article)}
       className="group flex gap-3 border-b border-rule pb-3 last:border-0 last:pb-0"
     >
@@ -139,7 +140,7 @@ export async function SideCard({ article }: { article: PublicArticle }) {
           {timeAgo(article.publishedAt, now, { today: translate("public.time.today"), yesterday: translate("public.time.yesterday") })}
         </p>
       </div>
-    </a>
+    </Link>
   );
 }
 
@@ -148,7 +149,7 @@ export async function RowCard({ article }: { article: PublicArticle }) {
   const { translate } = await getTranslations();
   const now = new Date();
   return (
-    <a href={articleHref(article)} className="group flex gap-3 py-3">
+    <Link href={articleHref(article)} className="group flex gap-3 py-3">
       <div className="w-20 shrink-0 overflow-hidden md:w-24">
         <Cover article={article} className="aspect-[4/3] w-full transition-transform duration-500 group-hover:scale-[1.04]" />
       </div>
@@ -162,7 +163,7 @@ export async function RowCard({ article }: { article: PublicArticle }) {
           {article.readingTimeMin} {translate("public.card.readTime")}
         </p>
       </div>
-    </a>
+    </Link>
   );
 }
 
@@ -171,7 +172,7 @@ export async function ContinuousItem({ article, index }: { article: PublicArticl
   const { translate } = await getTranslations();
   const now = new Date();
   return (
-    <a href={articleHref(article)} className="group flex gap-3 py-2.5">
+    <Link href={articleHref(article)} className="group flex gap-3 py-2.5">
       <span aria-hidden className="w-6 shrink-0 font-mono text-sm font-bold text-rule-strong transition-colors duration-200 group-hover:text-brand-red">
         {String(index + 1).padStart(2, "0")}
       </span>
@@ -184,14 +185,14 @@ export async function ContinuousItem({ article, index }: { article: PublicArticl
           {timeAgo(article.publishedAt, now, { today: translate("public.time.today"), yesterday: translate("public.time.yesterday") })}
         </p>
       </div>
-    </a>
+    </Link>
   );
 }
 
 /** Item « Les plus lus » — grand numéro serif. */
 export async function MostReadItem({ article, index }: { article: PublicArticle; index: number }) {
   return (
-    <a href={articleHref(article)} className="group flex items-start gap-3 border-b border-rule py-3 last:border-0">
+    <Link href={articleHref(article)} className="group flex items-start gap-3 border-b border-rule py-3 last:border-0">
       <span aria-hidden className="font-serif text-3xl font-black leading-none text-rule transition-colors duration-200 group-hover:text-brand-red">
         {index + 1}
       </span>
@@ -201,6 +202,6 @@ export async function MostReadItem({ article, index }: { article: PublicArticle;
         </h3>
         <p className="mt-0.5 text-[0.65rem] uppercase tracking-wide text-ink-faint">{article.category?.name}</p>
       </div>
-    </a>
+    </Link>
   );
 }

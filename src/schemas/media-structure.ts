@@ -67,7 +67,17 @@ export const menuSaveSchema = z.object({
 // ─── Bannières (§11.2) ─────────────────────────────────────────────────
 export const bannerSaveSchema = z.object({
   message: z.string().min(1).max(500),
-  link_url: z.string().max(2000).nullable().optional(),
+  // URL http(s) valide OU vide/null (pas de lien)
+  link_url: z
+    .string()
+    .trim()
+    .max(2000)
+    .refine(
+      (v) => v === "" || /^https?:\/\/\S+$/.test(v),
+      "Le lien de la bannière doit être une URL valide commençant par http:// ou https://."
+    )
+    .nullable()
+    .optional(),
   link_label: z.string().max(100).nullable().optional(),
   style: z.enum(["alert", "info", "promo"]).optional(),
   is_dismissible: z.boolean().optional(),

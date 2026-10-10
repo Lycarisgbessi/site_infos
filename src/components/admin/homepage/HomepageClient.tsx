@@ -417,6 +417,18 @@ export function HomepageClient() {
   };
 
   const saveAll = async () => {
+    // Fenêtre d'affichage : la fin doit être postérieure au début (si les deux sont renseignées)
+    const invalidWindow = blocks.find(
+      (b) => b.starts_at && b.ends_at && new Date(b.ends_at).getTime() <= new Date(b.starts_at).getTime()
+    );
+    if (invalidWindow) {
+      toast({
+        title: "Fenêtre d'affichage invalide",
+        description: `Le bloc « ${invalidWindow.title || invalidWindow.code || invalidWindow.id} » a une date de fin antérieure ou égale à sa date de début.`,
+        variant: "destructive",
+      });
+      return;
+    }
     setSaving(true);
     try {
       const payload: { blocks: BlockPayload[] } = {
