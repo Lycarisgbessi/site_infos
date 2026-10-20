@@ -12,6 +12,7 @@ import { SiteFooter } from "@/components/public/site-footer";
 import { Cover } from "@/components/public/article-cards";
 import { ShareButton } from "../share-button";
 import { trackPageView } from "@/server/services/analytics";
+import { decodeSlug } from "@/lib/slug-decode";
 
 /**
  * Route `/video/{slug}` — page dédiée à la lecture : grand lecteur 16:9
@@ -22,7 +23,8 @@ import { trackPageView } from "@/server/services/analytics";
 export const dynamic = "force-dynamic";
 
 export default async function VideoPage({ params }: { params: Promise<{ slug: string }> }) {
-  const { slug } = await params;
+  const { slug: rawSlug } = await params;
+  const slug = decodeSlug(rawSlug);
   const { translate, locale } = await getTranslations();
   const now = new Date();
 

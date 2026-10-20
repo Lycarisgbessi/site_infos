@@ -8,6 +8,7 @@ import { getTranslations } from "@/lib/i18n";
 import { TopBar, SiteHeader } from "@/components/public/site-header";
 import { SiteFooter } from "@/components/public/site-footer";
 import { NewsletterBlock } from "@/components/public/newsletter-block";
+import { decodeSlug } from "@/lib/slug-decode";
 
 /**
  * Pages publiques /pages/[slug].
@@ -53,7 +54,8 @@ function parseSeo(seo: string): { title?: string; description?: string } {
 }
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
-  const { slug } = await params;
+  const { slug: rawSlug } = await params;
+  const slug = decodeSlug(rawSlug);
   const page = await findPublishedPage(slug);
   // Pages codées en dur et 404 : pas de métadonnées spécifiques (comportement historique).
   if (!page) return {};
@@ -66,7 +68,8 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 }
 
 export default async function PublicPage({ params }: { params: Promise<{ slug: string }> }) {
-  const { slug } = await params;
+  const { slug: rawSlug } = await params;
+  const slug = decodeSlug(rawSlug);
   const { translate } = await getTranslations();
 
   const page = await findPublishedPage(slug);

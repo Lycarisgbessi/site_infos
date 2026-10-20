@@ -12,6 +12,7 @@ import { getAdCampaigns, getSiteBanners } from '@/lib/public/homepage-data';
 import { SiteBannerBar } from '@/components/public/site-banner-bar';
 import { SiteHeader } from '@/components/public/site-header';
 import { SiteFooter } from '@/components/public/site-footer';
+import { decodeSlug } from "@/lib/slug-decode";
 
 export const dynamic = 'force-dynamic';
 
@@ -52,7 +53,8 @@ function ogImage(cover: { url: string; variants: string } | null): string | unde
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
-  const { slug } = await params;
+  const { slug: rawSlug } = await params;
+  const slug = decodeSlug(rawSlug);
   const article = await db.article.findFirst({
     where: {
       OR: [{ slug: slug }, { id: slug }],
@@ -101,7 +103,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 }
 
 export default async function ArticlePage({ params }: PageProps) {
-  const { slug } = await params;
+  const { slug: rawSlug } = await params;
+  const slug = decodeSlug(rawSlug);
   const { translate, locale } = await getTranslations();
 
   const article = await db.article.findFirst({

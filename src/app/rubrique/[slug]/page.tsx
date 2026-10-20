@@ -7,6 +7,7 @@ import { SiteFooter } from "@/components/public/site-footer";
 import { Cover, timeAgo } from "@/components/public/article-cards";
 import { Reveal } from "@/components/public/reveal";
 import { getArticlesByCategory, getCategoryBySlug, parsePageParam } from "@/lib/public/taxonomy-data";
+import { decodeSlug } from "@/lib/slug-decode";
 
 /**
  * Route `/rubrique/{slug}` — liste paginée des articles publiés d'une
@@ -33,7 +34,8 @@ function clip(text: string, max = 160): string {
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
-  const { slug } = await params;
+  const { slug: rawSlug } = await params;
+  const slug = decodeSlug(rawSlug);
   const category = await getCategoryBySlug(slug);
   if (!category) return {};
   const description =
@@ -46,7 +48,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 }
 
 export default async function CategoryPage({ params, searchParams }: PageProps) {
-  const { slug } = await params;
+  const { slug: rawSlug } = await params;
+  const slug = decodeSlug(rawSlug);
   const { translate } = await getTranslations();
 
   const category = await getCategoryBySlug(slug);

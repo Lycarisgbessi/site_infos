@@ -7,6 +7,7 @@ import { SiteFooter } from "@/components/public/site-footer";
 import { Cover, timeAgo } from "@/components/public/article-cards";
 import { Reveal } from "@/components/public/reveal";
 import { getArticlesByDossier, getDossierBySlug, parsePageParam } from "@/lib/public/taxonomy-data";
+import { decodeSlug } from "@/lib/slug-decode";
 
 /**
  * Route `/dossiers/{slug}` — page dossier : couverture pleine largeur,
@@ -32,7 +33,8 @@ function clip(text: string, max = 160): string {
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
-  const { slug } = await params;
+  const { slug: rawSlug } = await params;
+  const slug = decodeSlug(rawSlug);
   const dossier = await getDossierBySlug(slug);
   if (!dossier) return {};
   const description = clip(dossier.lede ?? dossier.description ?? "") || `${dossier.title} — INFOSPRO.net`;
@@ -44,7 +46,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 }
 
 export default async function DossierPage({ params, searchParams }: PageProps) {
-  const { slug } = await params;
+  const { slug: rawSlug } = await params;
+  const slug = decodeSlug(rawSlug);
   const { translate } = await getTranslations();
 
   const dossier = await getDossierBySlug(slug);

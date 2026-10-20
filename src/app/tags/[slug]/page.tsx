@@ -7,6 +7,7 @@ import { SiteFooter } from "@/components/public/site-footer";
 import { Cover, timeAgo } from "@/components/public/article-cards";
 import { Reveal } from "@/components/public/reveal";
 import { getArticlesByTag, getTagBySlug, parsePageParam } from "@/lib/public/taxonomy-data";
+import { decodeSlug } from "@/lib/slug-decode";
 
 /**
  * Route `/tags/{slug}` — liste paginée des articles publiés portant un
@@ -31,7 +32,8 @@ function clip(text: string, max = 160): string {
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
-  const { slug } = await params;
+  const { slug: rawSlug } = await params;
+  const slug = decodeSlug(rawSlug);
   const tag = await getTagBySlug(slug);
   if (!tag) return {};
   const description = clip(tag.description ?? tag.introHtml ?? "") || `${tag.name} — INFOSPRO.net`;
@@ -43,7 +45,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 }
 
 export default async function TagPage({ params, searchParams }: PageProps) {
-  const { slug } = await params;
+  const { slug: rawSlug } = await params;
+  const slug = decodeSlug(rawSlug);
   const { translate } = await getTranslations();
 
   const tag = await getTagBySlug(slug);
