@@ -957,7 +957,8 @@ export async function listArticles(session: AuthenticatedSession, query: Article
   ]);
 
   return {
-    items: rows,
+    // view_count est BigInt en base — JSON ne sérialise pas les BigInt
+    items: rows.map((r) => ({ ...r, view_count: Number(r.view_count) })),
     meta: { total, page, per_page: perPage, pages: Math.max(1, Math.ceil(total / perPage)) },
   };
 }

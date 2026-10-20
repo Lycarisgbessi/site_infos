@@ -89,8 +89,9 @@ function toView(
     ends_at: campaign.ends_at.getTime() >= FAR_FUTURE.getTime() ? null : campaign.ends_at.toISOString(),
     priority: campaign.priority,
     is_active: campaign.status === "running",
-    impressions: campaign.impressions,
-    clicks: campaign.clicks,
+    // BigInt en base — conversion pour la sérialisation JSON
+    impressions: Number(campaign.impressions),
+    clicks: Number(campaign.clicks),
     created_at: campaign.created_at.toISOString(),
   };
 }

@@ -220,7 +220,9 @@ export async function listMedia(session: { id: string }, query: z.infer<typeof m
       take: perPage,
     }),
   ]);
-  return { items, meta: { total, page, per_page: perPage, pages: Math.max(1, Math.ceil(total / perPage)) } };
+  // file_size est BigInt en base — JSON ne sérialise pas les BigInt
+  const safeItems = items.map((m) => ({ ...m, file_size: Number(m.file_size) }));
+  return { items: safeItems, meta: { total, page, per_page: perPage, pages: Math.max(1, Math.ceil(total / perPage)) } };
 }
 
 /** Contenus utilisant le média (§11.2 : affichage avant suppression). */

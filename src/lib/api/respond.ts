@@ -85,9 +85,7 @@ export function toErrorResponse(error: unknown): NextResponse {
     return apiError(403, "CSRF", error.message);
   }
   console.error("[api] erreur interne :", error);
-  // Diagnostic temporaire : inclure le détail pour identifier l'erreur en prod
-  const detail = error instanceof Error ? `${error.name}: ${error.message}` : String(error);
-  return apiError(500, "INTERNAL", "Erreur interne du serveur.", { "X-Debug-Error": encodeURIComponent(detail).slice(0, 300) });
+  return apiError(500, "INTERNAL", "Erreur interne du serveur.");
 }
 
 // ─── Garde de session pour les Route Handlers ──────────────────────────
