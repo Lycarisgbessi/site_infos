@@ -123,11 +123,10 @@ export async function authenticateWithPassword(
     throw new LockedAccountError(lockRemainingSec(user.locked_until));
   }
 
-  // 2FA obligatoire pour certains rôles (§08.3) — si activée, second facteur
-  if (user.two_factor_enabled && user.two_factor_secret) {
-    const { createMfaChallenge } = await import("@/lib/auth/challenge");
-    return { kind: "mfa_required", challengeToken: createMfaChallenge(user.id) };
-  }
+  // Second facteur (2FA) retiré du parcours de connexion sur demande :
+  // l'email + mot de passe suffisent, même si un secret TOTP existe en base.
+  void user.two_factor_enabled;
+  void user.two_factor_secret;
 
   return finalizeLogin(user.id, false, request);
 }
