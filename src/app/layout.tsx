@@ -4,6 +4,7 @@ import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
 import { fontVariables } from "@/lib/fonts";
 import { getTranslations, resolveLocale, localeDir, localeTag } from "@/lib/i18n";
+import { getSettingsValues } from "@/server/services/settings";
 import { AudioPlayerProvider } from "@/components/public/audio-player/context";
 import { AudioFloatingBar } from "@/components/public/audio-player/floating-bar";
 import { PwaRegister } from "@/components/public/pwa/pwa-register";
@@ -11,19 +12,41 @@ import { InstallBanner } from "@/components/public/pwa/install-banner";
 
 /**
  * Layout racine. La langue du produit est le français (§00.2 règle 10).
- * Le titre/description finaux seront pilotés par la table `settings`
- * au moment du front-office (PHASE 4) — règle « aucune donnée en dur ».
+ * Identité (titre, baseline) pilotée par la table `settings` — règle
+ * « aucune donnée en dur » : identity.site_name, identity.baseline,
+ * seo.default_title ; replis INFOSPRO si les clés sont absentes.
  */
-export const metadata: Metadata = {
-  title: {
-    default: "INFOSPRO",
-    template: "%s · INFOSPRO",
-  },
-  description:
-    "Plateforme média numérique INFOSPRO — l'information de Guinée et du monde.",
-  applicationName: "INFOSPRO",
-  robots: { index: true, follow: true },
-};
+const FALLBACK_SITE_NAME = "INFOSPRO";
+const FALLBACK_DESCRIPTION =
+  "Plateforme média numérique INFOSPRO — l'information de Guinée et du monde.";
+
+export async function generateMetadata(): Promise<Metadata> {
+  // Résilient : ce code s'exécute aussi au build (prérendu de la 404) —
+  // une base indisponible ne doit jamais casser le build ou la page.
+  let settings: Record<string, string> = {};
+  try {
+    settings = await getSettingsValues([
+      "identity.site_name",
+      "identity.baseline",
+      "seo.default_title",
+    ]);
+  } catch {
+    settings = {};
+  }
+  const siteName = settings["identity.site_name"] || FALLBACK_SITE_NAME;
+  const defaultTitle = settings["seo.default_title"] || siteName;
+  const description = settings["identity.baseline"] || FALLBACK_DESCRIPTION;
+
+  return {
+    title: {
+      default: defaultTitle,
+      template: `%s · ${siteName}`,
+    },
+    description,
+    applicationName: siteName,
+    robots: { index: true, follow: true },
+  };
+}
 
 export const viewport: Viewport = {
   width: "device-width",

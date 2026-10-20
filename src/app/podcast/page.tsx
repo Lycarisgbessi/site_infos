@@ -1,8 +1,11 @@
 import { notFound } from "next/navigation";
 import { getTranslations } from "@/lib/i18n";
+import { getAdCampaigns, getSiteBanners } from "@/lib/public/homepage-data";
 import { getSettingsValues } from "@/server/services/settings";
 import { listPublicSeasons } from "@/server/services/podcast";
 import { TopBar, SiteHeader } from "@/components/public/site-header";
+import { SiteBannerBar } from "@/components/public/site-banner-bar";
+import { AdBanner } from "@/components/public/ad-slot";
 import { SiteFooter } from "@/components/public/site-footer";
 import { PodcastList, type PublicSeason } from "@/components/public/podcast/PodcastList";
 
@@ -23,6 +26,9 @@ export default async function PodcastPage() {
   if (settings["features.fm"] === "false") notFound();
 
   const seasons = await listPublicSeasons();
+
+  // Bandeaux du site ciblant /podcast + campagnes publicitaires actives.
+  const [banners, adCampaigns] = await Promise.all([getSiteBanners("/podcast"), getAdCampaigns()]);
 
   const publicSeasons: PublicSeason[] = seasons
     .map((season) => ({
@@ -53,6 +59,7 @@ export default async function PodcastPage() {
 
   return (
     <div className="flex min-h-screen flex-col bg-paper">
+      <SiteBannerBar banners={banners} closeLabel={translate("public.banner.close")} />
       <TopBar />
       <SiteHeader />
 
@@ -71,6 +78,11 @@ export default async function PodcastPage() {
             )}
           </header>
 
+          {/* ── AD-10 : leaderboard d'en-tête (rien sans campagne active) ── */}
+          <div className="mt-6">
+            <AdBanner code="AD-10" campaigns={adCampaigns} />
+          </div>
+
           {publicSeasons.length === 0 ? (
             <div className="mt-8 border border-dashed border-rule-strong p-10 text-center">
               <span aria-hidden className="text-3xl">🎙</span>
@@ -80,6 +92,11 @@ export default async function PodcastPage() {
           ) : (
             <PodcastList seasons={publicSeasons} labels={labels} locale={locale} />
           )}
+
+          {/* ── AD-06 : pavé MPU de pied de page (300×250, centré) ────────── */}
+          <div className="mx-auto mt-10 max-w-[300px]">
+            <AdBanner code="AD-06" campaigns={adCampaigns} />
+          </div>
         </div>
       </main>
 

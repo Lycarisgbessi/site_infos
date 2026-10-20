@@ -1,12 +1,41 @@
 import Link from "next/link";
 import { getTranslations, localeTag } from "@/lib/i18n";
-import { getFooterMenus } from "@/lib/public/homepage-data";
+import { getFooterMenus, type NavItem } from "@/lib/public/homepage-data";
 
 /**
  * Pied de page public — collé en bas de viewport (mt-auto), menus
  * footer_1→4, mentions et signature Conakry.
  * Task ID: 9-FOOTER
  */
+
+/** Lit un drapeau optionnel du modèle MenuItem (open_new_tab, highlight).
+ * Défensif : la couche données (NavItem) ne les expose pas encore forcément,
+ * et le nommage peut être camelCase (openNewTab) ou snake_case (open_new_tab). */
+function menuFlag(item: NavItem, camelCase: string, snakeCase: string): boolean {
+  const rec = item as unknown as Record<string, unknown>;
+  return Boolean(rec[camelCase] ?? rec[snakeCase]);
+}
+
+/** Lien de menu du pied de page — open_new_tab (nouvel onglet) et
+ * highlight (style CTA : rouge vif + soulignement) consommés optionnellement. */
+function FooterLink({ item }: { item: NavItem }) {
+  const highlighted = menuFlag(item, "highlight", "highlight");
+  const openNewTab = menuFlag(item, "openNewTab", "open_new_tab");
+  return (
+    <Link
+      href={item.href}
+      target={openNewTab ? "_blank" : undefined}
+      rel={openNewTab ? "noopener noreferrer" : undefined}
+      className={
+        highlighted
+          ? "text-xs font-bold text-red-bright underline decoration-red-bright decoration-2 underline-offset-4 transition-colors duration-200 hover:text-paper"
+          : "text-xs text-paper/80 transition-colors duration-200 hover:text-red-bright"
+      }
+    >
+      {item.label}
+    </Link>
+  );
+}
 
 export async function SiteFooter() {
   const { translate, locale } = await getTranslations();
@@ -33,9 +62,7 @@ export async function SiteFooter() {
               <ul className="mt-3 space-y-2">
                 {menu.items.map((item) => (
                   <li key={item.label}>
-                    <Link href={item.href} className="text-xs text-paper/80 transition-colors duration-200 hover:text-red-bright">
-                      {item.label}
-                    </Link>
+                    <FooterLink item={item} />
                   </li>
                 ))}
               </ul>

@@ -2,6 +2,7 @@ import { db } from "@/lib/db";
 import { auditLog } from "@/lib/audit";
 import { ValidationError } from "@/lib/api/respond";
 import { invalidateTags, CACHE_TAGS } from "@/lib/cache";
+import { getSettingsValues } from "@/server/services/settings";
 import { slugify, ensureUniqueSlug } from "@/lib/utils/slug";
 import { parseJsonArray, stringifyJsonArray } from "@/lib/json";
 import type {
@@ -448,11 +449,19 @@ export async function saveUne(input: z.infer<typeof uneSaveSchema>, userId: stri
 
 // ─── Publication d'urgence (§11.2) ─────────────────────────────────────
 
+/** Durée de repli (heures) si le réglage editorial.flash_expiration_hours est absent ou invalide. */
+const FLASH_DEFAULT_HOURS = 12;
+
 export async function quickFlash(
   userId: string,
   input: { text: string; priority?: number; link?: string | null; expires_in_hours?: number }
 ) {
-  const hours = input.expires_in_hours ?? 12;
+  // Durée par défaut paramétrable (§11.2 « Autonomie totale ») :
+  // settings.editorial.flash_expiration_hours, repli 12 h (§06.2).
+  const settings = await getSettingsValues(["editorial.flash_expiration_hours"]);
+  const configured = Number(settings["editorial.flash_expiration_hours"]);
+  const defaultHours = Number.isFinite(configured) && configured > 0 ? configured : FLASH_DEFAULT_HOURS;
+  const hours = input.expires_in_hours ?? defaultHours;
   const flash = await db.flashNews.create({
     data: {
       text: input.text.slice(0, 300),

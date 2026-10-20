@@ -3,6 +3,8 @@ import { getTranslations } from "@/lib/i18n";
 import { parseJsonObject, parseJsonArrayObjects } from "@/lib/json";
 import { RichTextView } from "./RichTextView";
 import { AudioInlineBlock } from "@/components/public/audio-player/audio-inline";
+import { AdBanner } from "@/components/public/ad-slot";
+import type { AdCampaignMap } from "@/lib/public/homepage-data";
 import { isDriveLink, toDriveLink } from "@/lib/drive";
 import type { Block } from "@/types/blocks";
 
@@ -34,6 +36,10 @@ export interface BlockRendererProps {
   /** Slugs des articles liés (bloc readmore) — sinon repli sur l'identifiant. */
   articleSlugs?: Map<string, string>;
   adsEnabled?: boolean;
+  /** Campagnes publicitaires actives (régie §13.1) — quand elles sont
+   * fournies, les blocs `ad` rendent la bannière réelle de leur slot
+   * (AdBanner) ; sinon un gabarit « PUBLICITÉ » sert d'aperçu. */
+  ads?: AdCampaignMap;
 }
 
 interface FocalPoint {
@@ -91,7 +97,7 @@ export function withAutoAdBlocks(blocks: Block[]): Block[] {
   return out;
 }
 
-export function BlockRenderer({ blocks, mediaById, articleTitles, articleSlugs, adsEnabled = true }: BlockRendererProps) {
+export function BlockRenderer({ blocks, mediaById, articleTitles, articleSlugs, adsEnabled = true, ads }: BlockRendererProps) {
   const list = adsEnabled ? withAutoAdBlocks(blocks) : blocks;
 
   return (
@@ -103,6 +109,7 @@ export function BlockRenderer({ blocks, mediaById, articleTitles, articleSlugs, 
           mediaById={mediaById}
           articleTitles={articleTitles}
           articleSlugs={articleSlugs}
+          ads={ads}
         />
       ))}
     </div>
@@ -148,11 +155,13 @@ function BlockView({
   mediaById,
   articleTitles,
   articleSlugs,
+  ads,
 }: {
   block: Block;
   mediaById: Map<string, MediaLike>;
   articleTitles: Map<string, string>;
   articleSlugs?: Map<string, string>;
+  ads?: AdCampaignMap;
 }) {
   switch (block.type) {
     case "paragraph":
@@ -489,7 +498,10 @@ function BlockView({
       );
 
     case "ad":
-      return <AdPlaceholder slotCode={block.slotCode} />;
+      // Campagnes réelles quand la page fournit la régie (front-office) ;
+      // AdBanner ne rend rien sans campagne active sur le slot. Sans régie
+      // (prévisualisation admin), gabarit « PUBLICITÉ ».
+      return ads ? <AdBanner code={block.slotCode} campaigns={ads} /> : <AdPlaceholder slotCode={block.slotCode} />;
 
     default:
       return null;

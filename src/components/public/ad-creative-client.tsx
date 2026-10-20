@@ -112,11 +112,19 @@ export function AdCreativeView({ campaign }: { campaign: PublicAdCampaign }) {
 const ROTATE_INTERVAL_MS = 30_000;
 const FADE_MS = 500;
 
-/** Tirage pondéré par priorité : weight = priority + 1 (une campagne de
- * priorité 4 a 5 fois plus de chances qu'une priorité 0). `exclude` permet
- * d'éviter de re-tirer la campagne courante lors des rotations suivantes. */
+/** Poids de tirage d'une campagne : `weight` de la créative si disponible
+ * (> 0), sinon repli sur priority + 1 (une campagne de priorité 4 a
+ * 5 fois plus de chances qu'une priorité 0). */
+function campaignWeight(c: PublicAdCampaign): number {
+  const w = (c as PublicAdCampaign & { weight?: number }).weight;
+  return typeof w === "number" && Number.isFinite(w) && w > 0 ? w : Math.max(1, c.priority + 1);
+}
+
+/** Tirage pondéré (weight de la créative, sinon priorité) : `exclude`
+ * permet d'éviter de re-tirer la campagne courante lors des rotations
+ * suivantes. */
 function pickWeightedIndex(campaigns: PublicAdCampaign[], exclude = -1): number {
-  const pool = campaigns.map((c, i) => ({ i, w: Math.max(1, c.priority + 1) }));
+  const pool = campaigns.map((c, i) => ({ i, w: campaignWeight(c) }));
   const filtered = pool.filter((p) => p.i !== exclude);
   const candidates = filtered.length > 0 ? filtered : pool;
   const total = candidates.reduce((sum, c) => sum + c.w, 0);

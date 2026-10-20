@@ -23,6 +23,9 @@ type AdFormat =
   | "sticky"
   | "video";
 
+/** Format de rendu par emplacement — calqué sur AD_SLOT_RENDER du seed
+ * (prisma/seed-data/ads-newsletters.ts) : tous les slots AD-01→AD-19 y
+ * sont décrits pour être utilisables via AdBanner code="AD-xx". */
 const FORMAT_BY_SLOT: Record<string, AdFormat> = {
   "AD-01": "billboard",
   "AD-02": "leaderboard",
@@ -32,6 +35,7 @@ const FORMAT_BY_SLOT: Record<string, AdFormat> = {
   "AD-06": "pave",
   "AD-07": "leaderboard",
   "AD-08": "native",
+  "AD-09": "native",
   "AD-10": "leaderboard",
   "AD-11": "video",
   "AD-12": "sticky",
@@ -82,7 +86,9 @@ function SlotShell({
 }
 
 /** Bannière par emplacement — rotation pondérée des campagnes actives du
- * slot (voir AdRotation), sinon rien. */
+ * slot (voir AdRotation), sinon rien. Cas particulier AD-19 : sans
+ * campagne active, l'emplacement bascule sur l'auto-promotion maison
+ * (repli) au lieu de disparaître. */
 export async function AdBanner({
   code,
   campaigns,
@@ -94,7 +100,16 @@ export async function AdBanner({
 }) {
   const { translate } = await getTranslations();
   const slotCampaigns: PublicAdCampaign[] | undefined = campaigns[code];
-  if (!slotCampaigns || slotCampaigns.length === 0) return null;
+  if (!slotCampaigns || slotCampaigns.length === 0) {
+    if (code === "AD-19") {
+      return (
+        <SlotShell code={code} label={translate("public.ad.label")} className={`w-full ${className}`}>
+          <AdSelfPromoContent />
+        </SlotShell>
+      );
+    }
+    return null;
+  }
 
   const format = FORMAT_BY_SLOT[code] ?? "leaderboard";
   return (
@@ -147,22 +162,32 @@ export async function AdNativeCard({ code, campaigns }: { code: string; campaign
   );
 }
 
+/** Contenu d'auto-promotion INFOSPRO (newsletter) — partagé par AdSelfPromo
+ * (accueil) et par le repli AD-19 de AdBanner quand aucune campagne n'est
+ * active sur ce code. */
+async function AdSelfPromoContent() {
+  const { translate } = await getTranslations();
+  return (
+    <div className="bg-ink p-5 text-paper">
+      <p className="kicker text-red-bright">INFOSPRO</p>
+      <p className="mt-2 font-serif text-lg font-bold leading-snug">{translate("public.newsletter.morningTitle")}</p>
+      <p className="mt-1 text-xs leading-relaxed text-paper/70">{translate("public.newsletter.morningDesc")}</p>
+      <a
+        href="#newsletter"
+        className="mt-3 inline-block bg-brand-red px-3 py-1.5 text-xs font-bold text-white transition-colors duration-200 hover:bg-red-deep"
+      >
+        {translate("public.newsletter.cta")}
+      </a>
+    </div>
+  );
+}
+
 /** Auto-promotion INFOSPRO (AD-19) — newsletter. */
 export async function AdSelfPromo() {
   const { translate } = await getTranslations();
   return (
     <SlotShell code="AD-19" label={translate("public.ad.label")} className="w-full">
-      <div className="bg-ink p-5 text-paper">
-        <p className="kicker text-red-bright">INFOSPRO</p>
-        <p className="mt-2 font-serif text-lg font-bold leading-snug">{translate("public.newsletter.morningTitle")}</p>
-        <p className="mt-1 text-xs leading-relaxed text-paper/70">{translate("public.newsletter.morningDesc")}</p>
-        <a
-          href="#newsletter"
-          className="mt-3 inline-block bg-brand-red px-3 py-1.5 text-xs font-bold text-white transition-colors duration-200 hover:bg-red-deep"
-        >
-          {translate("public.newsletter.cta")}
-        </a>
-      </div>
+      <AdSelfPromoContent />
     </SlotShell>
   );
 }

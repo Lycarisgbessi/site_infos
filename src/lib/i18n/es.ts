@@ -164,4 +164,24 @@ export const esDictionary: Dictionary = {
   "public.pwa.install": "Instalar",
   "public.pwa.close": "Cerrar",
 
+  // ─── Páginas de secciones (/rubrique/{slug}) ─────────────────────
+  "public.category.kicker": "Sección",
+  "public.category.empty": "Todavía no hay artículos publicados en esta sección.",
+  "public.category.articlesCount": "{count} artículo(s)",
+
+  // ─── Páginas de dossier (/dossiers/{slug}) ───────────────────────
+  "public.dossier.empty": "Todavía no hay artículos publicados en este dossier.",
+  "public.dossier.articlesCount": "{count} artículo(s)",
+
+  // ─── Páginas de etiquetas (/tags/{slug}) ─────────────────────────
+  "public.tag.kicker": "Etiqueta",
+  "public.tag.empty": "Todavía no hay artículos publicados con esta etiqueta.",
+  "public.tag.articlesCount": "{count} artículo(s)",
+
+  // ─── Paginación (listas de artículos) ────────────────────────────
+  "public.pagination.label": "Paginación",
+  "public.pagination.previous": "Anterior",
+  "public.pagination.next": "Siguiente",
+  "public.pagination.page": "Página {page} de {total}",
+
 };

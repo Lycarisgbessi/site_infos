@@ -160,4 +160,24 @@ export const zhDictionary: Dictionary = {
   "public.pwa.install": "安装",
   "public.pwa.close": "关闭",
 
+  // ─── 栏目页面（/rubrique/{slug}）────────────────────────────────
+  "public.category.kicker": "栏目",
+  "public.category.empty": "该栏目暂无已发布的文章。",
+  "public.category.articlesCount": "{count} 篇文章",
+
+  // ─── 专题页面（/dossiers/{slug}）───────────────────────────────
+  "public.dossier.empty": "该专题暂无已发布的文章。",
+  "public.dossier.articlesCount": "{count} 篇文章",
+
+  // ─── 标签页面（/tags/{slug}）───────────────────────────────────
+  "public.tag.kicker": "标签",
+  "public.tag.empty": "该标签下暂无已发布的文章。",
+  "public.tag.articlesCount": "{count} 篇文章",
+
+  // ─── 分页（文章列表）──────────────────────────────────────────
+  "public.pagination.label": "分页",
+  "public.pagination.previous": "上一页",
+  "public.pagination.next": "下一页",
+  "public.pagination.page": "第 {page} 页，共 {total} 页",
+
 };

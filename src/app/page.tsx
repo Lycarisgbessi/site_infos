@@ -1,7 +1,9 @@
+import { Fragment, type ReactNode } from "react";
 import Link from "next/link";
-import { getTranslations } from "@/lib/i18n";
+import { getTranslations, type Translator } from "@/lib/i18n";
 import {
   getActiveLive,
+  getComposedHomepage,
   getHeroArticles,
   getLatestArticles,
   getMostReadArticles,
@@ -13,7 +15,12 @@ import {
   getWeather,
   getWorldArticles,
   getAdCampaigns,
+  type AdCampaignMap,
+  type ComposedBlock,
+  type PublicArticle,
+  type WeatherNow,
 } from "@/lib/public/homepage-data";
+import { getSettingsValues } from "@/server/services/settings";
 import { TopBar, SiteHeader } from "@/components/public/site-header";
 import { FlashTicker } from "@/components/public/flash-ticker";
 import { AdBanner, AdNativeCard, AdSelfPromo, AdWeatherSponsor } from "@/components/public/ad-slot";
@@ -27,15 +34,20 @@ import { SiteBannerBar } from "@/components/public/site-banner-bar";
 import { Reveal } from "@/components/public/reveal";
 
 /**
- * Route `/` — ACCUEIL ÉDITORIAL PUBLIC (§09.1) piloté par homepage_blocks.
- * Une, flash défilant, sections par rubrique avec images, en continu,
- * plus lus, vidéos, dossier, monde, opinions, météo réelle, newsletter —
- * et 9 emplacements publicitaires (AD-02/03/04/07/08/12/15/16/19).
+ * Route `/` — ACCUEIL ÉDITORIAL PUBLIC (§09.1), piloté par le composeur
+ * `/admin/homepage` (table homepage_blocks) : chaque bloc actif, dans
+ * l'ordre des positions, est résolu puis rendu avec les composants
+ * existants (une, flash, sections par rubrique, en continu, plus lus,
+ * vidéos, dossier, monde, opinions, météo, newsletter, publicités).
+ * Repli robuste : si AUCUN bloc actif n'est configuré (table vide, seed
+ * absent), le gabarit historique §09.1 est rendu à l'identique.
+ * Modules désactivables : features.tv (vidéos), features.weather (météo).
  * Task ID: 9-PAGE
  */
 
 export const dynamic = "force-dynamic";
 
+/** Sections du gabarit de repli (§09.1 historique, seed absent). */
 const SECTIONS: { slug: string }[] = [
   { slug: "politique" },
   { slug: "economie" },
@@ -47,35 +59,90 @@ const SECTIONS: { slug: string }[] = [
   { slug: "tech" },
 ];
 
+/** Blocs portés par la colonne latérale (ordre du composeur conservé). */
+function isSidebarBlock(block: ComposedBlock): boolean {
+  return (
+    block.type === "latest" ||
+    block.type === "most_read" ||
+    block.type === "weather" ||
+    (block.type === "ad" && block.settings.placement === "sidebar")
+  );
+}
+
 export default async function HomePage() {
   const { translate } = await getTranslations();
-  const now = new Date();
 
-  const [hero, latest, mostRead, live, videos, dossier, banners, opinions, world, weather, adCampaigns, ...sections] =
-    await Promise.all([
-      getHeroArticles(5),
-      getLatestArticles(12),
-      getMostReadArticles(5),
-      getActiveLive(),
-      getVideoArticles(6),
-      getFeaturedDossier(),
-      getSiteBanners("/"),
-      getOpinionArticles(4),
-      getWorldArticles(8),
-      getWeather(),
-      getAdCampaigns(),
-      ...SECTIONS.map((s) => getSectionArticles(s.slug, 5)),
-    ]);
+  const [banners, adCampaigns, settings, composed] = await Promise.all([
+    getSiteBanners("/"),
+    getAdCampaigns(),
+    getSettingsValues(["features.tv", "features.weather"]),
+    getComposedHomepage(),
+  ]);
+
+  // Modules désactivables (§11.2 /admin/parametres) — lus comme /video :
+  // absence de ligne ou "true" = actif, "false" = masqué.
+  const tvEnabled = settings["features.tv"] !== "false";
+  const weatherEnabled = settings["features.weather"] !== "false";
+  const flashEnabled = composed === null || composed.some((b) => b.type === "flash");
+
+  const siteHeader = (
+    <>
+      <SiteBannerBar banners={banners} closeLabel={translate("public.banner.close")} />
+      <TopBar />
+      <SiteHeader />
+      {flashEnabled && <FlashTicker />}
+    </>
+  );
+  const siteFooter = (
+    <>
+      <SiteFooter />
+      <MobileStickyAd
+        label={translate("public.ad.label")}
+        cta={translate("public.ad.cta")}
+        closeLabel={translate("common.close")}
+        campaigns={adCampaigns["AD-12"] ?? []}
+      />
+    </>
+  );
+
+  if (composed) {
+    return (
+      <div className="flex min-h-screen flex-col bg-paper">
+        {siteHeader}
+        <main id="contenu" className="flex-1 pb-10">
+          <ComposedMain
+            blocks={composed}
+            adCampaigns={adCampaigns}
+            tvEnabled={tvEnabled}
+            weatherEnabled={weatherEnabled}
+            translate={translate}
+          />
+        </main>
+        {siteFooter}
+      </div>
+    );
+  }
+
+  // ── Repli : AUCUN bloc actif → gabarit §09.1 historique, à l'identique ──
+  const [hero, latest, mostRead, live, videos, dossier, opinions, world, weather, ...sections] = await Promise.all([
+    getHeroArticles(5),
+    getLatestArticles(12),
+    getMostReadArticles(5),
+    getActiveLive(),
+    tvEnabled ? getVideoArticles(6) : Promise.resolve<PublicArticle[]>([]),
+    getFeaturedDossier(),
+    getOpinionArticles(4),
+    getWorldArticles(8),
+    weatherEnabled ? getWeather() : Promise.resolve<WeatherNow[]>([]),
+    ...SECTIONS.map((s) => getSectionArticles(s.slug, 5)),
+  ]);
 
   const sectionData = SECTIONS.map((s, i) => ({ slug: s.slug, articles: sections[i] }));
   const [heroMain, ...heroSide] = hero;
 
   return (
     <div className="flex min-h-screen flex-col bg-paper">
-      <SiteBannerBar banners={banners} closeLabel={translate("public.banner.close")} />
-      <TopBar />
-      <SiteHeader />
-      <FlashTicker />
+      {siteHeader}
 
       <main id="contenu" className="flex-1 pb-10">
         {/* ── Z-02 : Leaderboard d'en-tête (compact) ─────────────────────── */}
@@ -186,33 +253,33 @@ export default async function HomePage() {
             {/* ── Z-12 : Monde ────────────────────────────────────────────── */}
             {world.length > 0 && (
               <Reveal>
-              <section aria-label={translate("public.world.title")}>
-                <header className="flex items-baseline justify-between border-b-2 border-ink pb-2">
-                  <h2 className="font-serif text-xl font-black tracking-tight md:text-2xl">
-                    {translate("public.world.title")}
-                  </h2>
-                </header>
-                <div className="pt-5">
-                  <WorldGrid articles={world} />
-                </div>
-              </section>
+                <section aria-label={translate("public.world.title")}>
+                  <header className="flex items-baseline justify-between border-b-2 border-ink pb-2">
+                    <h2 className="font-serif text-xl font-black tracking-tight md:text-2xl">
+                      {translate("public.world.title")}
+                    </h2>
+                  </header>
+                  <div className="pt-5">
+                    <WorldGrid articles={world} />
+                  </div>
+                </section>
               </Reveal>
             )}
 
             {/* ── Z-13 : Opinions ─────────────────────────────────────────── */}
             {opinions.length > 0 && (
               <Reveal>
-              <section aria-label={translate("public.opinion.title")}>
-                <header className="border-b-2 border-ink pb-2">
-                  <h2 className="font-serif text-xl font-black tracking-tight md:text-2xl">
-                    {translate("public.opinion.title")}
-                  </h2>
-                  <p className="mt-1 text-xs text-ink-soft">{translate("public.opinion.subtitle")}</p>
-                </header>
-                <div className="pt-5">
-                  <OpinionCards articles={opinions} />
-                </div>
-              </section>
+                <section aria-label={translate("public.opinion.title")}>
+                  <header className="border-b-2 border-ink pb-2">
+                    <h2 className="font-serif text-xl font-black tracking-tight md:text-2xl">
+                      {translate("public.opinion.title")}
+                    </h2>
+                    <p className="mt-1 text-xs text-ink-soft">{translate("public.opinion.subtitle")}</p>
+                  </header>
+                  <div className="pt-5">
+                    <OpinionCards articles={opinions} />
+                  </div>
+                </section>
               </Reveal>
             )}
 
@@ -271,10 +338,7 @@ export default async function HomePage() {
             <AdSelfPromo />
 
             {/* Météo réelle (Z-10) + sponsoring AD-16 */}
-            <WeatherStrip
-              weather={weather}
-              sponsorNode={<AdWeatherSponsor />}
-            />
+            {weatherEnabled && <WeatherStrip weather={weather} sponsorNode={<AdWeatherSponsor />} />}
           </aside>
         </div>
 
@@ -284,13 +348,270 @@ export default async function HomePage() {
         </div>
       </main>
 
-      <SiteFooter />
-      <MobileStickyAd
-        label={translate("public.ad.label")}
-        cta={translate("public.ad.cta")}
-        closeLabel={translate("common.close")}
-        campaigns={adCampaigns["AD-12"] ?? []}
-      />
+      {siteFooter}
     </div>
+  );
+}
+
+// ─── Rendu piloté par le composeur (homepage_blocks) ───────────────────
+
+interface ComposedMainProps {
+  blocks: ComposedBlock[];
+  adCampaigns: AdCampaignMap;
+  tvEnabled: boolean;
+  weatherEnabled: boolean;
+  translate: Translator;
+}
+
+/** Corps de l'accueil composé : la une, les directs et les publicités qui
+ * précèdent le premier bloc de contenu s'ouvrent pleine largeur (comme le
+ * zoning §09.1) ; les blocs latest/most_read/weather peuplent la colonne
+ * latérale ; tout le reste suit l'ordre du composeur dans la colonne
+ * principale. Le bandeau flash est rendu dans l'en-tête de la page. */
+function ComposedMain({ blocks, adCampaigns, tvEnabled, weatherEnabled, translate }: ComposedMainProps) {
+  const flow = blocks.filter((b) => !isSidebarBlock(b) && b.type !== "flash");
+  let topCount = 0;
+  while (topCount < flow.length && ["lead", "live", "ad"].includes(flow[topCount].type)) {
+    topCount += 1;
+  }
+  const topBlocks = flow.slice(0, topCount);
+  const mainBlocks = flow.slice(topCount);
+  const sidebarBlocks = blocks.filter(isSidebarBlock);
+
+  const renderLead = (b: Extract<ComposedBlock, { type: "lead" }>) => {
+    const [heroMain, ...heroSide] = b.articles;
+    if (!heroMain) return null;
+    return (
+      <section aria-label={b.title ?? translate("public.une.title")}>
+        <header className="mb-4 flex items-center gap-3">
+          <span aria-hidden className="h-[3px] w-8 bg-brand-red" />
+          <h1 className="kicker text-ink">{b.title ?? translate("public.une.title")}</h1>
+        </header>
+        <div className="grid gap-6 lg:grid-cols-[2fr_1fr]">
+          <HeroCard article={heroMain} />
+          <div className="flex flex-col gap-3 border-t border-rule pt-3 lg:border-t-0 lg:pt-0">
+            {heroSide.map((a) => (
+              <SideCard key={a.id} article={a} />
+            ))}
+          </div>
+        </div>
+      </section>
+    );
+  };
+
+  const renderLive = (b: Extract<ComposedBlock, { type: "live" }>) =>
+    b.live ? (
+      <Link
+        href="#en-continu"
+        className="group flex items-center gap-4 border border-rule bg-paper-alt px-4 py-3 transition-colors duration-200 hover:border-rule-strong"
+      >
+        <span className="flex shrink-0 items-center gap-2 bg-brand-red px-2.5 py-1 text-xs font-black uppercase tracking-widest text-white">
+          <span aria-hidden className="size-1.5 animate-ping rounded-full bg-white" />
+          {translate("public.une.live")}
+        </span>
+        <p className="min-w-0 flex-1 truncate font-serif text-sm font-bold md:text-base">{b.live.title}</p>
+        <span className="hidden shrink-0 text-xs font-semibold uppercase tracking-widest text-ink-faint transition-colors duration-200 group-hover:text-brand-red md:block">
+          {translate("public.une.liveCta")} →
+        </span>
+      </Link>
+    ) : null;
+
+  const renderAd = (slotCode: string | undefined) => (slotCode ? <AdBanner code={slotCode} campaigns={adCampaigns} /> : null);
+
+  const mostReadWidget = (articles: PublicArticle[]) =>
+    articles.length > 0 ? (
+      <section aria-label={translate("public.list.mostRead")} className="border border-rule bg-paper-alt p-4">
+        <header className="border-b border-rule pb-2">
+          <h2 className="kicker text-ink">{translate("public.list.mostRead")}</h2>
+        </header>
+        <div className="divide-y divide-rule">
+          {articles.map((a, i) => (
+            <MostReadItem key={a.id} article={a} index={i} />
+          ))}
+        </div>
+      </section>
+    ) : null;
+
+  const latestWidget = (b: Extract<ComposedBlock, { type: "latest" }>) => {
+    const mostRead = b.settings.sidebarMostRead === true ? mostReadWidget(b.mostRead) : null;
+    if (b.articles.length === 0 && !mostRead) return null;
+    return (
+      <>
+        {b.articles.length > 0 && (
+          <section aria-label={translate("public.list.continuous")} className="scroll-mt-20 border border-rule bg-paper-alt p-4">
+            <header className="flex items-center gap-2 border-b border-rule pb-2">
+              <span aria-hidden className="live-dot size-2 rounded-full bg-brand-red" />
+              <h2 className="kicker text-ink">{b.title ?? translate("public.list.continuous")}</h2>
+            </header>
+            <div className="max-h-[26rem] divide-y divide-rule overflow-y-auto pr-1">
+              {b.articles.map((a, i) => (
+                <ContinuousItem key={a.id} article={a} index={i} />
+              ))}
+            </div>
+          </section>
+        )}
+        {b.settings.sidebarAd ? <AdBanner code={b.settings.sidebarAd} campaigns={adCampaigns} /> : null}
+        {mostRead}
+      </>
+    );
+  };
+
+  const renderMainBlock = (b: ComposedBlock): ReactNode => {
+    switch (b.type) {
+      case "section":
+        return b.articles.length > 0 ? (
+          <Reveal>
+            <SectionBlock id={b.anchorId} title={b.heading} articles={b.articles} />
+          </Reveal>
+        ) : null;
+      case "video":
+        return tvEnabled && b.articles.length > 0 ? (
+          <div className="-mx-6 lg:-mx-12">
+            <Reveal>
+              <VideoSection
+                articles={b.articles}
+                title={b.title ?? translate("public.video.section")}
+                playLabel={translate("public.video.play")}
+              />
+            </Reveal>
+          </div>
+        ) : null;
+      case "dossier":
+        return b.dossier?.cover ? <DossierBlock dossier={b.dossier} kickerLabel={translate("public.dossier.kicker")} /> : null;
+      case "world":
+        return b.articles.length > 0 ? (
+          <Reveal>
+            <section aria-label={b.title ?? translate("public.world.title")}>
+              <header className="flex items-baseline justify-between border-b-2 border-ink pb-2">
+                <h2 className="font-serif text-xl font-black tracking-tight md:text-2xl">
+                  {b.title ?? translate("public.world.title")}
+                </h2>
+              </header>
+              <div className="pt-5">
+                <WorldGrid articles={b.articles} />
+              </div>
+            </section>
+          </Reveal>
+        ) : null;
+      case "opinion":
+        return b.articles.length > 0 ? (
+          <Reveal>
+            <section aria-label={b.title ?? translate("public.opinion.title")}>
+              <header className="border-b-2 border-ink pb-2">
+                <h2 className="font-serif text-xl font-black tracking-tight md:text-2xl">
+                  {b.title ?? translate("public.opinion.title")}
+                </h2>
+                <p className="mt-1 text-xs text-ink-soft">{b.subtitle ?? translate("public.opinion.subtitle")}</p>
+              </header>
+              <div className="pt-5">
+                <OpinionCards articles={b.articles} />
+              </div>
+            </section>
+          </Reveal>
+        ) : null;
+      case "newsletter":
+        return (
+          <NewsletterBlock
+            kicker={translate("public.newsletter.kicker")}
+            title={b.title ?? translate("public.newsletter.morningTitle")}
+            description={translate("public.newsletter.morningDesc")}
+            placeholder={translate("public.newsletter.placeholder")}
+            cta={translate("public.newsletter.cta")}
+            okMessage={translate("public.newsletter.ok")}
+            errorMessage={translate("public.newsletter.error")}
+            loadingMessage={translate("public.newsletter.loading")}
+          />
+        );
+      case "lead":
+        return renderLead(b);
+      case "live":
+        return renderLive(b);
+      case "ad":
+        return renderAd(b.settings.slotCode);
+      default:
+        // Blocs non supportés (alert, custom_html…) : ignorés au rendu
+        return null;
+    }
+  };
+
+  // Colonne latérale : widgets dans l'ordre du composeur ; l'auto-promotion
+  // (AD-19) reste un élément d'habillage, insérée avant la météo comme sur
+  // le zoning historique (ou en fin de colonne s'il n'y a pas de météo).
+  const sidebarWidgets: ReactNode[] = [];
+  let selfPromoInserted = false;
+  for (const b of sidebarBlocks) {
+    switch (b.type) {
+      case "latest": {
+        const widget = latestWidget(b);
+        if (widget) sidebarWidgets.push(<Fragment key={b.id}>{widget}</Fragment>);
+        break;
+      }
+      case "most_read": {
+        const widget = mostReadWidget(b.articles);
+        if (widget) sidebarWidgets.push(<Fragment key={b.id}>{widget}</Fragment>);
+        break;
+      }
+      case "weather": {
+        if (!weatherEnabled || b.weather.length === 0) break;
+        if (!selfPromoInserted) {
+          sidebarWidgets.push(<AdSelfPromo key="ad-self-promo" />);
+          selfPromoInserted = true;
+        }
+        sidebarWidgets.push(<WeatherStrip key={b.id} weather={b.weather} sponsorNode={<AdWeatherSponsor />} />);
+        break;
+      }
+      case "ad": {
+        if (b.settings.slotCode) sidebarWidgets.push(<AdBanner key={b.id} code={b.settings.slotCode} campaigns={adCampaigns} />);
+        break;
+      }
+      default:
+        break;
+    }
+  }
+  if (!selfPromoInserted && sidebarWidgets.length > 0) {
+    sidebarWidgets.push(<AdSelfPromo key="ad-self-promo" />);
+  }
+
+  const hasSidebar = sidebarWidgets.length > 0;
+
+  return (
+    <>
+      {/* Ouverture pleine largeur : publicités d'en-tête, une, direct */}
+      {topBlocks.map((b, i) => {
+        const shell = i === 0 ? "container-page mt-4" : "container-page mt-6";
+        if (b.type === "lead") return <div key={b.id} className={shell}>{renderLead(b)}</div>;
+        if (b.type === "live") return <div key={b.id} className={shell}>{renderLive(b)}</div>;
+        return <div key={b.id} className={shell}>{renderAd(b.settings.slotCode)}</div>;
+      })}
+
+      {topBlocks.length > 0 && (
+        <div className="container-page mt-6">
+          <AdBanner code="AD-03" campaigns={adCampaigns} />
+        </div>
+      )}
+
+      {/* Corps : blocs composés dans l'ordre + colonne latérale */}
+      <div className={hasSidebar ? "container-page mt-8 grid gap-10 lg:grid-cols-[1fr_320px]" : "container-page mt-8"}>
+        <div className="min-w-0 space-y-10">
+          {mainBlocks.map((b) => {
+            const node = renderMainBlock(b);
+            return node ? <Fragment key={b.id}>{node}</Fragment> : null;
+          })}
+        </div>
+        {hasSidebar && (
+          <aside
+            className="min-w-0 space-y-6 lg:sticky lg:top-16 lg:max-h-[calc(100vh-5rem)] lg:self-start lg:overflow-y-auto lg:pr-1"
+            id="en-continu"
+          >
+            {sidebarWidgets}
+          </aside>
+        )}
+      </div>
+
+      {/* ── AD-15 : bannière pied de page ─────────────────────────────── */}
+      <div className="container-page mt-10">
+        <AdBanner code="AD-15" campaigns={adCampaigns} />
+      </div>
+    </>
   );
 }

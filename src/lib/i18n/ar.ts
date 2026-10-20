@@ -163,4 +163,24 @@ export const arDictionary: Dictionary = {
   "public.pwa.install": "تثبيت",
   "public.pwa.close": "إغلاق",
 
+  // ─── صفحات الأقسام (/rubrique/{slug}) ───────────────────────────
+  "public.category.kicker": "قسم",
+  "public.category.empty": "لا توجد مقالات منشورة في هذا القسم حالياً.",
+  "public.category.articlesCount": "{count} مقال(ات)",
+
+  // ─── صفحات الملفات الخاصة (/dossiers/{slug}) ────────────────────
+  "public.dossier.empty": "لا توجد مقالات منشورة في هذا الملف حالياً.",
+  "public.dossier.articlesCount": "{count} مقال(ات)",
+
+  // ─── صفحات الوسوم (/tags/{slug}) ────────────────────────────────
+  "public.tag.kicker": "وسم",
+  "public.tag.empty": "لا توجد مقالات منشورة بهذا الوسم حالياً.",
+  "public.tag.articlesCount": "{count} مقال(ات)",
+
+  // ─── تصفّح الصفحات (قوائم المقالات) ─────────────────────────────
+  "public.pagination.label": "تصفّح الصفحات",
+  "public.pagination.previous": "السابق",
+  "public.pagination.next": "التالي",
+  "public.pagination.page": "صفحة {page} من {total}",
+
 };

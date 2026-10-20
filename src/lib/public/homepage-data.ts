@@ -157,10 +157,11 @@ export async function getHeroArticles(count = 5): Promise<PublicArticle[]> {
   return hero;
 }
 
-/** Section par rubrique : 1 vedette + liste. */
+/** Section par rubrique : 1 vedette + liste. Les rubriques masquées
+ * (is_visible=false) ou supprimées ne produisent aucune section. */
 export async function getSectionArticles(categorySlug: string, count = 5): Promise<PublicArticle[]> {
   const rows = await db.article.findMany({
-    where: { ...PUBLISHED, category: { slug: categorySlug } },
+    where: { ...PUBLISHED, category: { slug: categorySlug, is_visible: true, deleted_at: null } },
     orderBy: [{ importance: "asc" }, { published_at: "desc" }],
     take: count,
     select: articleSelect,
@@ -271,8 +272,15 @@ export async function getVideoArticles(count = 6): Promise<PublicArticle[]> {
   return rows.map(toPublicArticle);
 }
 
+export interface PublicDossier {
+  id: string;
+  title: string;
+  lede: string | null;
+  cover: { url: string; alt: string | null } | null;
+}
+
 /** Dossier à la une (Z-11). */
-export async function getFeaturedDossier(): Promise<{ id: string; title: string; lede: string | null; cover: { url: string; alt: string | null } | null } | null> {
+export async function getFeaturedDossier(): Promise<PublicDossier | null> {
   const d = await db.dossier.findFirst({
     where: { is_active: true, is_featured: true },
     orderBy: { updated_at: "desc" },
@@ -283,6 +291,26 @@ export async function getFeaturedDossier(): Promise<{ id: string; title: string;
       coverMedia: { select: { url: true, alt_text: true } },
     },
   });
+  return toPublicDossier(d);
+}
+
+/** Dossier actif précis (bloc composeur source_type=dossier). */
+export async function getDossierById(id: string): Promise<PublicDossier | null> {
+  const d = await db.dossier.findFirst({
+    where: { id, is_active: true, deleted_at: null },
+    select: {
+      id: true,
+      title: true,
+      lede: true,
+      coverMedia: { select: { url: true, alt_text: true } },
+    },
+  });
+  return toPublicDossier(d);
+}
+
+function toPublicDossier(
+  d: { id: string; title: string; lede: string | null; coverMedia: { url: string; alt_text: string | null } | null } | null
+): PublicDossier | null {
   if (!d) return null;
   return {
     id: d.id,
@@ -410,18 +438,15 @@ export async function getAdCampaigns(): Promise<AdCampaignMap> {
   return bySlot;
 }
 
-/** Menu principal — cible category → ancre de section sur l'accueil ;
- * page/dossier/tag → routes dédiées. Résolution des slugs en une requête
- * par type (pas de N+1). */
-export async function getMainMenu(): Promise<NavItem[]> {
-  const menu = await db.menu.findUnique({
-    where: { key: "main" },
-    include: { items: { where: { is_visible: true }, orderBy: { position: "asc" } } },
-  });
-  if (!menu) return [];
-
+/** Résolution groupée des cibles category/page/dossier/tag d'une liste
+ * d'éléments de menu → slugs, en une requête par type (pas de N+1).
+ * Les rubriques masquées (is_visible=false) ou supprimées ne sont pas
+ * résolues : les éléments qui les pointent seront filtrés en amont. */
+async function resolveMenuTargets(
+  items: { target_type: string; target_id: string | null }[]
+): Promise<Map<string, string>> {
   const idsByType = new Map<string, Set<string>>();
-  for (const it of menu.items) {
+  for (const it of items) {
     if (!it.target_id) continue;
     if (["category", "page", "dossier", "tag"].includes(it.target_type)) {
       const set = idsByType.get(it.target_type) ?? new Set<string>();
@@ -433,38 +458,72 @@ export async function getMainMenu(): Promise<NavItem[]> {
   const slugById = new Map<string, string>();
   const [cats, pages, dossiers, tags] = await Promise.all([
     idsByType.has("category")
-      ? db.category.findMany({ where: { id: { in: [...idsByType.get("category")!] } }, select: { id: true, slug: true } })
+      ? db.category.findMany({
+          where: { id: { in: [...idsByType.get("category")!] }, is_visible: true, deleted_at: null },
+          select: { id: true, slug: true },
+        })
       : Promise.resolve([]),
     idsByType.has("page")
-      ? db.page.findMany({ where: { id: { in: [...idsByType.get("page")!] } }, select: { id: true, slug: true } })
+      ? db.page.findMany({
+          where: { id: { in: [...idsByType.get("page")!] }, deleted_at: null },
+          select: { id: true, slug: true },
+        })
       : Promise.resolve([]),
     idsByType.has("dossier")
-      ? db.dossier.findMany({ where: { id: { in: [...idsByType.get("dossier")!] } }, select: { id: true, slug: true } })
+      ? db.dossier.findMany({
+          where: { id: { in: [...idsByType.get("dossier")!] }, deleted_at: null },
+          select: { id: true, slug: true },
+        })
       : Promise.resolve([]),
     idsByType.has("tag")
-      ? db.tag.findMany({ where: { id: { in: [...idsByType.get("tag")!] } }, select: { id: true, slug: true } })
+      ? db.tag.findMany({
+          where: { id: { in: [...idsByType.get("tag")!] }, deleted_at: null },
+          select: { id: true, slug: true },
+        })
       : Promise.resolve([]),
   ]);
   for (const row of [...cats, ...pages, ...dossiers, ...tags]) slugById.set(row.id, row.slug);
+  return slugById;
+}
 
-  return menu.items.map((it) => {
-    if (it.target_type === "home" || !it.target_type) {
-      return { label: it.label, href: "/" };
-    }
-    const slug = it.target_id ? slugById.get(it.target_id) : undefined;
-    switch (it.target_type) {
-      case "category":
-        return { label: it.label, href: slug ? `/#${slug}` : "/" };
-      case "page":
-        return { label: it.label, href: slug ? `/pages/${slug}` : "/" };
-      case "dossier":
-        return { label: it.label, href: slug ? `/dossiers/${slug}` : "/" };
-      case "tag":
-        return { label: it.label, href: slug ? `/tags/${slug}` : "/" };
-      default:
-        return { label: it.label, href: it.target_url ?? "/" };
-    }
+/** URL d'un élément de menu selon sa cible — category → /rubrique/{slug},
+ * page → /pages/{slug}, dossier → /dossiers/{slug}, tag → /tags/{slug},
+ * url → target_url. `null` = cible introuvable/masquée (élément filtré). */
+function menuItemHref(
+  it: { target_type: string; target_id: string | null; target_url: string | null },
+  slugById: Map<string, string>
+): string | null {
+  if (it.target_type === "home" || !it.target_type) return "/";
+  if (it.target_type === "url") return it.target_url ?? "/";
+  const slug = it.target_id ? slugById.get(it.target_id) : undefined;
+  switch (it.target_type) {
+    case "category":
+      return slug ? `/rubrique/${slug}` : null;
+    case "page":
+      return slug ? `/pages/${slug}` : "/";
+    case "dossier":
+      return slug ? `/dossiers/${slug}` : "/";
+    case "tag":
+      return slug ? `/tags/${slug}` : "/";
+    default:
+      return it.target_url ?? "/";
+  }
+}
+
+/** Menu principal — cible category → route /rubrique/{slug} ; page/dossier/
+ * tag → routes dédiées. Résolution des slugs en une requête par type
+ * (pas de N+1) ; les rubriques is_visible=false sortent du menu. */
+export async function getMainMenu(): Promise<NavItem[]> {
+  const menu = await db.menu.findUnique({
+    where: { key: "main" },
+    include: { items: { where: { is_visible: true }, orderBy: { position: "asc" } } },
   });
+  if (!menu) return [];
+
+  const slugById = await resolveMenuTargets(menu.items);
+  return menu.items
+    .map((it) => ({ label: it.label, href: menuItemHref(it, slugById) }))
+    .filter((it): it is NavItem => it.href !== null);
 }
 
 export interface SiteBannerView {
@@ -518,16 +577,21 @@ export async function getSiteBanners(path = "/"): Promise<SiteBannerView[]> {
     }));
 }
 
-/** Menus du pied de page (footer_1..4). */
+/** Menus du pied de page (footer_1..4) — cibles résolues comme le menu
+ * principal (category → /rubrique/{slug}, page → /pages/{slug}, dossier →
+ * /dossiers/{slug}, tag → /tags/{slug}, url → target_url). */
 export async function getFooterMenus(): Promise<{ label: string; items: NavItem[] }[]> {
   const menus = await db.menu.findMany({
     where: { key: { startsWith: "footer" } },
     orderBy: { key: "asc" },
     include: { items: { where: { is_visible: true }, orderBy: { position: "asc" } } },
   });
+  const slugById = await resolveMenuTargets(menus.flatMap((m) => m.items));
   return menus.map((m) => ({
     label: m.label.replace(/^Pied de page — /, ""),
-    items: m.items.map((it) => ({ label: it.label, href: it.target_url ?? "/" })),
+    items: m.items
+      .map((it) => ({ label: it.label, href: menuItemHref(it, slugById) }))
+      .filter((it): it is NavItem => it.href !== null),
   }));
 }
 
@@ -551,11 +615,11 @@ interface OpenMeteoResponse {
 }
 
 /** Météo réelle (Open-Meteo, sans clé) pour les villes visibles. */
-export async function getWeather(): Promise<WeatherNow[]> {
+export async function getWeather(count = 5): Promise<WeatherNow[]> {
   const cities = await db.weatherCity.findMany({
     where: { is_visible: true },
     orderBy: { position: "asc" },
-    take: 5,
+    take: count,
   });
   const results = await Promise.allSettled(
     cities.map(async (c) => {
@@ -580,4 +644,297 @@ export async function getWeather(): Promise<WeatherNow[]> {
   return results
     .filter((r): r is PromiseFulfilledResult<WeatherNow> => r.status === "fulfilled")
     .map((r) => r.value);
+}
+
+// ─── Composeur de la page d'accueil (homepage_blocks, §11.2) ──────────
+
+/** Paramètres JSON d'un bloc du composeur. Les clés inconnues passent
+ * telles quelles (indice de type conservé volontairement large). */
+export interface HomepageBlockSettings {
+  slotCode?: string;
+  listKey?: string;
+  count?: number;
+  placement?: string;
+  sidebarAd?: string;
+  sidebarMostRead?: boolean;
+  categorySlug?: string;
+  [key: string]: unknown;
+}
+
+/** Base commune des blocs composés rendus par l'accueil. */
+interface ComposedBlockBase {
+  id: string;
+  code: string;
+  variant: string | null;
+  title: string | null;
+  subtitle: string | null;
+  settings: HomepageBlockSettings;
+}
+
+/** Bloc composé, discriminé par type — renvoyé par getComposedHomepage(). */
+export type ComposedBlock =
+  | (ComposedBlockBase & { type: "section"; anchorId: string; heading: string; articles: PublicArticle[] })
+  | (ComposedBlockBase & { type: "lead"; articles: PublicArticle[] })
+  | (ComposedBlockBase & { type: "live"; live: { id: string; title: string } | null })
+  | (ComposedBlockBase & { type: "latest"; articles: PublicArticle[]; mostRead: PublicArticle[] })
+  | (ComposedBlockBase & { type: "most_read"; articles: PublicArticle[] })
+  | (ComposedBlockBase & { type: "video"; articles: PublicArticle[] })
+  | (ComposedBlockBase & { type: "newsletter" })
+  | (ComposedBlockBase & { type: "weather"; weather: WeatherNow[] })
+  | (ComposedBlockBase & { type: "dossier"; dossier: PublicDossier | null })
+  | (ComposedBlockBase & { type: "world"; articles: PublicArticle[] })
+  | (ComposedBlockBase & { type: "opinion"; articles: PublicArticle[] })
+  | (ComposedBlockBase & { type: "ad" })
+  | (ComposedBlockBase & { type: "flash" })
+  | (ComposedBlockBase & { type: "unsupported"; rawType: string });
+
+/** Alias de types de blocs utilisés par certaines références §09.1. */
+const BLOCK_TYPE_ALIASES: Record<string, string> = {
+  une: "lead",
+  opinions: "opinion",
+  monde: "world",
+};
+
+/** Compteurs par défaut des blocs (= compteurs historiques de l'accueil). */
+const BLOCK_TYPE_COUNTS: Record<string, number> = {
+  section: 5,
+  lead: 5,
+  latest: 12,
+  most_read: 5,
+  video: 6,
+  world: 8,
+  opinion: 4,
+  weather: 5,
+};
+
+function normalizeBlockType(raw: string): string {
+  return BLOCK_TYPE_ALIASES[raw] ?? raw;
+}
+
+function parseBlockSettings(raw: string): HomepageBlockSettings {
+  try {
+    const parsed: unknown = JSON.parse(raw || "{}");
+    if (parsed !== null && typeof parsed === "object" && !Array.isArray(parsed)) {
+      return parsed as HomepageBlockSettings;
+    }
+  } catch {
+    // settings illisibles → bloc avec paramètres vides
+  }
+  return {};
+}
+
+function parseManualArticleIds(raw: string): string[] {
+  try {
+    const parsed: unknown = JSON.parse(raw || "[]");
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter((v): v is string => typeof v === "string");
+  } catch {
+    return [];
+  }
+}
+
+/** Compte effectif d'un bloc : settings.count prioritaire, puis item_count
+ * du composeur, puis le compteur historique du type. */
+function blockCount(itemCount: number, settings: HomepageBlockSettings, type: string): number {
+  const fromSettings =
+    typeof settings.count === "number" && Number.isFinite(settings.count) && settings.count > 0
+      ? Math.floor(settings.count)
+      : null;
+  const fromBlock = Number.isFinite(itemCount) && itemCount > 0 ? itemCount : null;
+  return fromSettings ?? fromBlock ?? BLOCK_TYPE_COUNTS[type] ?? 5;
+}
+
+interface VisibleCategory {
+  id: string;
+  slug: string;
+  name: string;
+}
+
+/** Articles d'un bloc « section » selon sa source : rubrique, mot-clé,
+ * sélection manuelle (ordre conservé) ou automatique (derniers publiés).
+ * Les rubriques masquées (is_visible=false) ne produisent aucune section. */
+async function resolveSectionArticles(
+  sourceType: string | null,
+  sourceId: string | null,
+  manualArticleIds: string,
+  category: VisibleCategory | undefined,
+  count: number
+): Promise<PublicArticle[]> {
+  switch (sourceType) {
+    case "category": {
+      if (!category) return []; // rubrique introuvable ou is_visible=false
+      const rows = await db.article.findMany({
+        where: { ...PUBLISHED, category: { id: category.id } },
+        orderBy: { published_at: "desc" },
+        take: count,
+        select: articleSelect,
+      });
+      return rows.map(toPublicArticle);
+    }
+    case "tag": {
+      if (!sourceId) return [];
+      const rows = await db.article.findMany({
+        where: { ...PUBLISHED, tags: { some: { tag_id: sourceId } } },
+        orderBy: { published_at: "desc" },
+        take: count,
+        select: articleSelect,
+      });
+      return rows.map(toPublicArticle);
+    }
+    case "manual": {
+      const ids = parseManualArticleIds(manualArticleIds).slice(0, count);
+      if (ids.length === 0) return [];
+      const rows = await db.article.findMany({
+        where: { ...PUBLISHED, id: { in: ids } },
+        select: articleSelect,
+      });
+      const byId = new Map(rows.map((r) => [r.id, r]));
+      const ordered: PublicArticle[] = [];
+      for (const id of ids) {
+        const row = byId.get(id);
+        if (row) ordered.push(toPublicArticle(row));
+      }
+      return ordered;
+    }
+    case "auto":
+    case null:
+      return getLatestArticles(count);
+    default:
+      // source non supportée pour une section (dossier, format…) : rien
+      return [];
+  }
+}
+
+/**
+ * Blocs actifs du composeur `/admin/homepage` (table homepage_blocks),
+ * dans l'ordre position asc, fenêtre starts_at/ends_at null-safe.
+ * Chaque bloc est résolu avec ses données (articles, direct, dossier,
+ * météo…) via des requêtes parallèles — findMany groupés, pas de N+1.
+ * Renvoie `null` quand AUCUN bloc actif n'existe (table vide, seed absent
+ * ou tout désactivé) : la page applique alors son gabarit de repli.
+ */
+export async function getComposedHomepage(): Promise<ComposedBlock[] | null> {
+  const now = new Date();
+  const blocks = await db.homepageBlock.findMany({
+    where: {
+      is_active: true,
+      locale: "fr",
+      AND: [
+        { OR: [{ starts_at: null }, { starts_at: { lte: now } }] },
+        { OR: [{ ends_at: null }, { ends_at: { gte: now } }] },
+      ],
+    },
+    orderBy: { position: "asc" },
+  });
+  if (blocks.length === 0) return null;
+
+  const prepared = blocks.map((block) => ({
+    block,
+    type: normalizeBlockType(block.type),
+    settings: parseBlockSettings(block.settings),
+  }));
+
+  // Pré-résolution groupée des rubriques visibles visées par les blocs
+  // « section » : source_id (id, composeur) OU settings.categorySlug (slug,
+  // seed §09.1) — 2 findMany groupés au lieu d'une requête par bloc.
+  const categoryIds = new Set<string>();
+  const categorySlugs = new Set<string>();
+  for (const { block, type, settings } of prepared) {
+    if (type !== "section" || block.source_type !== "category") continue;
+    if (block.source_id) categoryIds.add(block.source_id);
+    if (typeof settings.categorySlug === "string" && settings.categorySlug !== "") {
+      categorySlugs.add(settings.categorySlug);
+    }
+  }
+  const visibleWhere = { is_visible: true, deleted_at: null };
+  const [catsById, catsBySlug] = await Promise.all([
+    categoryIds.size > 0
+      ? db.category.findMany({ where: { id: { in: [...categoryIds] }, ...visibleWhere }, select: { id: true, slug: true, name: true } })
+      : Promise.resolve([] as VisibleCategory[]),
+    categorySlugs.size > 0
+      ? db.category.findMany({ where: { slug: { in: [...categorySlugs] }, ...visibleWhere }, select: { id: true, slug: true, name: true } })
+      : Promise.resolve([] as VisibleCategory[]),
+  ]);
+  const categoryById = new Map<string, VisibleCategory>();
+  const categoryBySlug = new Map<string, VisibleCategory>();
+  for (const c of [...catsById, ...catsBySlug]) {
+    categoryById.set(c.id, c);
+    categoryBySlug.set(c.slug, c);
+  }
+
+  return Promise.all(
+    prepared.map(async ({ block, type, settings }): Promise<ComposedBlock> => {
+      const base = {
+        id: block.id,
+        code: block.code,
+        variant: block.variant,
+        title: block.title,
+        subtitle: block.subtitle,
+        settings,
+      };
+      const count = blockCount(block.item_count, settings, type);
+
+      switch (type) {
+        case "section": {
+          const category =
+            (block.source_type === "category" && block.source_id ? categoryById.get(block.source_id) : undefined) ??
+            (block.source_type === "category" && typeof settings.categorySlug === "string"
+              ? categoryBySlug.get(settings.categorySlug)
+              : undefined);
+          const articles = await resolveSectionArticles(
+            block.source_type,
+            block.source_id,
+            block.manual_article_ids,
+            category,
+            count
+          );
+          return {
+            ...base,
+            type: "section" as const,
+            anchorId: category?.slug ?? block.code,
+            heading: block.title ?? category?.name ?? block.code,
+            articles,
+          };
+        }
+        case "lead":
+          return { ...base, type: "lead" as const, articles: await getHeroArticles(count) };
+        case "live":
+          return { ...base, type: "live" as const, live: await getActiveLive() };
+        case "latest": {
+          const [articles, mostRead] = await Promise.all([
+            getLatestArticles(count),
+            settings.sidebarMostRead === true ? getMostReadArticles(BLOCK_TYPE_COUNTS.most_read) : Promise.resolve([] as PublicArticle[]),
+          ]);
+          return { ...base, type: "latest" as const, articles, mostRead };
+        }
+        case "most_read":
+          return { ...base, type: "most_read" as const, articles: await getMostReadArticles(count) };
+        case "video":
+          return { ...base, type: "video" as const, articles: await getVideoArticles(count) };
+        case "newsletter":
+          return { ...base, type: "newsletter" as const };
+        case "weather":
+          return { ...base, type: "weather" as const, weather: await getWeather(count) };
+        case "dossier":
+          return {
+            ...base,
+            type: "dossier" as const,
+            dossier:
+              block.source_type === "dossier" && block.source_id
+                ? await getDossierById(block.source_id)
+                : await getFeaturedDossier(),
+          };
+        case "world":
+          return { ...base, type: "world" as const, articles: await getWorldArticles(count) };
+        case "opinion":
+          return { ...base, type: "opinion" as const, articles: await getOpinionArticles(count) };
+        case "ad":
+          return { ...base, type: "ad" as const };
+        case "flash":
+          return { ...base, type: "flash" as const };
+        default:
+          return { ...base, type: "unsupported" as const, rawType: block.type };
+      }
+    })
+  );
 }

@@ -155,6 +155,26 @@ export const enDictionary: Dictionary = {
   // ─── Language switcher ───────────────────────────────────────────
   "public.language.label": "Language",
   "public.language.switcher": "Change language",
+
+  // ─── Category pages (/rubrique/{slug}) ───────────────────────────
+  "public.category.kicker": "Section",
+  "public.category.empty": "No published articles in this section yet.",
+  "public.category.articlesCount": "{count} article(s)",
+
+  // ─── Dossier pages (/dossiers/{slug}) ────────────────────────────
+  "public.dossier.empty": "No published articles in this dossier yet.",
+  "public.dossier.articlesCount": "{count} article(s)",
+
+  // ─── Tag pages (/tags/{slug}) ────────────────────────────────────
+  "public.tag.kicker": "Tag",
+  "public.tag.empty": "No published articles with this tag yet.",
+  "public.tag.articlesCount": "{count} article(s)",
+
+  // ─── Pagination (article lists) ──────────────────────────────────
+  "public.pagination.label": "Pagination",
+  "public.pagination.previous": "Previous",
+  "public.pagination.next": "Next",
+  "public.pagination.page": "Page {page} of {total}",
   // ─── PWA : installation + notifications ────────────────────────
   "public.pwa.installTitle": "Install INFOSPRO",
   "public.pwa.installHint": "Quick access from your home screen.",

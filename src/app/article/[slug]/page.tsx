@@ -8,6 +8,8 @@ import { parseBlocks } from '@/types/blocks';
 import { parseJsonArrayObjects } from '@/lib/json';
 import { getTranslations, localeTag } from '@/lib/i18n';
 import { trackPageView } from '@/server/services/analytics';
+import { getAdCampaigns, getSiteBanners } from '@/lib/public/homepage-data';
+import { SiteBannerBar } from '@/components/public/site-banner-bar';
 import { SiteHeader } from '@/components/public/site-header';
 import { SiteFooter } from '@/components/public/site-footer';
 
@@ -128,6 +130,10 @@ export default async function ArticlePage({ params }: PageProps) {
   // anti-doublonnage 30 min géré par le service (§11.2 statistiques).
   await trackPageView({ path: `/article/${article.slug}`, articleId: article.id });
 
+  // Bandeaux du site ciblant /article + campagnes publicitaires actives
+  // (blocs ad du corps, ex. AD-04 inséré automatiquement).
+  const [banners, adCampaigns] = await Promise.all([getSiteBanners('/article'), getAdCampaigns()]);
+
   let blocks = parseBlocks(article.body);
   if (blocks.length > 0 && blocks[0].type === 'image' && blocks[0].mediaId === article.cover_media_id) {
     blocks = blocks.slice(1);
@@ -204,6 +210,7 @@ export default async function ArticlePage({ params }: PageProps) {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbLd) }}
       />
+      <SiteBannerBar banners={banners} closeLabel={translate('public.banner.close')} />
       <SiteHeader />
       <main className="min-h-screen bg-paper pb-20">
         <article className="mx-auto max-w-3xl px-6 py-10">
@@ -253,7 +260,7 @@ export default async function ArticlePage({ params }: PageProps) {
           )}
 
           <div className="mt-8">
-            <BlockRenderer blocks={blocks} mediaById={mediaById} articleTitles={articleTitles} adsEnabled={true} />
+            <BlockRenderer blocks={blocks} mediaById={mediaById} articleTitles={articleTitles} adsEnabled={true} ads={adCampaigns} />
           </div>
 
           {article.tags.length > 0 && (

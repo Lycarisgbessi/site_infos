@@ -1,9 +1,11 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getTranslations } from "@/lib/i18n";
-import { getVideoArticles } from "@/lib/public/homepage-data";
+import { getAdCampaigns, getSiteBanners, getVideoArticles } from "@/lib/public/homepage-data";
 import { getSettingsValues } from "@/server/services/settings";
 import { TopBar, SiteHeader } from "@/components/public/site-header";
+import { SiteBannerBar } from "@/components/public/site-banner-bar";
+import { AdBanner } from "@/components/public/ad-slot";
 import { SiteFooter } from "@/components/public/site-footer";
 import { Cover } from "@/components/public/article-cards";
 
@@ -53,8 +55,12 @@ export default async function VideoListPage() {
 
   const videos = await getVideoArticles(24);
 
+  // Bandeaux du site ciblant /video + campagnes publicitaires actives.
+  const [banners, adCampaigns] = await Promise.all([getSiteBanners("/video"), getAdCampaigns()]);
+
   return (
     <div className="flex min-h-screen flex-col bg-paper">
+      <SiteBannerBar banners={banners} closeLabel={translate("public.banner.close")} />
       <TopBar />
       <SiteHeader />
 
@@ -98,6 +104,11 @@ export default async function VideoListPage() {
             <p className="mt-2 max-w-2xl text-sm text-ink-soft">{translate("public.video.pageSubtitle")}</p>
           </header>
 
+          {/* ── AD-10 : leaderboard d'en-tête (rien sans campagne active) ── */}
+          <div className="mt-6">
+            <AdBanner code="AD-10" campaigns={adCampaigns} />
+          </div>
+
           {videos.length === 0 ? (
             <p className="mt-8 border border-dashed border-rule-strong p-6 text-sm text-ink-soft">
               {translate("public.video.none")}
@@ -124,6 +135,11 @@ export default async function VideoListPage() {
               ))}
             </div>
           )}
+
+          {/* ── AD-06 : pavé MPU de pied de page (300×250, centré) ────────── */}
+          <div className="mx-auto mt-10 max-w-[300px]">
+            <AdBanner code="AD-06" campaigns={adCampaigns} />
+          </div>
         </div>
       </main>
 

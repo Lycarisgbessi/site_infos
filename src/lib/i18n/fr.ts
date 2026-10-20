@@ -169,6 +169,26 @@ export const frDictionary = {
   // ─── Sélecteur de langue ─────────────────────────────────────────
   "public.language.label": "Langue",
   "public.language.switcher": "Changer de langue",
+
+  // ─── Pages rubriques (/rubrique/{slug}) ───────────────────────────
+  "public.category.kicker": "Rubrique",
+  "public.category.empty": "Aucun article publié dans cette rubrique pour le moment.",
+  "public.category.articlesCount": "{count} article(s) publié(s)",
+
+  // ─── Pages dossiers (/dossiers/{slug}) ────────────────────────────
+  "public.dossier.empty": "Aucun article publié dans ce dossier pour le moment.",
+  "public.dossier.articlesCount": "{count} article(s) publié(s)",
+
+  // ─── Pages tags (/tags/{slug}) ────────────────────────────────────
+  "public.tag.kicker": "Mot-clé",
+  "public.tag.empty": "Aucun article publié avec ce mot-clé pour le moment.",
+  "public.tag.articlesCount": "{count} article(s) publié(s)",
+
+  // ─── Pagination (listes d'articles) ───────────────────────────────
+  "public.pagination.label": "Pagination",
+  "public.pagination.previous": "Précédent",
+  "public.pagination.next": "Suivant",
+  "public.pagination.page": "Page {page} sur {total}",
 } as const satisfies Record<string, string>;
 
 /** Contrat d'exhaustivité : chaque dictionnaire doit couvrir TOUTES les clés FR. */

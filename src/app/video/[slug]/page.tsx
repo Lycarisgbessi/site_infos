@@ -3,9 +3,11 @@ import { notFound } from "next/navigation";
 import { getTranslations, localeTag } from "@/lib/i18n";
 import { db } from "@/lib/db";
 import { parseBlocks } from "@/types/blocks";
-import { getVideoArticles } from "@/lib/public/homepage-data";
+import { getAdCampaigns, getSiteBanners, getVideoArticles } from "@/lib/public/homepage-data";
 import { getSettingsValues } from "@/server/services/settings";
 import { TopBar, SiteHeader } from "@/components/public/site-header";
+import { SiteBannerBar } from "@/components/public/site-banner-bar";
+import { AdBanner } from "@/components/public/ad-slot";
 import { SiteFooter } from "@/components/public/site-footer";
 import { Cover } from "@/components/public/article-cards";
 import { ShareButton } from "../share-button";
@@ -49,6 +51,9 @@ export default async function VideoPage({ params }: { params: Promise<{ slug: st
   // anti-doublonnage 30 min géré par le service (§11.2 statistiques).
   await trackPageView({ path: `/video/${article.slug}`, articleId: article.id });
 
+  // Bandeaux du site ciblant /video + campagnes publicitaires actives.
+  const [banners, adCampaigns] = await Promise.all([getSiteBanners("/video"), getAdCampaigns()]);
+
   const blocks = parseBlocks(article.body);
   const videoBlocks = blocks.filter((b): b is Extract<typeof b, { type: "video" }> => b.type === "video");
   const mainVideo = videoBlocks[0];
@@ -70,6 +75,7 @@ export default async function VideoPage({ params }: { params: Promise<{ slug: st
 
   return (
     <div className="flex min-h-screen flex-col bg-paper">
+      <SiteBannerBar banners={banners} closeLabel={translate("public.banner.close")} />
       <TopBar />
       <SiteHeader />
 
@@ -132,6 +138,11 @@ export default async function VideoPage({ params }: { params: Promise<{ slug: st
             />
           </div>
 
+          {/* ── AD-10 : leaderboard sous le bloc signature ──────────────── */}
+          <div className="mt-8">
+            <AdBanner code="AD-10" campaigns={adCampaigns} />
+          </div>
+
           {/* Vidéos liées */}
           {related.length > 0 && (
             <section aria-label={translate("public.video.related")} className="mt-10">
@@ -161,6 +172,11 @@ export default async function VideoPage({ params }: { params: Promise<{ slug: st
               </div>
             </section>
           )}
+
+          {/* ── AD-06 : pavé MPU de pied de page (300×250, centré) ────────── */}
+          <div className="mx-auto mt-10 max-w-[300px]">
+            <AdBanner code="AD-06" campaigns={adCampaigns} />
+          </div>
         </div>
       </main>
 

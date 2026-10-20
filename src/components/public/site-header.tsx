@@ -56,23 +56,42 @@ export async function TopBar() {
   );
 }
 
+/** Lit un drapeau optionnel du modèle MenuItem (open_new_tab, highlight).
+ * Défensif : la couche données (NavItem) ne les expose pas encore forcément,
+ * et le nommage peut être camelCase (openNewTab) ou snake_case (open_new_tab). */
+function menuFlag(item: NavItem, camelCase: string, snakeCase: string): boolean {
+  const rec = item as unknown as Record<string, unknown>;
+  return Boolean(rec[camelCase] ?? rec[snakeCase]);
+}
+
 function NavLinks({ items }: { items: NavItem[] }) {
   return (
     <>
-      {items.map((item) => (
-        <Link
-          key={item.label}
-          href={item.href}
-          className="group relative flex h-11 items-center whitespace-nowrap px-3 text-sm font-semibold tracking-wide text-ink transition-colors duration-200 hover:text-brand-red lg:px-4"
-        >
-          {item.label}
-          {/* Barre de survol — se déploie de gauche à droite sous l'item */}
-          <span
-            aria-hidden
-            className="pointer-events-none absolute inset-x-2 bottom-0 h-[3px] origin-left scale-x-0 bg-brand-red transition-transform duration-300 ease-[var(--ease-signal)] group-hover:scale-x-100 rtl:origin-right"
-          />
-        </Link>
-      ))}
+      {items.map((item) => {
+        const highlighted = menuFlag(item, "highlight", "highlight");
+        const openNewTab = menuFlag(item, "openNewTab", "open_new_tab");
+        return (
+          <Link
+            key={item.label}
+            href={item.href}
+            target={openNewTab ? "_blank" : undefined}
+            rel={openNewTab ? "noopener noreferrer" : undefined}
+            className={`group relative flex h-11 items-center whitespace-nowrap px-3 text-sm font-semibold tracking-wide transition-colors duration-200 hover:text-brand-red lg:px-4 ${
+              highlighted ? "text-brand-red" : "text-ink"
+            }`}
+          >
+            {item.label}
+            {/* Barre rouge — se déploie de gauche à droite sous l'item au
+                survol ; permanente si l'item est mis en avant (highlight) */}
+            <span
+              aria-hidden
+              className={`pointer-events-none absolute inset-x-2 bottom-0 h-[3px] origin-left bg-brand-red transition-transform duration-300 ease-[var(--ease-signal)] rtl:origin-right ${
+                highlighted ? "scale-x-100" : "scale-x-0 group-hover:scale-x-100"
+              }`}
+            />
+          </Link>
+        );
+      })}
     </>
   );
 }

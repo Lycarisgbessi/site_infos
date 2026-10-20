@@ -29,7 +29,7 @@ export const ADMIN_NAV: AdminNavItem[] = [
   { href: "/admin/homepage", labelKey: "admin.nav.homepage", permission: "homepage.compose", phase: 2, icon: "LayoutTemplate" },
   { href: "/admin/seo", labelKey: "admin.nav.seo", permission: "seo.read", phase: 6, icon: "Search" },
   { href: "/admin/ads", labelKey: "admin.nav.adregie", permission: "ads.read", phase: 2, icon: "Megaphone" },
-  { href: "/admin/newsletter", labelKey: "admin.nav.newsletter", permission: "newsletter.read", phase: 7, icon: "Mail" },
+  { href: "/admin/newsletter", labelKey: "admin.nav.newsletter", permission: "newsletter.read", phase: 2, icon: "Mail" },
   { href: "/admin/moderation", labelKey: "admin.nav.moderation", permission: "comment.moderate", phase: 2, icon: "MessageSquare" },
   { href: "/admin/analytics", labelKey: "admin.nav.analytics", permission: "analytics.read", phase: 2, icon: "BarChart3" },
   { href: "/admin/utilisateurs", labelKey: "admin.nav.users", permission: "user.read", phase: 2, icon: "Users" },
