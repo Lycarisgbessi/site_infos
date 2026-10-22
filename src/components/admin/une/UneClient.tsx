@@ -284,9 +284,12 @@ export function UneClient() {
         override_title: slot.override_title && slot.override_title.trim() !== "" ? slot.override_title.trim() : null,
         override_media_id: slot.override_media_id,
       });
+      // Positions GLOBALES : 0 = héros (home_lead), 1 à 4 = secondaires
+      // (home_secondary). Le service normalise de toute façon ces zones à
+      // la sauvegarde — c'est la garantie côté serveur.
       const slots: UneSlotPayload[] = [
         ...lead.map((s, position) => toPayload(s, "home_lead", position)),
-        ...secondary.map((s, position) => toPayload(s, "home_secondary", position)),
+        ...secondary.map((s, position) => toPayload(s, "home_secondary", position + 1)),
       ];
       await apiFetch("/api/admin/une", { method: "PUT", json: { slots } });
       toast({ title: "Une enregistrée", description: `${slots.length} article${slots.length > 1 ? "s" : ""} composent désormais la une.` });
@@ -326,6 +329,15 @@ export function UneClient() {
 
           <div className="min-w-0 flex-1 space-y-2">
             <div>
+              {zone === "home_lead" ? (
+                <Badge className="mb-1 border-brand-red bg-red-wash text-brand-red" aria-label="Emplacement héros, grand format">
+                  Héros — grand format
+                </Badge>
+              ) : (
+                <Badge variant="outline" className="mb-1 border-rule bg-paper-alt text-ink-faint" aria-label={`Emplacement secondaire ${index + 1}`}>
+                  Secondaire {index + 1}
+                </Badge>
+              )}
               <p className="truncate font-serif text-sm font-semibold text-ink" title={title ?? undefined}>
                 {title ?? "Article introuvable"}
               </p>
@@ -430,14 +442,19 @@ export function UneClient() {
     );
   };
 
-  /** Emplacement vide — zone libre en pointillés. */
+  /** Emplacement vide — zone libre en pointillés, remplie automatiquement
+   * par les derniers articles publiés si elle reste vide (getHeroArticles
+   * complète toujours la une côté public). */
   const freeZone = (zone: Zone) => (
     <div
       key={`free-${zone}`}
-      className="flex h-16 items-center justify-center border border-dashed border-rule bg-paper-alt/50 text-xs font-medium text-ink-faint"
+      className="flex h-16 flex-col items-center justify-center gap-0.5 border border-dashed border-rule bg-paper-alt/50 px-3 text-center"
       aria-label="Emplacement libre"
     >
-      Zone libre
+      <span className="text-xs font-medium text-ink-faint">Zone libre</span>
+      <span className="text-[11px] text-ink-faint/80">
+        Laisser vide pour un remplissage automatique par les derniers articles publiés
+      </span>
     </div>
   );
 
@@ -451,6 +468,9 @@ export function UneClient() {
           <h1 className="mt-1 font-serif text-2xl font-bold tracking-tight">Composeur de la une</h1>
           <p className="mt-1 text-sm text-ink-faint">
             Article principal (héros) et articles secondaires — l&apos;ordre conditionne l&apos;affichage de la page d&apos;accueil.
+          </p>
+          <p className="mt-1 text-xs text-ink-faint/90">
+            Laisser des emplacements vides pour un remplissage automatique par les derniers articles publiés.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -590,11 +610,14 @@ export function UneClient() {
 
         {/* ── Colonne droite : zones de la une ───────────────────────── */}
         <div className="space-y-6 lg:col-span-3">
-          <section aria-label="Une — article principal (héros)" className="border border-rule bg-paper">
+          <section aria-label="Une — héros (grand format)" className="border border-rule bg-paper">
             <div className="flex items-center justify-between gap-2 border-b border-rule px-4 py-3">
               <div>
                 <p className="kicker text-ink-faint">Zone 1 · home_lead</p>
-                <h2 className="font-serif text-base font-bold text-ink">Une — article principal (héros)</h2>
+                <h2 className="font-serif text-base font-bold text-ink">Héros (grand format)</h2>
+                <p className="mt-0.5 text-xs text-ink-faint">
+                  Le 1<sup>er</sup> emplacement devient le grand titre de la page d&apos;accueil — pleine largeur, image XXL.
+                </p>
               </div>
               <Badge variant="outline" className="border-rule text-ink-faint">
                 {lead.length}/{HERO_MAX}
@@ -615,7 +638,10 @@ export function UneClient() {
             <div className="flex items-center justify-between gap-2 border-b border-rule px-4 py-3">
               <div>
                 <p className="kicker text-ink-faint">Zone 2 · home_secondary</p>
-                <h2 className="font-serif text-base font-bold text-ink">Une — articles secondaires</h2>
+                <h2 className="font-serif text-base font-bold text-ink">Secondaires</h2>
+                <p className="mt-0.5 text-xs text-ink-faint">
+                  Formats réduits autour du héros sur la page d&apos;accueil — jusqu&apos;à {SECONDARY_MAX} articles.
+                </p>
               </div>
               <Badge variant="outline" className="border-rule text-ink-faint">
                 {secondary.length}/{SECONDARY_MAX}
@@ -669,7 +695,7 @@ export function UneClient() {
           ) : (
             <div className="space-y-4">
               <div>
-                <p className="kicker text-ink-faint">Article principal (héros)</p>
+                <p className="kicker text-ink-faint">Héros (grand format)</p>
                 <div className="mt-2 border border-rule bg-paper-alt p-3">
                   {lead.length === 0 ? (
                     <p className="text-sm text-ink-faint">Zone libre</p>
@@ -691,7 +717,7 @@ export function UneClient() {
               </div>
 
               <div>
-                <p className="kicker text-ink-faint">Articles secondaires</p>
+                <p className="kicker text-ink-faint">Secondaires</p>
                 {secondary.length === 0 ? (
                   <p className="mt-2 text-sm text-ink-faint">Aucun article secondaire.</p>
                 ) : (

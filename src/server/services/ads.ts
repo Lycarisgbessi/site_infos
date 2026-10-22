@@ -148,11 +148,18 @@ export async function createAdCampaign(
   const startsAt = new Date(input.starts_at);
   const endsAt = input.ends_at ? new Date(input.ends_at) : FAR_FUTURE;
 
+  // GARANTIE de diffusion immédiate : une campagne créée « active »
+  // (is_active=true ou absent → actif par défaut dans l'UI) est créée en
+  // statut « running » — JAMAIS le défaut Prisma « draft », invisible côté
+  // public (getAdCampaigns ne sélectionne que status=running + créative
+  // active + fenêtre de dates).
+  const isActive = input.is_active !== false;
+
   const campaign = await db.adCampaign.create({
     data: {
       advertiser_id: advertiserId,
       name: input.name,
-      status: input.is_active === false ? "paused" : "running",
+      status: isActive ? "running" : "paused",
       starts_at: startsAt,
       ends_at: endsAt,
       priority: input.priority ?? 5,
@@ -165,7 +172,7 @@ export async function createAdCampaign(
           video_url: input.media_kind === "video" ? (input.video_url ?? null) : null,
           click_url: input.click_url,
           alt_text: input.name,
-          is_active: input.is_active !== false,
+          is_active: isActive,
         },
       },
     },

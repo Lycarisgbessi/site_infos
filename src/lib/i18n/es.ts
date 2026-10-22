@@ -184,4 +184,57 @@ export const esDictionary: Dictionary = {
   "public.pagination.next": "Siguiente",
   "public.pagination.page": "Página {page} de {total}",
 
+  // ─── Navegación (items estáticos del menú principal) ──────────────
+  "public.nav.rubriques": "Secciones",
+  "public.nav.videos": "Vídeos",
+  "public.nav.podcast": "Podcast",
+  "public.nav.dossiers": "Especiales",
+
+  // ─── Índice /rubriques ────────────────────────────────────────────
+  "public.rubriques.pageTitle": "Secciones",
+  "public.rubriques.pageSubtitle":
+    "Toda la actualidad de la redacción, organizada por grandes secciones y subsecciones.",
+  "public.rubriques.empty": "De momento no hay ninguna sección visible.",
+  "public.rubriques.children": "Subsecciones",
+  "public.rubriques.articlesCount": "{count} artículo(s)",
+
+  // ─── Índice /tags ─────────────────────────────────────────────────
+  "public.tags.pageTitle": "Temas",
+  "public.tags.pageSubtitle":
+    "Todos los temas y palabras clave tratados por la redacción, por orden alfabético.",
+  "public.tags.empty": "De momento ninguna palabra clave usada por un artículo publicado.",
+  "public.tags.articlesCount": "{count} artículo(s)",
+
+  // ─── Índice /dossiers ─────────────────────────────────────────────
+  "public.dossiers.pageTitle": "Especiales",
+  "public.dossiers.pageSubtitle":
+    "Investigaciones, análisis y coberturas en profundidad: revive los grandes reportajes de la redacción.",
+  "public.dossiers.empty": "De momento no hay ningún especial activo.",
+  "public.dossiers.featured": "Destacado",
+  "public.dossiers.articlesCount": "{count} artículo(s)",
+
+  // ─── Índice /entites ──────────────────────────────────────────────
+  "public.entites.pageTitle": "Entidades",
+  "public.entites.pageSubtitle":
+    "Personas, organizaciones y lugares citados en nuestros artículos publicados.",
+  "public.entites.empty": "De momento ninguna entidad citada en un artículo publicado.",
+  "public.entites.articlesCount": "{count} artículo(s)",
+  "public.entites.type.person": "Persona",
+  "public.entites.type.organization": "Organización",
+  "public.entites.type.place": "Lugar",
+
+  // ─── Índice /zones ────────────────────────────────────────────────
+  "public.zones.pageTitle": "Zonas geográficas",
+  "public.zones.pageSubtitle": "La actualidad por continente, país, región y ciudad.",
+  "public.zones.empty": "De momento ninguna zona geográfica vinculada a un artículo publicado.",
+  "public.zones.articlesCount": "{count} artículo(s)",
+  "public.zones.type.continent": "Continente",
+  "public.zones.type.country": "País",
+  "public.zones.type.region": "Región",
+  "public.zones.type.city": "Ciudad",
+
+  // ─── Pie de página: columnas Explorar y Páginas ───────────────────
+  "public.footer.explore": "Explorar",
+  "public.footer.pages": "Páginas",
+
 };

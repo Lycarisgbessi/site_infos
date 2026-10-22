@@ -40,6 +40,9 @@ export default async function PodcastPage() {
         title: ep.title,
         description: ep.description,
         audioUrl: ep.audio_url,
+        // ID Drive conservé à l'enregistrement (resolveAudio) : source
+        // privilégiée de l'URL d'aperçu pour le repli iframe du lecteur.
+        driveFileId: ep.drive_file_id,
         durationSec: ep.duration_sec,
         coverUrl: ep.cover_url,
         publishedAt: ep.published_at,

@@ -415,34 +415,60 @@ export async function searchCandidates(
 }
 
 export async function saveUne(input: z.infer<typeof uneSaveSchema>, userId: string) {
-  // Valide les positions par zone (unique zone+position)
-  const seen = new Set<string>();
-  for (const s of input.slots) {
-    const k = `${s.zone}:${s.position}`;
-    if (seen.has(k)) throw new ValidationError(`Position ${s.position} dupliquée dans la zone ${s.zone}.`);
-    seen.add(k);
+  // Garantie côté service (§11.2 /admin/une) : la position envoyée est
+  // GLOBALE — le slot en position 0 constitue l'article héros (zone
+  // home_lead), les suivants sont secondaires (zone home_secondary,
+  // positions 1 à 4). La zone transmise par l'UI n'est jamais fiée telle
+  // quelle : l'invariant « 1 héros + 4 secondaires » est reconstruit ici,
+  // quel que soit le payload (défaut historique : 5 slots en home_lead).
+  if (input.slots.length > 5) {
+    throw new ValidationError("La une accepte au maximum 5 articles : 1 héros + 4 secondaires.");
   }
+
+  // Tri stable par position : le premier slot devient le héros (position 0),
+  // les autres sont renumérotés 1, 2, 3… en secondaire — la contrainte
+  // unique (zone, position) est ainsi toujours respectée, même si l'UI
+  // envoyait des positions par zone ou des doublons.
+  const ordered = input.slots
+    .map((slot, index) => ({ slot, index }))
+    .sort((a, b) => a.slot.position - b.slot.position || a.index - b.index);
+
+  const seenArticles = new Set<string>();
+  const slotsData = ordered.map(({ slot }, index) => {
+    if (seenArticles.has(slot.article_id)) {
+      throw new ValidationError("Un article ne peut figurer qu'une seule fois dans la une.");
+    }
+    seenArticles.add(slot.article_id);
+    return {
+      zone: index === 0 ? ("home_lead" as const) : ("home_secondary" as const),
+      position: index, // 0 = héros, 1-4 = secondaires
+      article_id: slot.article_id,
+      pinned: slot.pinned ?? false,
+      starts_at: slot.starts_at ? new Date(slot.starts_at) : null,
+      ends_at: slot.ends_at ? new Date(slot.ends_at) : null,
+      override_title: slot.override_title ?? null,
+      override_media_id: slot.override_media_id ?? null,
+      created_by: userId,
+    };
+  });
 
   await db.$transaction(async (tx) => {
     await tx.featuredSlot.deleteMany({ where: { zone: { in: ["home_lead", "home_secondary"] } } });
-    if (input.slots.length > 0) {
-      await tx.featuredSlot.createMany({
-        data: input.slots.map((s) => ({
-          zone: s.zone,
-          article_id: s.article_id,
-          position: s.position,
-          pinned: s.pinned ?? false,
-          starts_at: s.starts_at ? new Date(s.starts_at) : null,
-          ends_at: s.ends_at ? new Date(s.ends_at) : null,
-          override_title: s.override_title ?? null,
-          override_media_id: s.override_media_id ?? null,
-          created_by: userId,
-        })),
-      });
+    if (slotsData.length > 0) {
+      await tx.featuredSlot.createMany({ data: slotsData });
     }
   });
 
-  await auditLog({ userId, action: "une.compose", resourceType: "featured", after: { slots: input.slots.length } });
+  await auditLog({
+    userId,
+    action: "une.compose",
+    resourceType: "featured",
+    after: {
+      slots: slotsData.length,
+      lead: Math.min(1, slotsData.length),
+      secondary: Math.max(0, slotsData.length - 1),
+    },
+  });
   invalidateTags([CACHE_TAGS.featured, CACHE_TAGS.homepage]);
   return { ok: true };
 }

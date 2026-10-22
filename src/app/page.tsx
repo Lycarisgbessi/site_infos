@@ -15,6 +15,7 @@ import {
   getWeather,
   getWorldArticles,
   getAdCampaigns,
+  getFallbackSections,
   type AdCampaignMap,
   type ComposedBlock,
   type PublicArticle,
@@ -46,18 +47,6 @@ import { Reveal } from "@/components/public/reveal";
  */
 
 export const dynamic = "force-dynamic";
-
-/** Sections du gabarit de repli (§09.1 historique, seed absent). */
-const SECTIONS: { slug: string }[] = [
-  { slug: "politique" },
-  { slug: "economie" },
-  { slug: "societe" },
-  { slug: "international" },
-  { slug: "sport" },
-  { slug: "culture" },
-  { slug: "reportages" },
-  { slug: "tech" },
-];
 
 /** Blocs portés par la colonne latérale (ordre du composeur conservé). */
 function isSidebarBlock(block: ComposedBlock): boolean {
@@ -123,7 +112,11 @@ export default async function HomePage() {
     );
   }
 
-  // ── Repli : AUCUN bloc actif → gabarit §09.1 historique, à l'identique ──
+  // ── Repli : AUCUN bloc actif → gabarit §09.1 historique ──────────────
+  // Sections dynamiques : toutes les rubriques parentes visibles ayant au
+  // moins un article publié, triées par position (les 8 historiques en
+  // tête d'affichage) — résolution dans homepage-data.getFallbackSections.
+  const sectionsConfig = await getFallbackSections();
   const [hero, latest, mostRead, live, videos, dossier, opinions, world, weather, ...sections] = await Promise.all([
     getHeroArticles(5),
     getLatestArticles(12),
@@ -134,10 +127,10 @@ export default async function HomePage() {
     getOpinionArticles(4),
     getWorldArticles(8),
     weatherEnabled ? getWeather() : Promise.resolve<WeatherNow[]>([]),
-    ...SECTIONS.map((s) => getSectionArticles(s.slug, 5)),
+    ...sectionsConfig.map((s) => getSectionArticles(s.slug, 5)),
   ]);
 
-  const sectionData = SECTIONS.map((s, i) => ({ slug: s.slug, articles: sections[i] }));
+  const sectionData = sectionsConfig.map((s, i) => ({ slug: s.slug, articles: sections[i] }));
   const [heroMain, ...heroSide] = hero;
 
   return (
@@ -196,6 +189,9 @@ export default async function HomePage() {
         <div className="container-page mt-8 grid gap-10 lg:grid-cols-[1fr_320px]">
           {/* Colonne principale */}
           <div className="min-w-0 space-y-10">
+            {/* ── AD-01 : leaderboard en tête de zone principale ─────────── */}
+            <AdBanner code="AD-01" campaigns={adCampaigns} />
+
             {sectionData.slice(0, 3).map(({ slug, articles }, idx) => (
               <Reveal key={slug}>
                 <SectionBlock
@@ -593,6 +589,9 @@ function ComposedMain({ blocks, adCampaigns, tvEnabled, weatherEnabled, translat
       {/* Corps : blocs composés dans l'ordre + colonne latérale */}
       <div className={hasSidebar ? "container-page mt-8 grid gap-10 lg:grid-cols-[1fr_320px]" : "container-page mt-8"}>
         <div className="min-w-0 space-y-10">
+          {/* ── AD-01 : leaderboard en tête de zone principale ─────────── */}
+          <AdBanner code="AD-01" campaigns={adCampaigns} />
+
           {mainBlocks.map((b) => {
             const node = renderMainBlock(b);
             return node ? <Fragment key={b.id}>{node}</Fragment> : null;

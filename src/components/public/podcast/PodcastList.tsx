@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useAudioPlayer } from "@/components/public/audio-player/context";
+import { parseDriveId } from "@/lib/drive";
 import { cn } from "@/lib/utils";
 
 /**
@@ -15,6 +16,8 @@ export interface PublicEpisode {
   title: string;
   description: string | null;
   audioUrl: string;
+  /** ID du fichier Google Drive conservé en base (null si audio externe). */
+  driveFileId?: string | null;
   durationSec: number | null;
   coverUrl: string | null;
   publishedAt: string;
@@ -47,6 +50,28 @@ function formatDate(iso: string, locale: string): string {
   return new Date(iso).toLocaleDateString(locale, { dateStyle: "long" });
 }
 
+/** Paramètre `id` d'une URL de flux Drive (uc?export=download&id=…). */
+function driveIdFromUrlParam(url: string): string | null {
+  try {
+    const id = new URL(url).searchParams.get("id");
+    return id && /^[A-Za-z0-9_-]{20,}$/.test(id) ? id : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * URL d'aperçu intégré Drive (repli iframe du lecteur) pour un épisode.
+ * Priorité à l'ID stocké en base ; sinon extraction depuis l'URL via
+ * parseDriveId (liens /file/d/, open?id=, ID brut) puis le paramètre `id`
+ * (l'URL de flux `uc?export=download&id=…` n'est pas couverte par parseDriveId).
+ */
+function driveEmbedUrlFor(audioUrl: string, driveFileId: string | null | undefined): string | undefined {
+  const stored = driveFileId?.trim();
+  const id = stored ? stored : (parseDriveId(audioUrl) ?? driveIdFromUrlParam(audioUrl));
+  return id ? `https://drive.google.com/file/d/${id}/preview` : undefined;
+}
+
 export function PodcastList({
   seasons,
   labels,
@@ -68,7 +93,11 @@ export function PodcastList({
     });
 
   const playEpisode = (episode: PublicEpisode) => {
-    play({ url: episode.audioUrl, title: episode.title });
+    play({
+      url: episode.audioUrl,
+      title: episode.title,
+      driveEmbedUrl: driveEmbedUrlFor(episode.audioUrl, episode.driveFileId),
+    });
   };
 
   return (

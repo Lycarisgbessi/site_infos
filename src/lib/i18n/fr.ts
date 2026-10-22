@@ -189,6 +189,59 @@ export const frDictionary = {
   "public.pagination.previous": "Précédent",
   "public.pagination.next": "Suivant",
   "public.pagination.page": "Page {page} sur {total}",
+
+  // ─── Navigation (items statiques du menu principal) ───────────────
+  "public.nav.rubriques": "Rubriques",
+  "public.nav.videos": "Vidéos",
+  "public.nav.podcast": "Podcast",
+  "public.nav.dossiers": "Dossiers",
+
+  // ─── Index /rubriques ─────────────────────────────────────────────
+  "public.rubriques.pageTitle": "Rubriques",
+  "public.rubriques.pageSubtitle":
+    "Toute l'actualité de la rédaction, classée par grandes rubriques et sous-rubriques.",
+  "public.rubriques.empty": "Aucune rubrique visible pour le moment.",
+  "public.rubriques.children": "Sous-rubriques",
+  "public.rubriques.articlesCount": "{count} article(s)",
+
+  // ─── Index /tags ──────────────────────────────────────────────────
+  "public.tags.pageTitle": "Mots-clés",
+  "public.tags.pageSubtitle":
+    "Tous les sujets et mots-clés suivis par la rédaction, par ordre alphabétique.",
+  "public.tags.empty": "Aucun mot-clé utilisé par un article publié pour le moment.",
+  "public.tags.articlesCount": "{count} article(s)",
+
+  // ─── Index /dossiers ──────────────────────────────────────────────
+  "public.dossiers.pageTitle": "Dossiers",
+  "public.dossiers.pageSubtitle":
+    "Enquêtes, décryptages et couvertures de fond : revivez les grands dossiers de la rédaction.",
+  "public.dossiers.empty": "Aucun dossier actif pour le moment.",
+  "public.dossiers.featured": "À la une",
+  "public.dossiers.articlesCount": "{count} article(s)",
+
+  // ─── Index /entites ───────────────────────────────────────────────
+  "public.entites.pageTitle": "Entités",
+  "public.entites.pageSubtitle":
+    "Personnalités, organisations et lieux cités dans nos articles publiés.",
+  "public.entites.empty": "Aucune entité citée par un article publié pour le moment.",
+  "public.entites.articlesCount": "{count} article(s)",
+  "public.entites.type.person": "Personnalité",
+  "public.entites.type.organization": "Organisation",
+  "public.entites.type.place": "Lieu",
+
+  // ─── Index /zones ─────────────────────────────────────────────────
+  "public.zones.pageTitle": "Zones géographiques",
+  "public.zones.pageSubtitle": "L'actualité par continent, pays, région et ville.",
+  "public.zones.empty": "Aucune zone géographique rattachée à un article publié pour le moment.",
+  "public.zones.articlesCount": "{count} article(s)",
+  "public.zones.type.continent": "Continent",
+  "public.zones.type.country": "Pays",
+  "public.zones.type.region": "Région",
+  "public.zones.type.city": "Ville",
+
+  // ─── Pied de page : colonnes Explorer et Pages ────────────────────
+  "public.footer.explore": "Explorer",
+  "public.footer.pages": "Pages",
 } as const satisfies Record<string, string>;
 
 /** Contrat d'exhaustivité : chaque dictionnaire doit couvrir TOUTES les clés FR. */

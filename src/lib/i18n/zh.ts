@@ -180,4 +180,53 @@ export const zhDictionary: Dictionary = {
   "public.pagination.next": "下一页",
   "public.pagination.page": "第 {page} 页，共 {total} 页",
 
+  // ─── 导航（主菜单静态项）───────────────────────────────────────
+  "public.nav.rubriques": "栏目",
+  "public.nav.videos": "视频",
+  "public.nav.podcast": "播客",
+  "public.nav.dossiers": "专题",
+
+  // ─── /rubriques 索引页 ────────────────────────────────────────────
+  "public.rubriques.pageTitle": "栏目",
+  "public.rubriques.pageSubtitle": "编辑部全部新闻，按主要栏目与子栏目分类。",
+  "public.rubriques.empty": "暂无可见栏目。",
+  "public.rubriques.children": "子栏目",
+  "public.rubriques.articlesCount": "{count} 篇文章",
+
+  // ─── /tags 索引页 ─────────────────────────────────────────────────
+  "public.tags.pageTitle": "关键词",
+  "public.tags.pageSubtitle": "编辑部报道的所有主题与关键词，按字母顺序排列。",
+  "public.tags.empty": "暂无已用于发布文章的关键词。",
+  "public.tags.articlesCount": "{count} 篇文章",
+
+  // ─── /dossiers 索引页 ─────────────────────────────────────────────
+  "public.dossiers.pageTitle": "专题报道",
+  "public.dossiers.pageSubtitle": "调查、深度解析与纵深报道：重温编辑部的重大专题。",
+  "public.dossiers.empty": "暂无进行中的专题。",
+  "public.dossiers.featured": "精选",
+  "public.dossiers.articlesCount": "{count} 篇文章",
+
+  // ─── /entites 索引页 ──────────────────────────────────────────────
+  "public.entites.pageTitle": "人物与机构",
+  "public.entites.pageSubtitle": "已发布文章中提及的人物、机构和地点。",
+  "public.entites.empty": "暂无文章提及的实体。",
+  "public.entites.articlesCount": "{count} 篇文章",
+  "public.entites.type.person": "人物",
+  "public.entites.type.organization": "机构",
+  "public.entites.type.place": "地点",
+
+  // ─── /zones 索引页 ────────────────────────────────────────────────
+  "public.zones.pageTitle": "地理区域",
+  "public.zones.pageSubtitle": "按大洲、国家、地区和城市浏览新闻。",
+  "public.zones.empty": "暂无与发布文章关联的地理区域。",
+  "public.zones.articlesCount": "{count} 篇文章",
+  "public.zones.type.continent": "大洲",
+  "public.zones.type.country": "国家",
+  "public.zones.type.region": "地区",
+  "public.zones.type.city": "城市",
+
+  // ─── 页脚：探索与页面栏目 ─────────────────────────────────────────
+  "public.footer.explore": "探索",
+  "public.footer.pages": "页面",
+
 };

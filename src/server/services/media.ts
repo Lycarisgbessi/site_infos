@@ -58,7 +58,7 @@ export async function uploadMedia(
   input: UploadMediaInput,
   userId: string,
   opts: { skipDuplicate?: boolean } = {}
-): Promise<{ media: { id: string; url: string; duplicate: boolean }; warning?: string }> {
+): Promise<{ media: { id: string; url: string; duplicate: boolean; file_size: number }; warning?: string }> {
   const kind = ALLOWED_MIME[input.mimeType];
   if (!kind) {
     throw new ValidationError(`Type de fichier non pris en charge : ${input.mimeType}`);
@@ -73,11 +73,13 @@ export async function uploadMedia(
   if (!opts.skipDuplicate) {
     const dupe = await db.media.findFirst({
       where: { checksum, deleted_at: null },
-      select: { id: true, title: true, url: true },
+      select: { id: true, title: true, url: true, file_size: true },
     });
     if (dupe) {
       return {
-        media: { id: dupe.id, url: dupe.url, duplicate: true },
+        // file_size est BigInt en base — converti en Number : JSON.stringify
+        // échoue sur les BigInt (« erreur interne » côté client sinon).
+        media: { id: dupe.id, url: dupe.url, duplicate: true, file_size: Number(dupe.file_size) },
         warning: `Doublon détecté : identique à « ${dupe.title ?? dupe.id} » (médiathèque).`,
       };
     }
@@ -189,7 +191,13 @@ export async function uploadMedia(
     after: { title: media.title, type: kind, size: input.buffer.byteLength, variants: variants.length },
   });
 
-  return { media: { id: media.id, url: media.url, duplicate: false } };
+  // GARANTIE de sérialisation : jamais de ligne Prisma Media brute dans une
+  // réponse JSON — file_size (BigInt, seul champ BigInt du modèle) est
+  // toujours converti en Number (cf. listMedia / purge / corbeille qui ne
+  // renvoient que des compteurs).
+  return {
+    media: { id: media.id, url: media.url, duplicate: false, file_size: Number(media.file_size) },
+  };
 }
 
 export async function listMedia(session: { id: string }, query: z.infer<typeof mediaListQuerySchema>) {

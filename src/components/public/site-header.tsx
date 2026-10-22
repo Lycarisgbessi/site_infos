@@ -2,12 +2,18 @@ import Link from "next/link";
 import { getTranslations, localeTag, type Locale } from "@/lib/i18n";
 import { LanguageSwitcher } from "@/lib/i18n/language-switcher";
 import { getMainMenu, type NavItem } from "@/lib/public/homepage-data";
+import { getSettingsValues } from "@/server/services/settings";
 import { MobileMenu, ThemeToggle } from "./mobile-nav";
 
 /**
  * Barre utilitaire + en-tête + menu principal (§05.2).
  * UN SEUL menu horizontal — effet de survol : barre rouge qui se déploie
  * sous l'item actif (validée éditorialement).
+ * Après les items issus de la base (menu « main ») : liens statiques
+ * Rubriques (/rubriques), Vidéos (/video, si features.tv actif),
+ * Podcast (/podcast) et Dossiers (/dossiers) — même style NavLinks,
+ * également présents dans le drawer mobile (MobileMenu reçoit la même
+ * liste d'items).
  * Task ID: 9-HEADER
  */
 
@@ -98,7 +104,23 @@ function NavLinks({ items }: { items: NavItem[] }) {
 
 export async function SiteHeader() {
   const { translate, locale } = await getTranslations();
-  const items = await getMainMenu();
+  const [dbItems, settings] = await Promise.all([
+    getMainMenu(),
+    getSettingsValues(["features.tv"]),
+  ]);
+
+  // Liens statiques ajoutés après les items DB (pas de doublon si le menu
+  // « main » pointe déjà vers l'une de ces routes). Vidéos suit le flag
+  // features.tv, lu comme /video : absent ou "true" = actif.
+  const tvEnabled = settings["features.tv"] !== "false";
+  const staticItems: NavItem[] = [
+    { label: translate("public.nav.rubriques"), href: "/rubriques" },
+    ...(tvEnabled ? [{ label: translate("public.nav.videos"), href: "/video" }] : []),
+    { label: translate("public.nav.podcast"), href: "/podcast" },
+    { label: translate("public.nav.dossiers"), href: "/dossiers" },
+  ];
+  const seenHrefs = new Set(dbItems.map((it) => it.href));
+  const items = [...dbItems, ...staticItems.filter((it) => !seenHrefs.has(it.href))];
 
   return (
     <header className="bg-paper">

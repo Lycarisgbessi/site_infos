@@ -169,6 +169,49 @@ export async function getSectionArticles(categorySlug: string, count = 5): Promi
   return rows.map(toPublicArticle);
 }
 
+// ─── Sections du gabarit de repli (accueil sans composeur) ────────────
+
+/** Les 8 rubriques historiques du zoning §09.1 : conservées en tête
+ * d'affichage quand elles existent encore en base. */
+const FALLBACK_SECTION_SLUGS = [
+  "politique",
+  "economie",
+  "societe",
+  "international",
+  "sport",
+  "culture",
+  "reportages",
+  "tech",
+] as const;
+
+export interface FallbackSection {
+  slug: string;
+}
+
+/** Sections du gabarit de repli de l'accueil : TOUTES les rubriques
+ * parentes (parent_id null) visibles ayant au moins un article publié,
+ * triées par position — les 8 rubriques historiques restent en tête
+ * d'affichage si elles existent. Repli sur les slugs historiques si la
+ * base ne renvoie aucune rubrique éligible (base vide / seed absent). */
+export async function getFallbackSections(): Promise<FallbackSection[]> {
+  const parents = await db.category.findMany({
+    where: {
+      parent_id: null,
+      deleted_at: null,
+      is_visible: true,
+      articles: { some: { deleted_at: null, status: "published", published_at: { lte: new Date() } } },
+    },
+    orderBy: { position: "asc" },
+    select: { slug: true },
+  });
+  if (parents.length === 0) return FALLBACK_SECTION_SLUGS.map((slug) => ({ slug }));
+
+  const slugs = parents.map((p) => p.slug);
+  const historical: string[] = FALLBACK_SECTION_SLUGS.filter((s) => slugs.includes(s));
+  const others = slugs.filter((s) => !historical.includes(s));
+  return [...historical, ...others].map((slug) => ({ slug }));
+}
+
 /** En continu : derniers articles publiés. */
 export async function getLatestArticles(count = 12): Promise<PublicArticle[]> {
   const rows = await db.article.findMany({

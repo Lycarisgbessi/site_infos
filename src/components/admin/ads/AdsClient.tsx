@@ -78,6 +78,35 @@ const FORMAT_LABELS: Record<string, string> = {
   video: "Vidéo",
 };
 
+/**
+ * Mentions d'emplacement — où la créative est réellement affichée sur le
+ * site public (usages vérifiés dans src/app/page.tsx, /video, /podcast et
+ * le rendu des corps d'articles). Objectif : permettre à l'annonceur de
+ * choisir un emplacement visible ; les slots sans usage frontal sont
+ * signalés comme réservés.
+ */
+const SLOT_HINTS: Record<string, string> = {
+  "AD-01": "Bannière haut de page accueil",
+  "AD-02": "Colonne accueil",
+  "AD-03": "Pleine largeur accueil",
+  "AD-04": "Dans les articles",
+  "AD-10": "Haut page vidéo/podcast",
+  "AD-12": "Bandeau mobile collant",
+  // Autres emplacements réellement rendus aujourd'hui :
+  "AD-06": "Pavé pied de page vidéo",
+  "AD-07": "Entre les sections accueil",
+  "AD-08": "Carte éditoriale accueil",
+  "AD-14": "Bas de colonne accueil",
+  "AD-15": "Pied de page accueil",
+  "AD-16": "Carte éditoriale accueil (météo)",
+};
+
+const SLOT_RESERVED_HINT = "Réservé — non affiché actuellement";
+
+function slotHint(code: string): string {
+  return SLOT_HINTS[code] ?? SLOT_RESERVED_HINT;
+}
+
 function formatDateTime(iso: string | null): string {
   if (!iso) return "—";
   return new Date(iso).toLocaleString("fr-FR", { dateStyle: "medium", timeStyle: "short" });
@@ -304,12 +333,29 @@ export function AdsClient({ canManage }: { canManage: boolean }) {
                 <SelectContent>
                   {slots.map((slot) => (
                     <SelectItem key={slot.code} value={slot.code}>
-                      {slot.code} — {slot.name}
-                      {slot.width && slot.height ? ` (${slot.width}×${slot.height})` : ""}
+                      <span className="flex flex-col items-start gap-0.5">
+                        <span>
+                          {slot.code} — {slot.name}
+                          {slot.width && slot.height ? ` (${slot.width}×${slot.height})` : ""}
+                        </span>
+                        <span className={cn("text-[11px] leading-tight", SLOT_HINTS[slot.code] ? "text-ink-faint" : "text-ink-faint/70")}>
+                          {slotHint(slot.code)}
+                        </span>
+                      </span>
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
+              {form.slotCode && (
+                <p className="text-xs text-ink-faint" aria-live="polite">
+                  Affichage : {slotHint(form.slotCode)}
+                </p>
+              )}
+              <p className="text-[11px] leading-snug text-ink-faint/90">
+                Emplacements principaux réellement affichés : AD-01 bannière haut de page accueil · AD-02 colonne
+                accueil · AD-03 pleine largeur accueil · AD-04 dans les articles · AD-10 haut page vidéo/podcast ·
+                AD-12 bandeau mobile collant.
+              </p>
             </div>
             <div className="space-y-1">
               <Label className="text-xs font-semibold text-ink-soft">Type de média *</Label>

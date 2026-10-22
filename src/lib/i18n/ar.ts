@@ -183,4 +183,57 @@ export const arDictionary: Dictionary = {
   "public.pagination.next": "التالي",
   "public.pagination.page": "صفحة {page} من {total}",
 
+  // ─── التنقل (عناصر ثابتة في القائمة الرئيسية) ────────────────────
+  "public.nav.rubriques": "الأقسام",
+  "public.nav.videos": "فيديو",
+  "public.nav.podcast": "بودكاست",
+  "public.nav.dossiers": "ملفات",
+
+  // ─── فهرس /rubriques ──────────────────────────────────────────────
+  "public.rubriques.pageTitle": "الأقسام",
+  "public.rubriques.pageSubtitle":
+    "كل أخبار التحرية، مرتبة حسب الأقسام الرئيسية والأقسام الفرعية.",
+  "public.rubriques.empty": "لا توجد أقسام ظاهرة حالياً.",
+  "public.rubriques.children": "أقسام فرعية",
+  "public.rubriques.articlesCount": "{count} مقال(ات)",
+
+  // ─── فهرس /tags ───────────────────────────────────────────────────
+  "public.tags.pageTitle": "الكلمات المفتاحية",
+  "public.tags.pageSubtitle":
+    "كل المواضيع والكلمات المفتاحية التي تغطيها التحرية، بترتيب أبجدي.",
+  "public.tags.empty": "لا توجد كلمة مفتاحية مستخدمة في مقال منشور حالياً.",
+  "public.tags.articlesCount": "{count} مقال(ات)",
+
+  // ─── فهرس /dossiers ───────────────────────────────────────────────
+  "public.dossiers.pageTitle": "الملفات",
+  "public.dossiers.pageSubtitle":
+    "تحقيقات وتحليلات وتغطيات معمّقة: استعرض أبرز ملفات التحرية.",
+  "public.dossiers.empty": "لا يوجد ملف نشط حالياً.",
+  "public.dossiers.featured": "مميّز",
+  "public.dossiers.articlesCount": "{count} مقال(ات)",
+
+  // ─── فهرس /entites ────────────────────────────────────────────────
+  "public.entites.pageTitle": "الكيانات",
+  "public.entites.pageSubtitle":
+    "أشخاص ومنظمات وأماكن ورد ذكرها في مقالاتنا المنشورة.",
+  "public.entites.empty": "لا توجد كيانات مذكورة في مقال منشور حالياً.",
+  "public.entites.articlesCount": "{count} مقال(ات)",
+  "public.entites.type.person": "شخص",
+  "public.entites.type.organization": "منظمة",
+  "public.entites.type.place": "مكان",
+
+  // ─── فهرس /zones ──────────────────────────────────────────────────
+  "public.zones.pageTitle": "المناطق الجغرافية",
+  "public.zones.pageSubtitle": "الأخبار حسب القارة والبلد والمنطقة والمدينة.",
+  "public.zones.empty": "لا توجد منطقة جغرافية مرتبطة بمقال منشور حالياً.",
+  "public.zones.articlesCount": "{count} مقال(ات)",
+  "public.zones.type.continent": "قارة",
+  "public.zones.type.country": "بلد",
+  "public.zones.type.region": "منطقة",
+  "public.zones.type.city": "مدينة",
+
+  // ─── تذييل الصفحة: عمودا استكشاف والصفحات ─────────────────────────
+  "public.footer.explore": "استكشف",
+  "public.footer.pages": "الصفحات",
+
 };

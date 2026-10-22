@@ -184,4 +184,53 @@ export const enDictionary: Dictionary = {
   "public.pwa.install": "Install",
   "public.pwa.close": "Close",
 
+  // ─── Navigation (static main-menu items) ──────────────────────────
+  "public.nav.rubriques": "Sections",
+  "public.nav.videos": "Videos",
+  "public.nav.podcast": "Podcast",
+  "public.nav.dossiers": "Special Reports",
+
+  // ─── /rubriques index ─────────────────────────────────────────────
+  "public.rubriques.pageTitle": "Sections",
+  "public.rubriques.pageSubtitle": "All the news, organised by main sections and subsections.",
+  "public.rubriques.empty": "No visible sections yet.",
+  "public.rubriques.children": "Subsections",
+  "public.rubriques.articlesCount": "{count} article(s)",
+
+  // ─── /tags index ──────────────────────────────────────────────────
+  "public.tags.pageTitle": "Topics",
+  "public.tags.pageSubtitle": "All the topics and keywords covered by the newsroom, in alphabetical order.",
+  "public.tags.empty": "No keyword used by a published article yet.",
+  "public.tags.articlesCount": "{count} article(s)",
+
+  // ─── /dossiers index ──────────────────────────────────────────────
+  "public.dossiers.pageTitle": "Special Reports",
+  "public.dossiers.pageSubtitle": "Investigations, explainers and in-depth coverage: relive the newsroom's major reports.",
+  "public.dossiers.empty": "No active special report at the moment.",
+  "public.dossiers.featured": "Featured",
+  "public.dossiers.articlesCount": "{count} article(s)",
+
+  // ─── /entites index ───────────────────────────────────────────────
+  "public.entites.pageTitle": "Entities",
+  "public.entites.pageSubtitle": "People, organisations and places mentioned in our published articles.",
+  "public.entites.empty": "No entity mentioned in a published article yet.",
+  "public.entites.articlesCount": "{count} article(s)",
+  "public.entites.type.person": "Person",
+  "public.entites.type.organization": "Organisation",
+  "public.entites.type.place": "Place",
+
+  // ─── /zones index ─────────────────────────────────────────────────
+  "public.zones.pageTitle": "Geographic zones",
+  "public.zones.pageSubtitle": "The news by continent, country, region and city.",
+  "public.zones.empty": "No geographic zone linked to a published article yet.",
+  "public.zones.articlesCount": "{count} article(s)",
+  "public.zones.type.continent": "Continent",
+  "public.zones.type.country": "Country",
+  "public.zones.type.region": "Region",
+  "public.zones.type.city": "City",
+
+  // ─── Footer: Explore and Pages columns ────────────────────────────
+  "public.footer.explore": "Explore",
+  "public.footer.pages": "Pages",
+
 };

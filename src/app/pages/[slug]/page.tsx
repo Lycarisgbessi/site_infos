@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { BlockRenderer, type MediaLike } from "@/components/blocks/BlockRenderer";
 import { parseBlocks, type Block } from "@/types/blocks";
 import { getTranslations } from "@/lib/i18n";
+import { getSettingsByGroup } from "@/server/services/settings";
 import { TopBar, SiteHeader } from "@/components/public/site-header";
 import { SiteFooter } from "@/components/public/site-footer";
 import { NewsletterBlock } from "@/components/public/newsletter-block";
@@ -25,6 +26,91 @@ export const dynamic = "force-dynamic";
 const CONTACT_EMAIL = "contact@infospro.net";
 const ADS_EMAIL = "regie@infospro.net";
 const PHONE = "+224 620 00 00 00";
+
+// ─── Contacts branchés sur les réglages (§ contact) ──────────────────────
+
+interface ContactInfo {
+  email: string;
+  phone: string;
+  address: string;
+}
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+/**
+ * Décode la valeur brute d'un réglage (sérialisée JSON dans la table
+ * `settings`) : tableau, objet, chaîne JSON ou chaîne simple — jamais d'échec.
+ */
+function decodeSettingValue(raw: string | undefined): unknown {
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw) as unknown;
+  } catch {
+    const trimmed = raw.trim();
+    return trimmed !== "" ? trimmed : null;
+  }
+}
+
+/** Premier e-mail valide trouvé (contact.emails = objet {service: email}, tableau ou chaîne). */
+function firstEmail(value: unknown): string {
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    return EMAIL_RE.test(trimmed) ? trimmed : "";
+  }
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const found = firstEmail(item);
+      if (found) return found;
+    }
+    return "";
+  }
+  if (typeof value === "object" && value !== null) {
+    for (const item of Object.values(value as Record<string, unknown>)) {
+      const found = firstEmail(item);
+      if (found) return found;
+    }
+  }
+  return "";
+}
+
+/** Premier numéro exploitable (≥7 chiffres) de contact.phones (liste JSON). */
+function firstPhone(value: unknown): string {
+  const candidates: string[] =
+    typeof value === "string"
+      ? [value]
+      : Array.isArray(value)
+        ? value.filter((v): v is string => typeof v === "string")
+        : [];
+  for (const candidate of candidates) {
+    const trimmed = candidate.trim();
+    if (trimmed.replace(/\D/g, "").length >= 7) return trimmed;
+  }
+  return "";
+}
+
+function firstAddress(value: unknown): string {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+/**
+ * Contacts de la page « contact » : réglages admin (contact.emails,
+ * contact.phones, contact.address — variantes singulières acceptées) avec
+ * repli sur les valeurs historiques codées. Résilient : base indisponible
+ * ou valeurs vides/malformées → fallback.
+ */
+async function loadContactInfo(fallbackAddress: string): Promise<ContactInfo> {
+  const fallback: ContactInfo = { email: CONTACT_EMAIL, phone: PHONE, address: fallbackAddress };
+  try {
+    const rows = await getSettingsByGroup("contact");
+    const byKey = new Map(rows.map((r) => [r.key, decodeSettingValue(r.value)]));
+    const email = firstEmail(byKey.get("contact.emails") ?? byKey.get("contact.email")) || fallback.email;
+    const phone = firstPhone(byKey.get("contact.phones") ?? byKey.get("contact.phone")) || fallback.phone;
+    const address = firstAddress(byKey.get("contact.address")) || fallback.address;
+    return { email, phone, address };
+  } catch {
+    return fallback;
+  }
+}
 
 /** Page publiée correspondant au slug (soft-delete exclue). Null si absente ou base indisponible (repli statique). */
 async function findPublishedPage(slug: string) {
@@ -75,6 +161,18 @@ export default async function PublicPage({ params }: { params: Promise<{ slug: s
   const page = await findPublishedPage(slug);
 
   if (!page && slug !== "contact" && slug !== "publicite" && slug !== "newsletters") notFound();
+
+  // Page contact codée en dur : coordonnées lues dans les réglages admin,
+  // repli sur les valeurs historiques si absentes/vides.
+  const contactInfo =
+    !page && slug === "contact"
+      ? await loadContactInfo(translate("public.pages.contact.addressValue"))
+      : null;
+  const contact: ContactInfo = contactInfo ?? {
+    email: CONTACT_EMAIL,
+    phone: PHONE,
+    address: translate("public.pages.contact.addressValue"),
+  };
 
   // Résolution des références des blocs (médias, articles liés) — même usage
   // que la page article : les blocs portent des identifiants, le rendu
@@ -158,19 +256,19 @@ export default async function PublicPage({ params }: { params: Promise<{ slug: s
                   <div className="mt-6 grid gap-4 sm:grid-cols-3">
                     <div className="border border-rule bg-paper-alt p-5">
                       <p className="kicker text-brand-red">{translate("public.pages.contact.email")}</p>
-                      <a href={`mailto:${CONTACT_EMAIL}`} className="mt-2 block break-all font-serif font-bold hover:text-brand-red">
-                        {CONTACT_EMAIL}
+                      <a href={`mailto:${contact.email}`} className="mt-2 block break-all font-serif font-bold hover:text-brand-red">
+                        {contact.email}
                       </a>
                     </div>
                     <div className="border border-rule bg-paper-alt p-5">
                       <p className="kicker text-brand-red">{translate("public.pages.contact.phone")}</p>
-                      <a href={`tel:${PHONE.replace(/\s/g, "")}`} className="mt-2 block font-serif font-bold hover:text-brand-red">
-                        {PHONE}
+                      <a href={`tel:${contact.phone.replace(/[^\d+]/g, "")}`} className="mt-2 block font-serif font-bold hover:text-brand-red">
+                        {contact.phone}
                       </a>
                     </div>
                     <div className="border border-rule bg-paper-alt p-5">
                       <p className="kicker text-brand-red">{translate("public.pages.contact.address")}</p>
-                      <p className="mt-2 font-serif font-bold">{translate("public.pages.contact.addressValue")}</p>
+                      <p className="mt-2 font-serif font-bold">{contact.address}</p>
                     </div>
                   </div>
 

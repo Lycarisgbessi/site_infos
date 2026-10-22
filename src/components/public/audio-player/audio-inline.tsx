@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useAudioPlayer } from "./context";
 
 /**
@@ -30,6 +30,8 @@ export function AudioInlineBlock({
 }) {
   const { play, track, isPlaying } = useAudioPlayer();
   const [streamFailed, setStreamFailed] = useState(false);
+  // Nouvelle source : l'échec éventuel de la précédente ne s'applique plus.
+  useEffect(() => setStreamFailed(false), [url]);
   const isCurrent = track?.url === url && isPlaying;
   const useDriveEmbed = streamFailed && driveEmbedUrl;
 

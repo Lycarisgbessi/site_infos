@@ -6,15 +6,21 @@ import { TopBar, SiteHeader } from "@/components/public/site-header";
 import { SiteFooter } from "@/components/public/site-footer";
 import { Cover, timeAgo } from "@/components/public/article-cards";
 import { Reveal } from "@/components/public/reveal";
-import { getArticlesByCategory, getCategoryBySlug, parsePageParam } from "@/lib/public/taxonomy-data";
+import {
+  getArticlesByCategory,
+  getCategoryBySlug,
+  getVisibleChildCategories,
+  parsePageParam,
+} from "@/lib/public/taxonomy-data";
 import { decodeSlug } from "@/lib/slug-decode";
 
 /**
  * Route `/rubrique/{slug}` — liste paginée des articles publiés d'une
- * rubrique visible (catégorie principale ou secondaire). L'intro éditoriale
- * SEO (intro_html) est affichée si présente. 404 si rubrique invisible,
- * supprimée ou inexistante. Pagination simple : `?page=N` avec liens
- * précédent/suivant.
+ * rubrique visible ET de ses sous-rubriques visibles (catégorie principale
+ * ou secondaire). L'intro éditoriale SEO (intro_html) est affichée si
+ * présente, les sous-rubriques visibles sont proposées en liens de
+ * navigation. 404 si rubrique invisible, supprimée ou inexistante.
+ * Pagination simple : `?page=N` avec liens précédent/suivant.
  */
 
 export const dynamic = "force-dynamic";
@@ -55,7 +61,10 @@ export default async function CategoryPage({ params, searchParams }: PageProps) 
   const category = await getCategoryBySlug(slug);
   if (!category) notFound();
 
-  const requestedPage = parsePageParam((await searchParams).page);
+  const [requestedPage, children] = await Promise.all([
+    parsePageParam((await searchParams).page),
+    getVisibleChildCategories(slug),
+  ]);
   const { articles, total, page, totalPages, hasPreviousPage, hasNextPage } =
     await getArticlesByCategory(slug, requestedPage, PAGE_SIZE);
   const now = new Date();
@@ -81,6 +90,26 @@ export default async function CategoryPage({ params, searchParams }: PageProps) 
               </p>
             )}
           </header>
+
+          {children.length > 0 && (
+            <nav aria-label={translate("public.rubriques.children")} className="mt-4">
+              <p className="text-[0.65rem] uppercase tracking-widest text-ink-faint">
+                {translate("public.rubriques.children")}
+              </p>
+              <ul className="mt-2 flex flex-wrap gap-x-4 gap-y-1.5">
+                {children.map((child) => (
+                  <li key={child.id}>
+                    <Link
+                      href={`/rubrique/${child.slug}`}
+                      className="text-sm font-semibold text-ink-soft underline-offset-4 transition-colors duration-200 hover:text-brand-red hover:underline"
+                    >
+                      {child.name}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </nav>
+          )}
 
           {category.introHtml && (
             <div
