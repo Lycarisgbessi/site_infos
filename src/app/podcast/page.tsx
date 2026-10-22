@@ -57,7 +57,7 @@ export default async function PodcastPage() {
     play: translate("public.audio.play"),
     playing: translate("public.podcast.nowPlaying"),
     noDuration: translate("public.podcast.noDuration"),
-    episodesCount: (n: number) => translate("public.podcast.episodesCount", { count: n }),
+    episodesCount: translate("public.podcast.episodesCount"),
   };
 
   return (

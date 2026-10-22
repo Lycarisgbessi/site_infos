@@ -35,7 +35,8 @@ export interface PodcastLabels {
   play: string;
   playing: string;
   noDuration: string;
-  episodesCount: (n: number) => string;
+  /** Gabarit avec {count} — les fonctions ne sont pas sérialisables en props client. */
+  episodesCount: string;
 }
 
 function formatDuration(sec: number | null, fallback: string): string {
@@ -119,7 +120,7 @@ export function PodcastList({
                   <span className="mt-0.5 line-clamp-2 block text-sm text-ink-soft">{season.description}</span>
                 )}
                 <span className="mt-1 block text-xs uppercase tracking-widest text-ink-faint">
-                  {labels.episodesCount(season.episodes.length)}
+                  {labels.episodesCount.replace("{count}", String(season.episodes.length))}
                 </span>
               </span>
               <svg
