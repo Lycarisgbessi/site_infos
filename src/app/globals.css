@@ -363,3 +363,21 @@
     }
   }
 }
+
+/* ─── Accents gais : dégradés et pastilles (identité rouge/orange) ─── */
+.accent-gradient {
+  background: linear-gradient(180deg, var(--brand-red), #f59e0b);
+}
+
+/* Barre d'accent de section : légère respiration pour animer la page */
+@keyframes accent-glow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.35); }
+  50% { box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.25); }
+}
+.accent-glow {
+  animation: accent-glow 3.5s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .accent-glow { animation: none; }
+}

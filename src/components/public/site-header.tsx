@@ -32,27 +32,27 @@ export async function TopBar() {
   const now = new Date();
 
   return (
-    <div className="bg-ink text-paper">
+    <div className="bg-brand-red text-white">
       <div className="container-page flex h-9 items-center justify-between gap-4 text-xs">
         <p className="truncate">
-          <span className="text-paper/60">{translate("public.topbar.edition")} </span>
-          {formatDate(now, locale)}
+          <span className="text-white/75">{translate("public.topbar.edition")} </span>
+          <span className="font-medium">{formatDate(now, locale)}</span>
         </p>
         <nav aria-label={translate("public.topbar.advertise")} className="hidden items-center gap-5 md:flex">
           <div className="flex items-center gap-5">
-            <Link href="/pages/newsletters" className="transition-colors duration-200 hover:text-red-bright">
+            <Link href="/pages/newsletters" className="font-medium text-white/90 transition-colors duration-200 hover:text-white hover:underline hover:decoration-white/60 hover:underline-offset-4">
               {translate("public.topbar.newsletters")}
             </Link>
-            <Link href="/pages/contact" className="transition-colors duration-200 hover:text-red-bright">
+            <Link href="/pages/contact" className="font-medium text-white/90 transition-colors duration-200 hover:text-white hover:underline hover:decoration-white/60 hover:underline-offset-4">
               {translate("public.topbar.contact")}
             </Link>
-            <Link href="/pages/publicite" className="transition-colors duration-200 hover:text-red-bright">
+            <Link href="/pages/publicite" className="font-medium text-white/90 transition-colors duration-200 hover:text-white hover:underline hover:decoration-white/60 hover:underline-offset-4">
               {translate("public.topbar.advertise")}
             </Link>
           </div>
           <Link
             href="/login?next=/admin"
-            className="bg-brand-red px-2.5 py-1 font-semibold transition-colors duration-200 hover:bg-red-deep"
+            className="bg-ink px-2.5 py-1 font-semibold text-white shadow-sm transition-colors duration-200 hover:bg-black"
           >
             {translate("public.topbar.desk")}
           </Link>
@@ -82,8 +82,8 @@ function NavLinks({ items }: { items: NavItem[] }) {
             href={item.href}
             target={openNewTab ? "_blank" : undefined}
             rel={openNewTab ? "noopener noreferrer" : undefined}
-            className={`group relative flex h-11 items-center whitespace-nowrap px-3 text-sm font-semibold tracking-wide transition-colors duration-200 hover:text-brand-red lg:px-4 ${
-              highlighted ? "text-brand-red" : "text-ink"
+            className={`group relative flex h-11 items-center whitespace-nowrap px-3 text-sm font-semibold tracking-wide text-white transition-colors duration-200 hover:text-white lg:px-4 ${
+              highlighted ? "text-red-bright" : "text-paper/90"
             }`}
           >
             {item.label}
@@ -91,7 +91,7 @@ function NavLinks({ items }: { items: NavItem[] }) {
                 survol ; permanente si l'item est mis en avant (highlight) */}
             <span
               aria-hidden
-              className={`pointer-events-none absolute inset-x-2 bottom-0 h-[3px] origin-left bg-brand-red transition-transform duration-300 ease-[var(--ease-signal)] rtl:origin-right ${
+              className={`pointer-events-none absolute inset-x-2 bottom-0 h-[3px] origin-left rounded-full bg-gradient-to-r from-brand-red to-orange-500 transition-transform duration-300 ease-[var(--ease-signal)] rtl:origin-right ${
                 highlighted ? "scale-x-100" : "scale-x-0 group-hover:scale-x-100"
               }`}
             />
@@ -127,7 +127,13 @@ export async function SiteHeader() {
       {/* Bloc marque */}
       <div className="container-page flex items-end justify-between gap-6 pb-4 pt-6">
         <div>
-          <Link href="/" className="inline-block" aria-label="INFOSPRO.net — Accueil">
+          <Link href="/" className="group inline-flex items-center gap-3" aria-label="INFOSPRO.net — Accueil">
+            {/* Logo — remplaçable en une seule opération : public/logo.svg */}
+            <img
+              src="/logo.svg"
+              alt="Logo INFOSPRO"
+              className="h-11 w-11 transition-transform duration-300 group-hover:scale-110 md:h-12 md:w-12"
+            />
             <span className="font-serif text-4xl font-black leading-none tracking-tight md:text-5xl">
               INFOS<span className="text-brand-red">PRO</span>
               <span className="text-xl font-normal text-ink-faint md:text-2xl">.net</span>
@@ -141,10 +147,10 @@ export async function SiteHeader() {
         </p>
       </div>
 
-      {/* Menu principal — UNIQUE, sticky, filets haut/bas */}
+      {/* Menu principal — UNIQUE, sticky, fond noir + accents rouges */}
       <nav
         aria-label={translate("public.nav.menu")}
-        className="sticky top-0 z-40 border-y border-rule bg-paper/95 backdrop-blur supports-[backdrop-filter]:bg-paper/85"
+        className="sticky top-0 z-40 border-b-2 border-brand-red bg-ink shadow-[0_4px_16px_rgba(0,0,0,0.25)]"
       >
         <div className="container-page flex items-center justify-between">
           <MobileMenu items={items} deskLabel={translate("public.topbar.desk")} deskHref="/login?next=/admin" />
@@ -160,7 +166,7 @@ export async function SiteHeader() {
             <ThemeToggle />
             <Link
               href="/login?next=/admin"
-              className="hidden h-11 shrink-0 items-center border-l border-rule px-4 text-sm font-semibold text-ink-soft transition-colors duration-200 hover:text-brand-red md:flex"
+              className="hidden h-11 shrink-0 items-center border-s border-paper/20 px-4 text-sm font-semibold text-paper/80 transition-colors duration-200 hover:text-red-bright md:flex"
             >
               {translate("public.topbar.desk")}
             </Link>

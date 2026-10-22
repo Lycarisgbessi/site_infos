@@ -39,26 +39,26 @@ function TickerTrack({
                 href={href}
                 {...(internal ? {} : { target: "_blank", rel: "noopener noreferrer" })}
                 tabIndex={ariaHidden ? -1 : undefined}
-                className="px-6 text-sm font-medium transition-colors duration-200 hover:text-brand-red hover:underline"
+                className="px-6 text-sm font-semibold text-white transition-colors duration-200 hover:text-white hover:underline hover:decoration-white/70 hover:underline-offset-4"
               >
                 {item.priority === 1 && (
-                  <span className="me-2 inline-block bg-ink px-1.5 py-0.5 text-[0.65rem] font-bold uppercase tracking-widest text-paper">
+                  <span className="me-2 inline-block rounded-sm bg-ink px-1.5 py-0.5 text-[0.65rem] font-bold uppercase tracking-widest text-white">
                     {urgentLabel}
                   </span>
                 )}
                 <span>{item.text}</span>
               </Link>
             ) : (
-              <span className="px-6 text-sm font-medium">
+              <span className="px-6 text-sm font-semibold text-white">
                 {item.priority === 1 && (
-                  <span className="me-2 inline-block bg-ink px-1.5 py-0.5 text-[0.65rem] font-bold uppercase tracking-widest text-paper">
+                  <span className="me-2 inline-block rounded-sm bg-ink px-1.5 py-0.5 text-[0.65rem] font-bold uppercase tracking-widest text-white">
                     {urgentLabel}
                   </span>
                 )}
                 <span>{item.text}</span>
               </span>
             )}
-            <span aria-hidden className="inline-block size-1.5 shrink-0 rounded-full bg-brand-red" />
+            <span aria-hidden className="inline-block size-1.5 shrink-0 rounded-full bg-white/70" />
           </span>
         );
       })}
@@ -74,10 +74,10 @@ export async function FlashTicker() {
   const hasUrgent = items.some((i) => i.priority === 1);
 
   return (
-    <section aria-label={translate("public.flash.label")} className="border-b border-rule bg-paper-alt">
+    <section aria-label={translate("public.flash.label")} className="border-b-2 border-ink/20 bg-gradient-to-r from-brand-red via-red-600 to-brand-red">
       <div className="container-page flex items-stretch gap-0">
         {/* Étiquette fixe à gauche */}
-        <div className="relative z-10 flex shrink-0 items-center gap-2 bg-brand-red px-3 py-2 md:px-4">
+        <div className="relative z-10 flex shrink-0 items-center gap-2 bg-ink px-3 py-2 md:px-4">
           <span
             aria-hidden
             className={`inline-block size-2 rounded-full bg-paper ${hasUrgent ? "animate-ping" : "animate-pulse"}`}

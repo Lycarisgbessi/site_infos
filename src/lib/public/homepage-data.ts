@@ -22,7 +22,7 @@ export interface PublicArticle {
   readingTimeMin: number;
   publishedAt: Date | null;
   viewCount: bigint;
-  category: { name: string; slug: string } | null;
+  category: { name: string; slug: string; colorAccent: string | null } | null;
   cover: { url: string; alt: string | null; credit: string | null; width: number | null; height: number | null } | null;
   authors: { role: string; name: string }[];
 }
@@ -41,7 +41,7 @@ const articleSelect = {
   reading_time_min: true,
   published_at: true,
   view_count: true,
-  category: { select: { name: true, slug: true } },
+  category: { select: { name: true, slug: true, color_accent: true } },
   coverMedia: {
     select: { url: true, alt_text: true, credit: true, width: true, height: true },
   },
@@ -68,7 +68,9 @@ function toPublicArticle(a: ArticleRow): PublicArticle {
     readingTimeMin: a.reading_time_min,
     publishedAt: a.published_at,
     viewCount: a.view_count,
-    category: a.category,
+    category: a.category
+      ? { name: a.category.name, slug: a.category.slug, colorAccent: a.category.color_accent ?? null }
+      : null,
     cover: a.coverMedia
       ? {
           url: a.coverMedia.url,

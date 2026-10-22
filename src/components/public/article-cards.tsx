@@ -84,6 +84,12 @@ export function Cover({
   );
 }
 
+
+/** Couleur d'accent de la rubrique (configurée dans l'admin), rouge de marque sinon. */
+function categoryColor(article: PublicArticle): string | undefined {
+  return article.category?.colorAccent ?? undefined;
+}
+
 /** Carte vedette de la une (grande image + titre + chapô). */
 export async function HeroCard({ article }: { article: PublicArticle }) {
   const { translate } = await getTranslations();
@@ -101,7 +107,10 @@ export async function HeroCard({ article }: { article: PublicArticle }) {
         </div>
       </div>
       <div className="pt-4">
-        <p className="kicker text-brand-red">{article.category?.name ?? article.kicker}</p>
+        <p className="kicker flex items-center gap-1.5 text-brand-red" style={categoryColor(article) ? { color: categoryColor(article) } : undefined}>
+          <span aria-hidden className="inline-block h-3 w-1 rounded-full" style={{ background: categoryColor(article) ?? "var(--brand-red)" }} />
+          {article.category?.name ?? article.kicker}
+        </p>
         <h2 className="mt-2 font-serif text-2xl font-black leading-tight tracking-tight transition-colors duration-200 group-hover:text-brand-red md:text-[2rem]">
           {article.title}
         </h2>
@@ -132,7 +141,7 @@ export async function SideCard({ article }: { article: PublicArticle }) {
         />
       </div>
       <div className="min-w-0">
-        <p className="kicker text-[0.65rem] text-brand-red">{article.category?.name}</p>
+        <p className="kicker text-[0.65rem] text-brand-red" style={categoryColor(article) ? { color: categoryColor(article) } : undefined}>{article.category?.name}</p>
         <h3 className="mt-1 line-clamp-3 font-serif text-[0.95rem] font-bold leading-snug transition-colors duration-200 group-hover:text-brand-red">
           {article.shortTitle ?? article.title}
         </h3>

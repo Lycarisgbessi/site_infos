@@ -91,7 +91,7 @@ export async function SiteFooter() {
           {/* Colonnes de menus (footer_1..4 en base) */}
           {menus.map((menu) => (
             <nav key={menu.label} aria-label={menu.label}>
-              <p className="kicker text-paper/50">{menu.label}</p>
+              <p className="kicker flex items-center gap-1.5 text-paper/50">{menu.label}</p>
               <ul className="mt-3 space-y-2">
                 {menu.items.map((item) => (
                   <li key={item.label}>
@@ -104,7 +104,7 @@ export async function SiteFooter() {
 
           {/* Colonne Explorer : classifications et modules du site */}
           <nav aria-label={translate("public.footer.explore")}>
-            <p className="kicker text-paper/50">{translate("public.footer.explore")}</p>
+            <p className="kicker flex items-center gap-1.5 text-paper/50">{translate("public.footer.explore")}</p>
             <ul className="mt-3 space-y-2">
               {exploreLinks.map((item) => (
                 <li key={item.href}>
@@ -116,7 +116,7 @@ export async function SiteFooter() {
 
           {/* Colonne Pages : pages publiées en base (repli statique) */}
           <nav aria-label={translate("public.footer.pages")}>
-            <p className="kicker text-paper/50">{translate("public.footer.pages")}</p>
+            <p className="kicker flex items-center gap-1.5 text-paper/50">{translate("public.footer.pages")}</p>
             <ul className="mt-3 space-y-2">
               {pageLinks.map((item) => (
                 <li key={item.href}>
