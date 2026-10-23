@@ -1,29 +1,68 @@
 <?xml version="1.0" encoding="utf-8"?>
-<svg version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px"
-	 viewBox="0 0 30 30" style="enable-background:new 0 0 30 30;" xml:space="preserve">
-<defs>
-  <style type="text/css">
-    .st194{fill:#2D2D2D;stroke:#FFFFFF;stroke-width:0.6317;stroke-miterlimit:10;}
-    .st23{fill:#FFFFFF;}
+<svg version="1.1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 256" role="img" aria-label="FMK 224 Info">
+  <defs>
+    <!-- Rayonnement rouge derrière les lettres -->
+    <radialGradient id="glow" cx="38%" cy="42%" r="75%">
+      <stop offset="0%" stop-color="#e06060" stop-opacity="0.55"/>
+      <stop offset="55%" stop-color="#cc2222" stop-opacity="0.32"/>
+      <stop offset="100%" stop-color="#cc2222" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="ribbon" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#d42020"/>
+      <stop offset="100%" stop-color="#b01818"/>
+    </linearGradient>
+    <!-- Respiration discrète du halo -->
+    <style type="text/css">
+      .fmk-glow { animation: fmk-breathe 3.2s ease-in-out infinite; }
+      @keyframes fmk-breathe { 0%,100% { opacity:.85 } 50% { opacity:1 } }
+      @media (prefers-reduced-motion: reduce) { .fmk-glow { animation: none } }
+    </style>
+  </defs>
 
-    .z-breathe {
-      animation: breathe 2.5s ease-in-out infinite;
-    }
-
-    @keyframes breathe {
-      0%, 100% { opacity: 0.7; }
-      50% { opacity: 1; }
-    }
-  </style>
-</defs>
-
-<g>
-  <path class="st194" d="M24.51,28.51H5.49c-2.21,0-4-1.79-4-4V5.49c0-2.21,1.79-4,4-4h19.03c2.21,0,4,1.79,4,4v19.03
-    C28.51,26.72,26.72,28.51,24.51,28.51z"/>
-  <g class="z-breathe">
-    <path class="st23" d="M15.47,7.1l-1.3,1.85c-0.2,0.29-0.54,0.47-0.9,0.47h-7.1V7.09C6.16,7.1,15.47,7.1,15.47,7.1z"/>
-    <polygon class="st23" points="24.3,7.1 13.14,22.91 5.7,22.91 16.86,7.1"/>
-    <path class="st23" d="M14.53,22.91l1.31-1.86c0.2-0.29,0.54-0.47,0.9-0.47h7.09v2.33H14.53z"/>
+  <!-- Fond sombre arrondi -->
+  <rect x="6" y="6" width="500" height="244" rx="28" fill="#2f2f2f"/>
+  <rect x="6" y="6" width="500" height="244" rx="28" fill="none" stroke="#1a1a1a" stroke-width="4"/>
+  <g class="fmk-glow">
+    <rect x="6" y="6" width="500" height="244" rx="28" fill="url(#glow)"/>
+    <!-- Rayons -->
+    <g stroke="#e06060" stroke-opacity="0.35" stroke-width="10" stroke-linecap="round">
+      <line x1="200" y1="34" x2="150" y2="66"/>
+      <line x1="252" y1="26" x2="252" y2="64"/>
+      <line x1="304" y1="34" x2="340" y2="66"/>
+      <line x1="140" y1="96" x2="176" y2="104"/>
+      <line x1="364" y1="96" x2="330" y2="104"/>
+    </g>
   </g>
-</g>
+
+  <!-- FMK : F rouge, M orange, K rouge — italique gras, contour blanc, ombre -->
+  <g transform="skewX(-9)" font-family="Arial Black, Arial, sans-serif" font-weight="900" font-size="124" text-anchor="middle">
+    <g stroke="#1a1a1a" stroke-width="12" stroke-linejoin="round" fill="none" opacity="0.9">
+      <text x="128" y="132" transform="translate(7,9)">F</text>
+      <text x="222" y="132" transform="translate(7,9)">M</text>
+      <text x="330" y="132" transform="translate(7,9)">K</text>
+    </g>
+    <g stroke="#ffffff" stroke-width="16" stroke-linejoin="round" fill="none">
+      <text x="128" y="132">F</text>
+      <text x="222" y="132">M</text>
+      <text x="330" y="132">K</text>
+    </g>
+    <text x="128" y="132" fill="#d42020">F</text>
+    <text x="222" y="132" fill="#f0a020">M</text>
+    <text x="330" y="132" fill="#d42020">K</text>
+  </g>
+
+  <!-- Ruban 224 -->
+  <g transform="rotate(-4 256 178)">
+    <rect x="96" y="150" width="236" height="58" rx="10" fill="url(#ribbon)" stroke="#8f1414" stroke-width="3"/>
+    <text x="214" y="196" text-anchor="middle" font-family="Arial Black, Arial, sans-serif" font-weight="900" font-size="46" fill="#ffffff" font-style="italic" stroke="#1a1a1a" stroke-width="2" paint-order="stroke">224</text>
+  </g>
+
+  <!-- Badge Info -->
+  <g transform="rotate(-4 392 178)">
+    <rect x="344" y="150" width="110" height="58" rx="29" fill="#2f2f2f" stroke="#ffffff" stroke-width="4"/>
+    <text x="399" y="190" text-anchor="middle" font-family="Verdana, Arial, sans-serif" font-weight="700" font-size="34" fill="#ffffff" font-style="italic">Info</text>
+  </g>
+
+  <!-- Filet décoratif bas -->
+  <line x1="70" y1="228" x2="442" y2="228" stroke="#cc2222" stroke-opacity="0.5" stroke-width="4" stroke-linecap="round"/>
 </svg>

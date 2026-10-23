@@ -127,17 +127,13 @@ export async function SiteHeader() {
       {/* Bloc marque */}
       <div className="container-page flex items-end justify-between gap-6 pb-4 pt-6">
         <div>
-          <Link href="/" className="group inline-flex items-center gap-3" aria-label="INFOSPRO.net — Accueil">
-            {/* Logo — remplaçable en une seule opération : public/logo.svg */}
+          <Link href="/" className="group inline-block" aria-label="FMK 224 Info — Accueil">
+            {/* Logo FMK 224 Info — remplaçable en une seule opération : public/logo.svg */}
             <img
               src="/logo.svg"
-              alt="Logo INFOSPRO"
-              className="h-11 w-11 transition-transform duration-300 group-hover:scale-110 md:h-12 md:w-12"
+              alt="FMK 224 Info"
+              className="h-14 w-auto transition-transform duration-300 group-hover:scale-105 md:h-16"
             />
-            <span className="font-serif text-4xl font-black leading-none tracking-tight md:text-5xl">
-              INFOS<span className="text-brand-red">PRO</span>
-              <span className="text-xl font-normal text-ink-faint md:text-2xl">.net</span>
-            </span>
           </Link>
           <p className="mt-2 hidden text-sm text-ink-soft sm:block">{translate("public.header.tagline")}</p>
         </div>
