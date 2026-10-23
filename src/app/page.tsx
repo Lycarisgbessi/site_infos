@@ -26,7 +26,8 @@ import { TopBar, SiteHeader } from "@/components/public/site-header";
 import { FlashTicker } from "@/components/public/flash-ticker";
 import { AdBanner, AdNativeCard, AdSelfPromo, AdWeatherSponsor } from "@/components/public/ad-slot";
 import { MobileStickyAd } from "@/components/public/mobile-sticky-ad";
-import { ContinuousItem, HeroCard, MostReadItem, SideCard } from "@/components/public/article-cards";
+import { ContinuousItem, timeAgo, HeroCard, MostReadItem, SideCard } from "@/components/public/article-cards";
+import { ContinuousFeed, type ContinuousFeedItem } from "@/components/public/continuous-feed";
 import { DossierBlock, OpinionCards, SectionBlock, VideoSection, WorldGrid } from "@/components/public/section-block";
 import { NewsletterBlock } from "@/components/public/newsletter-block";
 import { WeatherStrip } from "@/components/public/weather-strip";
@@ -56,6 +57,24 @@ function isSidebarBlock(block: ComposedBlock): boolean {
     block.type === "weather" ||
     (block.type === "ad" && block.settings.placement === "sidebar")
   );
+}
+
+function toFeedItems(
+  articles: PublicArticle[],
+  t: Translator
+): ContinuousFeedItem[] {
+  const now = new Date();
+  return articles.map((a) => ({
+    id: a.id,
+    title: a.title,
+    shortTitle: a.shortTitle ?? null,
+    slug: a.slug,
+    category: a.category?.name ?? null,
+    timeAgo: timeAgo(a.publishedAt, now, {
+      today: t("public.time.today"),
+      yesterday: t("public.time.yesterday"),
+    }),
+  }));
 }
 
 export default async function HomePage() {
@@ -189,8 +208,6 @@ export default async function HomePage() {
         <div className="container-page mt-8 grid gap-10 lg:grid-cols-[1fr_320px]">
           {/* Colonne principale */}
           <div className="min-w-0 space-y-10">
-            {/* ── AD-01 : leaderboard en tête de zone principale ─────────── */}
-            <AdBanner code="AD-01" campaigns={adCampaigns} />
 
             {sectionData.slice(0, 3).map(({ slug, articles }, idx) => (
               <Reveal key={slug}>
@@ -304,15 +321,11 @@ export default async function HomePage() {
           <aside className="min-w-0 space-y-6 lg:sticky lg:top-16 lg:max-h-[calc(100vh-5rem)] lg:self-start lg:overflow-y-auto lg:pr-1" id="en-continu">
             {/* En continu */}
             <section aria-label={translate("public.list.continuous")} className="scroll-mt-20 border border-rule bg-paper-alt p-4">
-              <header className="flex items-center gap-2 border-b border-rule pb-2">
-                <span aria-hidden className="live-dot size-2 rounded-full bg-brand-red" />
-                <h2 className="kicker text-ink">{translate("public.list.continuous")}</h2>
+              <header className="flex items-center gap-2 border-b-2 border-brand-red pb-2">
+                <span aria-hidden className="live-dot size-2.5 rounded-full bg-brand-red" />
+                <h2 className="kicker text-base font-bold text-brand-red">{translate("public.list.continuous")}</h2>
               </header>
-              <div className="max-h-[26rem] divide-y divide-rule overflow-y-auto pr-1">
-                {latest.map((a, i) => (
-                  <ContinuousItem key={a.id} article={a} index={i} />
-                ))}
-              </div>
+              <ContinuousFeed items={toFeedItems(latest, translate)} labels={{ all: translate("public.list.continuous") }} />
             </section>
 
             {/* AD-04 : pavé latéral */}
@@ -435,15 +448,11 @@ function ComposedMain({ blocks, adCampaigns, tvEnabled, weatherEnabled, translat
       <>
         {b.articles.length > 0 && (
           <section aria-label={translate("public.list.continuous")} className="scroll-mt-20 border border-rule bg-paper-alt p-4">
-            <header className="flex items-center gap-2 border-b border-rule pb-2">
-              <span aria-hidden className="live-dot size-2 rounded-full bg-brand-red" />
-              <h2 className="kicker text-ink">{b.title ?? translate("public.list.continuous")}</h2>
+            <header className="flex items-center gap-2 border-b-2 border-brand-red pb-2">
+              <span aria-hidden className="live-dot size-2.5 rounded-full bg-brand-red" />
+              <h2 className="kicker text-base font-bold text-brand-red">{b.title ?? translate("public.list.continuous")}</h2>
             </header>
-            <div className="max-h-[26rem] divide-y divide-rule overflow-y-auto pr-1">
-              {b.articles.map((a, i) => (
-                <ContinuousItem key={a.id} article={a} index={i} />
-              ))}
-            </div>
+            <ContinuousFeed items={toFeedItems(b.articles, translate)} labels={{ all: translate("public.list.continuous") }} />
           </section>
         )}
         {b.settings.sidebarAd ? <AdBanner code={b.settings.sidebarAd} campaigns={adCampaigns} /> : null}
@@ -589,8 +598,6 @@ function ComposedMain({ blocks, adCampaigns, tvEnabled, weatherEnabled, translat
       {/* Corps : blocs composés dans l'ordre + colonne latérale */}
       <div className={hasSidebar ? "container-page mt-8 grid gap-10 lg:grid-cols-[1fr_320px]" : "container-page mt-8"}>
         <div className="min-w-0 space-y-10">
-          {/* ── AD-01 : leaderboard en tête de zone principale ─────────── */}
-          <AdBanner code="AD-01" campaigns={adCampaigns} />
 
           {mainBlocks.map((b) => {
             const node = renderMainBlock(b);

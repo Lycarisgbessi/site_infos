@@ -94,12 +94,15 @@ export function AdCreativeView({ campaign }: { campaign: PublicAdCampaign }) {
   }
 
   // Image / GIF — <img> simple pour préserver l'animation des GIF.
+  // Les affiches figées s'animent doucement (ken-burns) pour vivifier
+  // l'emplacement ; les GIF restent animés par nature.
+  const isGif = /\.gif($|\?)/i.test(campaign.imageUrl ?? "");
   return (
-    <a {...clickLinkProps} className="block h-full w-full">
+    <a {...clickLinkProps} className="block h-full w-full overflow-hidden">
       <img
         src={campaign.imageUrl ?? ""}
         alt={campaign.alt}
-        className="h-full w-full object-cover"
+        className={`h-full w-full object-cover ${isGif ? "" : "ad-kenburns"}`}
         loading="lazy"
         decoding="async"
       />

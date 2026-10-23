@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { getTranslations, localeTag, type Locale } from "@/lib/i18n";
 import { LanguageSwitcher } from "@/lib/i18n/language-switcher";
-import { getMainMenu, getWeather, type NavItem } from "@/lib/public/homepage-data";
+import { getAdCampaigns, getMainMenu, getWeather, type NavItem } from "@/lib/public/homepage-data";
+import { AdBanner } from "./ad-slot";
 import { WorldClock } from "./world-clock";
 import { getSettingsValues } from "@/server/services/settings";
 import { MobileMenu, ThemeToggle } from "./mobile-nav";
@@ -126,9 +127,10 @@ function NavLinks({ items }: { items: NavItem[] }) {
 
 export async function SiteHeader() {
   const { translate, locale } = await getTranslations();
-  const [dbItems, settings] = await Promise.all([
+  const [dbItems, settings, adCampaigns] = await Promise.all([
     getMainMenu(),
     getSettingsValues(["features.tv"]),
+    getAdCampaigns().catch(() => ({})),
   ]);
 
   // Liens statiques ajoutés après les items DB (pas de doublon si le menu
@@ -159,7 +161,13 @@ export async function SiteHeader() {
           </Link>
           <p className="mt-2 hidden text-sm text-ink-soft sm:block">{translate("public.header.tagline")}</p>
         </div>
-        <p className="hidden shrink-0 items-center gap-2 text-end text-xs text-ink-faint md:flex">
+        {/* AD-01 : espace publicitaire animé à côté du logo */}
+        <div className="hidden min-w-0 flex-1 justify-end md:flex">
+          <div className="w-full max-w-[560px]">
+            <AdBanner code="AD-01" campaigns={adCampaigns} />
+          </div>
+        </div>
+        <p className="flex shrink-0 items-center gap-2 text-end text-xs text-ink-faint md:hidden">
           <span className="inline-block size-2 animate-pulse rounded-full bg-brand-red" aria-hidden />
           {translate("public.topbar.city")}
         </p>

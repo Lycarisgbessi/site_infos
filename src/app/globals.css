@@ -390,3 +390,17 @@
 .scrollbar-none::-webkit-scrollbar {
   display: none;
 }
+
+/* ── Publicités animées ──────────────────────────────────────────────
+   Ken-burns lent sur les affiches statiques : l'emplacement vit sans
+   distraire la lecture. Neutralisé par prefers-reduced-motion. */
+@keyframes ad-kenburns {
+  0%, 100% { transform: scale(1) translate(0, 0); }
+  50% { transform: scale(1.07) translate(-1.2%, -1%); }
+}
+.ad-kenburns {
+  animation: ad-kenburns 14s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .ad-kenburns { animation: none; }
+}
