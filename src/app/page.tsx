@@ -33,7 +33,7 @@ import { NewsletterBlock } from "@/components/public/newsletter-block";
 import { WeatherStrip } from "@/components/public/weather-strip";
 import { SiteFooter } from "@/components/public/site-footer";
 import { SiteBannerBar } from "@/components/public/site-banner-bar";
-import { Reveal } from "@/components/public/reveal";
+import { Reveal, RevealGroup } from "@/components/public/reveal";
 
 /**
  * Route `/` — ACCUEIL ÉDITORIAL PUBLIC (§09.1), piloté par le composeur
@@ -169,11 +169,13 @@ export default async function HomePage() {
               <span aria-hidden className="h-[3px] w-8 bg-brand-red" />
               <h1 className="kicker text-ink">{translate("public.une.title")}</h1>
             </header>
-            <div className="grid gap-6 lg:grid-cols-[2fr_1fr]">
+            <div className="hero-stage grid gap-6 lg:grid-cols-[2fr_1fr]">
               <HeroCard article={heroMain} />
               <div className="flex flex-col gap-3 border-t border-rule pt-3 lg:border-t-0 lg:pt-0">
-                {heroSide.map((a) => (
-                  <SideCard key={a.id} article={a} />
+                {heroSide.map((a, i) => (
+                  <Reveal key={a.id} variant="right" delay={i * 90}>
+                    <SideCard article={a} />
+                  </Reveal>
                 ))}
               </div>
             </div>
@@ -210,7 +212,7 @@ export default async function HomePage() {
           <div className="min-w-0 space-y-10">
 
             {sectionData.slice(0, 3).map(({ slug, articles }, idx) => (
-              <Reveal key={slug}>
+              <Reveal key={slug} variant={idx % 2 === 0 ? "left" : "right"}>
                 <SectionBlock
                   id={slug}
                   title={articles[0]?.category?.name ?? slug}
@@ -247,7 +249,7 @@ export default async function HomePage() {
 
             {/* Sections suivantes */}
             {sectionData.slice(3, 6).map(({ slug, articles }, idx) => (
-              <Reveal key={slug}>
+              <Reveal key={slug} variant="up">
                 <SectionBlock
                   id={slug}
                   title={articles[0]?.category?.name ?? slug}

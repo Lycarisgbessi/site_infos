@@ -11,6 +11,7 @@ import { PwaRegister } from "@/components/public/pwa/pwa-register";
 import { InstallBanner } from "@/components/public/pwa/install-banner";
 import { AdCorner } from "@/components/public/ad-corner";
 import { Chatbot } from "@/components/public/chatbot";
+import { ProgressBar } from "@/components/public/progress-bar";
 import { getAdCampaigns } from "@/lib/public/homepage-data";
 
 /**
@@ -80,6 +81,9 @@ export default async function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
+          {/* Barre de progression : navigation + lecture */}
+          <ProgressBar />
+
           {/* Lecteur audio flottant — état global persistant à travers la navigation */}
           <AudioPlayerProvider>
             {children}

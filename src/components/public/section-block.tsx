@@ -29,7 +29,7 @@ export async function SectionBlock({
   return (
     <section id={id} aria-labelledby={`${id}-title`} className="scroll-mt-20">
       <header className="flex items-baseline justify-between border-b-2 border-ink pb-2">
-        <h2 id={`${id}-title`} className="flex items-center gap-2 font-serif text-xl font-black tracking-tight md:text-2xl">
+        <h2 id={`${id}-title`} className="title-sweep flex items-center gap-2 font-serif text-xl font-black tracking-tight md:text-2xl">
           <span
             aria-hidden
             className="accent-gradient inline-block h-6 w-1.5 rounded-full md:h-7"
@@ -38,7 +38,7 @@ export async function SectionBlock({
         </h2>
         <Link
           href={`/rubrique/${id}`}
-          className="group inline-flex items-center gap-1 rounded-full bg-brand-red px-3 py-1 text-xs font-bold uppercase tracking-widest text-white shadow-sm transition-all duration-200 hover:bg-red-deep hover:shadow-md"
+          className="press group inline-flex items-center gap-1 rounded-full bg-brand-red px-3 py-1 text-xs font-bold uppercase tracking-widest text-white shadow-sm transition-all duration-200 hover:bg-red-deep hover:shadow-md"
         >
           {translate("public.section.all")}
           <span aria-hidden className="transition-transform duration-200 group-hover:translate-x-0.5 rtl:group-hover:-translate-x-0.5">→</span>

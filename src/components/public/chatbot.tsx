@@ -157,7 +157,7 @@ export function Chatbot() {
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-label={open ? "Fermer l'assistant" : "Ouvrir l'assistant"}
-        className="fixed bottom-24 end-4 z-50 flex size-14 items-center justify-center rounded-full bg-brand-red text-white shadow-[0_6px_24px_rgba(220,38,38,0.45)] transition-transform duration-200 hover:scale-110"
+        className="fixed bottom-24 end-4 z-50 flex size-14 items-center justify-center rounded-full bg-brand-red text-white shadow-[0_6px_24px_rgba(220,38,38,0.45)] press transition-transform duration-200 hover:scale-110 active:scale-95"
       >
         {open ? (
           <svg aria-hidden viewBox="0 0 24 24" className="size-6" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round">

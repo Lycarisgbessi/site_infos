@@ -425,3 +425,134 @@
 @media (prefers-reduced-motion: reduce) {
   .vmarquee-track { animation: none; }
 }
+
+/* ══════════════════════════════════════════════════════════════════════
+   SYSTÈME D'ANIMATIONS AVANCÉ — micro-interactions & révélations
+   Tout est neutralisé par prefers-reduced-motion (bloc global).
+   ══════════════════════════════════════════════════════════════════════ */
+
+/* ── 1. Variantes de révélation ─────────────────────────────────────── */
+.reveal-up    { opacity: 0; transform: translateY(26px); }
+.reveal-left  { opacity: 0; transform: translateX(-34px); }
+.reveal-right { opacity: 0; transform: translateX(34px); }
+.reveal-zoom  { opacity: 0; transform: scale(0.94); }
+.reveal-fade  { opacity: 0; }
+
+.reveal-up.reveal-visible,
+.reveal-left.reveal-visible,
+.reveal-right.reveal-visible,
+.reveal-zoom.reveal-visible,
+.reveal-fade.reveal-visible {
+  animation: reveal-enter 0.65s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@keyframes reveal-enter {
+  from { opacity: 0; }
+  to   { opacity: 1; transform: none; }
+}
+
+/* ── 2. Titres de section : la barre d'accent POUUSSE puis le texte
+        monte — sensation d'écriture éditoriale ──────────────────────── */
+.title-sweep {
+  position: relative;
+  animation: title-settle 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.title-sweep > .accent-gradient {
+  animation: accent-grow 0.5s cubic-bezier(0.22, 1, 0.36, 1) 0.1s both;
+}
+@keyframes title-settle {
+  from { opacity: 0; transform: translateY(10px); letter-spacing: 0.02em; }
+  to   { opacity: 1; transform: none; letter-spacing: normal; }
+}
+@keyframes accent-grow {
+  from { transform: scaleY(0); }
+  to   { transform: scaleY(1); }
+}
+
+/* ── 3. Micro-interactions cartes & boutons ─────────────────────────── */
+/* Sous-lignement du titre qui se déploie au survol */
+.title-underline {
+  background-image: linear-gradient(var(--brand-red), var(--brand-red));
+  background-repeat: no-repeat;
+  background-size: 0% 2px;
+  background-position: 0 100%;
+  transition: background-size 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.group:hover .title-underline,
+.title-underline:hover {
+  background-size: 100% 2px;
+}
+
+/* Pression tactile sur les éléments interactifs */
+.press {
+  transition: transform 0.15s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.press:active {
+  transform: scale(0.96);
+}
+
+/* Cartes : élévation + zoom image déjà en place — on ajoute le flare
+   lumineux qui traverse la carte au survol (reflet pro) */
+.card-flare { position: relative; overflow: hidden; }
+.card-flare::after {
+  content: "";
+  position: absolute;
+  inset: -40% auto -40% -30%;
+  width: 45%;
+  background: linear-gradient(105deg, transparent, rgba(255, 255, 255, 0.16), transparent);
+  transform: skewX(-18deg) translateX(-220%);
+  transition: transform 0.75s cubic-bezier(0.22, 1, 0.36, 1);
+  pointer-events: none;
+}
+.card-flare:hover::after {
+  transform: skewX(-18deg) translateX(560%);
+}
+
+/* ── 4. Publicités : reflet périodique + entrée en scène ────────────── */
+[data-ad-slot] { animation: reveal-enter 0.6s cubic-bezier(0.22, 1, 0.36, 1) both; }
+[data-ad-slot]::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 15;
+  background: linear-gradient(105deg, transparent 30%, rgba(255, 255, 255, 0.22) 50%, transparent 70%);
+  transform: translateX(-130%);
+  animation: ad-sheen 7s ease-in-out infinite;
+  pointer-events: none;
+}
+@keyframes ad-sheen {
+  0%, 55%  { transform: translateX(-130%); }
+  75%, 100% { transform: translateX(130%); }
+}
+
+/* ── 5. Barre de progression (navigation + lecture) ─────────────────── */
+.progress-bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 3px;
+  z-index: 100;
+  background: linear-gradient(90deg, var(--brand-red), #f59e0b, var(--brand-red));
+  background-size: 200% 100%;
+  animation: progress-flow 1.2s linear infinite;
+  transition: width 0.12s linear, opacity 0.35s ease;
+  pointer-events: none;
+}
+@keyframes progress-flow {
+  from { background-position: 0% 0; }
+  to   { background-position: 200% 0; }
+}
+
+/* ── 6. Apparition du hero : léger parallaxe d'entrée ───────────────── */
+.hero-stage { animation: hero-stage-in 0.8s cubic-bezier(0.22, 1, 0.36, 1) both; }
+@keyframes hero-stage-in {
+  from { opacity: 0; transform: translateY(18px) scale(0.985); }
+  to   { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal-up, .reveal-left, .reveal-right, .reveal-zoom, .reveal-fade { opacity: 1; transform: none; }
+  .reveal-up.reveal-visible, .reveal-left.reveal-visible, .reveal-right.reveal-visible,
+  .reveal-zoom.reveal-visible, .reveal-fade.reveal-visible,
+  .title-sweep, .title-sweep > .accent-gradient,
+  [data-ad-slot], [data-ad-slot]::before, .hero-stage, .progress-bar { animation: none; }
+}
