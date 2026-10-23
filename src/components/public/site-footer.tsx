@@ -81,7 +81,7 @@ export async function SiteFooter() {
         <div className="grid gap-8 lg:grid-cols-[1.4fr_repeat(6,1fr)]">
           {/* Marque + description */}
           <div>
-            <img src="/logo.png" alt="INFOSPRO.net" className="h-14 w-auto rounded-lg bg-white px-2.5 py-1" />
+            <img src="/logo.png" alt="INFOSPRO.net" className="h-14 w-auto invert hue-rotate-180" />
             <p className="mt-3 max-w-sm text-xs leading-relaxed text-paper/60">{translate("public.footer.about")}</p>
           </div>
 

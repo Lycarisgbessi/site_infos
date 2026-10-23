@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { getTranslations, localeTag, type Locale } from "@/lib/i18n";
 import { LanguageSwitcher } from "@/lib/i18n/language-switcher";
-import { getMainMenu, type NavItem } from "@/lib/public/homepage-data";
+import { getMainMenu, getWeather, type NavItem } from "@/lib/public/homepage-data";
+import { WorldClock } from "./world-clock";
 import { getSettingsValues } from "@/server/services/settings";
 import { MobileMenu, ThemeToggle } from "./mobile-nav";
 
@@ -31,13 +32,34 @@ export async function TopBar() {
   const { translate, locale } = await getTranslations();
   const now = new Date();
 
+  // Météo compacte (1re ville visible — Conakry) : best-effort, jamais bloquant
+  let weather: { city: string; temperature: number } | null = null;
+  try {
+    const w = await getWeather(1);
+    if (w[0]) weather = { city: w[0].city, temperature: Math.round(w[0].temperature) };
+  } catch {
+    weather = null;
+  }
+
   return (
     <div className="bg-brand-red text-white">
       <div className="container-page flex h-9 items-center justify-between gap-4 text-xs">
-        <p className="truncate">
-          <span className="text-white/75">{translate("public.topbar.edition")} </span>
-          <span className="font-medium">{formatDate(now, locale)}</span>
+        <p className="flex shrink-0 items-center gap-3 truncate">
+          <span>
+            <span className="text-white/75">{translate("public.topbar.edition")} </span>
+            <span className="font-medium">{formatDate(now, locale)}</span>
+          </span>
+          {weather && (
+            <span className="hidden items-center gap-1 text-white/90 sm:flex" title={`Météo ${weather.city}`}>
+              <svg aria-hidden viewBox="0 0 24 24" className="size-3.5 fill-none stroke-current" strokeWidth="2">
+                <circle cx="12" cy="12" r="4" />
+                <path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" strokeLinecap="round" />
+              </svg>
+              <span className="font-medium">{weather.city} {weather.temperature}°C</span>
+            </span>
+          )}
         </p>
+        <WorldClock />
         <nav aria-label={translate("public.topbar.advertise")} className="hidden items-center gap-5 md:flex">
           <div className="flex items-center gap-5">
             <Link href="/pages/newsletters" className="font-medium text-white/90 transition-colors duration-200 hover:text-white hover:underline hover:decoration-white/60 hover:underline-offset-4">
@@ -82,8 +104,8 @@ function NavLinks({ items }: { items: NavItem[] }) {
             href={item.href}
             target={openNewTab ? "_blank" : undefined}
             rel={openNewTab ? "noopener noreferrer" : undefined}
-            className={`group relative flex h-11 items-center whitespace-nowrap px-3 text-sm font-semibold tracking-wide text-white transition-colors duration-200 hover:text-white lg:px-4 ${
-              highlighted ? "text-red-bright" : "text-paper/90"
+            className={`group relative flex h-11 items-center whitespace-nowrap px-3 text-sm font-semibold tracking-wide transition-colors duration-200 hover:text-white lg:px-4 ${
+              highlighted ? "text-red-bright" : "text-white/90"
             }`}
           >
             {item.label}
@@ -132,7 +154,7 @@ export async function SiteHeader() {
             <img
               src="/logo.png"
               alt="INFOSPRO.net"
-              className="h-16 w-auto rounded-lg bg-white px-3 py-1 shadow-sm transition-transform duration-300 group-hover:scale-105 sm:h-20 md:h-24"
+              className="h-20 w-auto transition-transform duration-300 group-hover:scale-105 sm:h-24 md:h-28 dark:invert dark:hue-rotate-180"
             />
           </Link>
           <p className="mt-2 hidden text-sm text-ink-soft sm:block">{translate("public.header.tagline")}</p>
@@ -146,14 +168,14 @@ export async function SiteHeader() {
       {/* Menu principal — UNIQUE, sticky, fond noir + accents rouges */}
       <nav
         aria-label={translate("public.nav.menu")}
-        className="sticky top-0 z-40 border-b-2 border-brand-red bg-ink shadow-[0_4px_16px_rgba(0,0,0,0.25)]"
+        className="sticky top-0 z-40 border-b-2 border-brand-red bg-[#0a0a0b] shadow-[0_4px_16px_rgba(0,0,0,0.25)]"
       >
         <div className="container-page flex items-center justify-between">
           <MobileMenu items={items} deskLabel={translate("public.topbar.desk")} deskHref="/login?next=/admin" />
-          <div className="hidden items-center overflow-x-auto md:flex">
+          <div className="hidden items-center overflow-x-auto scrollbar-none md:flex">
             <NavLinks items={items} />
           </div>
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1 [&_button]:text-white/90 [&_button:hover]:text-red-bright [&_svg]:current-color">
             <LanguageSwitcher
               currentLocale={locale as Locale}
               label={translate("public.language.label")}
@@ -162,7 +184,7 @@ export async function SiteHeader() {
             <ThemeToggle />
             <Link
               href="/login?next=/admin"
-              className="hidden h-11 shrink-0 items-center border-s border-paper/20 px-4 text-sm font-semibold text-paper/80 transition-colors duration-200 hover:text-red-bright md:flex"
+              className="hidden h-11 shrink-0 items-center border-s border-white/20 px-4 text-sm font-semibold text-white/80 transition-colors duration-200 hover:text-red-bright md:flex"
             >
               {translate("public.topbar.desk")}
             </Link>

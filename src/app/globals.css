@@ -381,3 +381,12 @@
 @media (prefers-reduced-motion: reduce) {
   .accent-glow { animation: none; }
 }
+
+/* ── Défilement sans bande de scrollbar visible (menu, flash info) ── */
+.scrollbar-none {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}

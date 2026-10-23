@@ -86,7 +86,7 @@ export async function FlashTicker() {
         </div>
 
         {/* Piste défilante — dupliquée pour une boucle sans rupture */}
-        <div className="marquee-viewport flex min-w-0 flex-1 items-center overflow-hidden py-2">
+        <div className="marquee-viewport scrollbar-none flex min-w-0 flex-1 items-center overflow-hidden py-2">
           <div className="marquee-track flex">
             <TickerTrack items={items} urgentLabel={translate("public.flash.urgent")} />
             <TickerTrack items={items} urgentLabel={translate("public.flash.urgent")} ariaHidden />

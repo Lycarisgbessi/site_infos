@@ -48,7 +48,7 @@ export function MobileMenu({ items, deskLabel, deskHref }: { items: NavItem[]; d
       {open && (
         <div className="fixed inset-0 z-50 md:hidden">
           <div className="absolute inset-0 bg-ink/60 backdrop-blur-sm" onClick={() => setOpen(false)} />
-          <nav className="animate-fade-in-up absolute inset-y-0 start-0 w-[280px] max-w-[85vw] overflow-y-auto bg-ink shadow-2xl">
+          <nav className="animate-fade-in-up absolute inset-y-0 start-0 w-[280px] max-w-[85vw] scrollbar-none overflow-y-auto bg-[#0a0a0b] shadow-2xl">
             <div className="flex h-14 items-center justify-between border-b border-rule px-4">
               <span className="font-serif text-lg font-black tracking-tight">INFOS<span className="text-brand-red">PRO</span></span>
               <button aria-label="Fermer" onClick={() => setOpen(false)} className="flex size-8 items-center justify-center text-ink-soft hover:text-brand-red">
