@@ -81,7 +81,7 @@ export async function SiteFooter() {
         <div className="grid gap-8 lg:grid-cols-[1.4fr_repeat(6,1fr)]">
           {/* Marque + description */}
           <div>
-            <img src="/logo.svg" alt="FMK 224 Info" className="h-12 w-auto" />
+            <img src="/logo.jpg" alt="FMK 224 Info" className="h-12 w-auto" />
             <p className="mt-3 max-w-sm text-xs leading-relaxed text-paper/60">{translate("public.footer.about")}</p>
           </div>
 

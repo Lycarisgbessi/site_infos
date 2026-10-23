@@ -128,9 +128,9 @@ export async function SiteHeader() {
       <div className="container-page flex items-end justify-between gap-6 pb-4 pt-6">
         <div>
           <Link href="/" className="group inline-block" aria-label="FMK 224 Info — Accueil">
-            {/* Logo FMK 224 Info — remplaçable en une seule opération : public/logo.svg */}
+            {/* Logo FMK 224 Info — remplaçable en une seule opération : public/logo.jpg */}
             <img
-              src="/logo.svg"
+              src="/logo.jpg"
               alt="FMK 224 Info"
               className="h-14 w-auto transition-transform duration-300 group-hover:scale-105 md:h-16"
             />
