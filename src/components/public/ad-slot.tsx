@@ -75,7 +75,7 @@ function SlotShell({
     <aside
       aria-label={`${label} ${code}`}
       data-ad-slot={code}
-      className={`group relative border border-rule bg-paper-alt ${className}`}
+      className={`group relative border border-rule bg-paper-alt [&_.ad-placeholder]:border-dashed [&_.ad-placeholder]:bg-paper ${className}`}
     >
       <span className="absolute -top-2 end-2 z-20 bg-paper px-1.5 text-[0.6rem] font-bold uppercase tracking-[0.18em] text-ink-faint">
         {label}
@@ -93,10 +93,16 @@ export async function AdBanner({
   code,
   campaigns,
   className = "",
+  formatOverride,
+  placeholder = false,
 }: {
   code: string;
   campaigns: AdCampaignMap;
   className?: string;
+  /** Forcer le gabarit de rendu (ex. leaderboard compact dans l'en-tête). */
+  formatOverride?: AdFormat;
+  /** Afficher un cadre réservé discret même sans campagne active. */
+  placeholder?: boolean;
 }) {
   const { translate } = await getTranslations();
   const slotCampaigns: PublicAdCampaign[] | undefined = campaigns[code];
@@ -108,10 +114,26 @@ export async function AdBanner({
         </SlotShell>
       );
     }
+    if (placeholder) {
+      const ph = HEIGHTS[formatOverride ?? FORMAT_BY_SLOT[code] ?? "leaderboard"];
+      return (
+        <SlotShell
+          code={code}
+          label={translate("public.ad.label")}
+          className={`w-full ${ph} ${className}`}
+        >
+          <div className="ad-placeholder flex h-full w-full items-center justify-center border border-dashed p-2 text-center">
+            <p className="text-[0.7rem] uppercase tracking-[0.2em] text-ink-faint/70">
+              {translate("public.ad.label")} · {code}
+            </p>
+          </div>
+        </SlotShell>
+      );
+    }
     return null;
   }
 
-  const format = FORMAT_BY_SLOT[code] ?? "leaderboard";
+  const format = formatOverride ?? FORMAT_BY_SLOT[code] ?? "leaderboard";
   return (
     <SlotShell
       code={code}

@@ -148,8 +148,8 @@ export async function SiteHeader() {
 
   return (
     <header className="bg-paper">
-      {/* Bloc marque */}
-      <div className="container-page flex items-end justify-between gap-6 pb-4 pt-6">
+      {/* Bloc marque — logo à gauche, espace publicitaire à droite */}
+      <div className="container-page flex flex-wrap items-center justify-between gap-x-8 gap-y-4 pb-4 pt-6">
         <div>
           <Link href="/" className="group inline-block" aria-label="INFOSPRO.net — Accueil">
             {/* Logo INFOSPRO.net (fond transparent) — remplaçable : public/logo.png */}
@@ -161,10 +161,17 @@ export async function SiteHeader() {
           </Link>
           <p className="mt-2 hidden text-sm text-ink-soft sm:block">{translate("public.header.tagline")}</p>
         </div>
-        {/* AD-01 : espace publicitaire animé à côté du logo */}
+        {/* AD-01 : espace publicitaire animé à côté du logo — gabarit
+            compact (leaderboard 728×90) : s'inscrit dans l'espace libre
+            sans chevaucher le logo ni allonger l'en-tête. */}
         <div className="hidden min-w-0 flex-1 justify-end md:flex">
-          <div className="w-full max-w-[560px]">
-            <AdBanner code="AD-01" campaigns={adCampaigns} />
+          <div className="w-full max-w-[560px] shrink">
+            <AdBanner
+              code="AD-01"
+              campaigns={adCampaigns}
+              formatOverride="leaderboard"
+              placeholder
+            />
           </div>
         </div>
         <p className="flex shrink-0 items-center gap-2 text-end text-xs text-ink-faint md:hidden">
