@@ -401,11 +401,13 @@ function ComposedMain({ blocks, adCampaigns, tvEnabled, weatherEnabled, translat
           <span aria-hidden className="h-[3px] w-8 bg-brand-red" />
           <h1 className="kicker text-ink">{b.title ?? translate("public.une.title")}</h1>
         </header>
-        <div className="grid gap-6 lg:grid-cols-[2fr_1fr]">
+        <div className="hero-stage grid gap-6 lg:grid-cols-[2fr_1fr]">
           <HeroCard article={heroMain} />
           <div className="flex flex-col gap-3 border-t border-rule pt-3 lg:border-t-0 lg:pt-0">
-            {heroSide.map((a) => (
-              <SideCard key={a.id} article={a} />
+            {heroSide.map((a, i) => (
+              <Reveal key={a.id} variant="right" delay={i * 90}>
+                <SideCard article={a} />
+              </Reveal>
             ))}
           </div>
         </div>
@@ -466,11 +468,11 @@ function ComposedMain({ blocks, adCampaigns, tvEnabled, weatherEnabled, translat
     );
   };
 
-  const renderMainBlock = (b: ComposedBlock): ReactNode => {
+  const renderMainBlock = (b: ComposedBlock, blockIndex = 0): ReactNode => {
     switch (b.type) {
       case "section":
         return b.articles.length > 0 ? (
-          <Reveal>
+          <Reveal variant={blockIndex % 2 === 0 ? "left" : "right"}>
             <SectionBlock id={b.anchorId} title={b.heading} articles={b.articles} />
           </Reveal>
         ) : null;
@@ -604,8 +606,8 @@ function ComposedMain({ blocks, adCampaigns, tvEnabled, weatherEnabled, translat
       <div className={hasSidebar ? "container-page mt-8 grid gap-10 lg:grid-cols-[1fr_320px]" : "container-page mt-8"}>
         <div className="min-w-0 space-y-10">
 
-          {mainBlocks.map((b) => {
-            const node = renderMainBlock(b);
+          {mainBlocks.map((b, i) => {
+            const node = renderMainBlock(b, i);
             return node ? <Fragment key={b.id}>{node}</Fragment> : null;
           })}
         </div>
