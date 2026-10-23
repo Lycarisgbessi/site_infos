@@ -404,3 +404,24 @@
 @media (prefers-reduced-motion: reduce) {
   .ad-kenburns { animation: none; }
 }
+
+/* ── Fil « En continu » : marquee vertical automatique ────────────────
+   Piste dupliquée ×2 ; translation Y de -50 % = boucle sans rupture.
+   Pause au survol/focus pour laisser lire. Aucune scrollbar : le
+   conteneur est en overflow hidden. En prefers-reduced-motion, la
+   piste devient une liste statique complète. */
+.vmarquee-track {
+  animation: vmarquee-scroll var(--vmarquee-duration, 45s) linear infinite;
+  will-change: transform;
+}
+.vmarquee-viewport:hover .vmarquee-track,
+.vmarquee-viewport:focus-within .vmarquee-track {
+  animation-play-state: paused;
+}
+@keyframes vmarquee-scroll {
+  from { transform: translateY(0); }
+  to { transform: translateY(-50%); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .vmarquee-track { animation: none; }
+}

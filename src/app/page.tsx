@@ -318,7 +318,7 @@ export default async function HomePage() {
           </div>
 
           {/* ── Colonne latérale (Z-06) ──────────────────────────────────── */}
-          <aside className="min-w-0 space-y-6 lg:sticky lg:top-16 lg:max-h-[calc(100vh-5rem)] lg:self-start lg:overflow-y-auto lg:pr-1" id="en-continu">
+          <aside className="min-w-0 space-y-6 lg:sticky lg:top-16 lg:self-start" id="en-continu">
             {/* En continu */}
             <section aria-label={translate("public.list.continuous")} className="scroll-mt-20 border border-rule bg-paper-alt p-4">
               <header className="flex items-center gap-2 border-b-2 border-brand-red pb-2">
@@ -606,7 +606,7 @@ function ComposedMain({ blocks, adCampaigns, tvEnabled, weatherEnabled, translat
         </div>
         {hasSidebar && (
           <aside
-            className="min-w-0 space-y-6 lg:sticky lg:top-16 lg:max-h-[calc(100vh-5rem)] lg:self-start lg:overflow-y-auto lg:pr-1"
+            className="min-w-0 space-y-6 lg:sticky lg:top-16 lg:self-start"
             id="en-continu"
           >
             {sidebarWidgets}
