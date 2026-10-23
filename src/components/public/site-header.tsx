@@ -128,11 +128,11 @@ export async function SiteHeader() {
       <div className="container-page flex items-end justify-between gap-6 pb-4 pt-6">
         <div>
           <Link href="/" className="group inline-block" aria-label="FMK 224 Info — Accueil">
-            {/* Logo FMK 224 Info — remplaçable en une seule opération : public/logo.jpg */}
+            {/* Logo FMK 224 TV Info (fond transparent) — remplaçable : public/logo.png */}
             <img
-              src="/logo.jpg"
+              src="/logo.png"
               alt="FMK 224 Info"
-              className="h-14 w-auto transition-transform duration-300 group-hover:scale-105 md:h-16"
+              className="h-16 w-auto transition-transform duration-300 group-hover:scale-105 sm:h-20 md:h-24"
             />
           </Link>
           <p className="mt-2 hidden text-sm text-ink-soft sm:block">{translate("public.header.tagline")}</p>
