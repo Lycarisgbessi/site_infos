@@ -165,7 +165,7 @@ export async function SiteHeader() {
             compact (leaderboard 728×90) : s'inscrit dans l'espace libre
             sans chevaucher le logo ni allonger l'en-tête. */}
         <div className="hidden min-w-0 flex-1 justify-end md:flex">
-          <div className="w-full max-w-[560px] shrink">
+          <div className="w-full max-w-[720px] shrink md:ms-28 lg:ms-32">
             <AdBanner
               code="AD-01"
               campaigns={adCampaigns}

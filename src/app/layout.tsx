@@ -9,6 +9,9 @@ import { AudioPlayerProvider } from "@/components/public/audio-player/context";
 import { AudioFloatingBar } from "@/components/public/audio-player/floating-bar";
 import { PwaRegister } from "@/components/public/pwa/pwa-register";
 import { InstallBanner } from "@/components/public/pwa/install-banner";
+import { AdCorner } from "@/components/public/ad-corner";
+import { Chatbot } from "@/components/public/chatbot";
+import { getAdCampaigns } from "@/lib/public/homepage-data";
 
 /**
  * Layout racine. La langue du produit est le français (§00.2 règle 10).
@@ -65,6 +68,9 @@ export default async function RootLayout({
   const { translate } = await getTranslations();
   const locale = await resolveLocale();
 
+  // Campagnes du popup publicitaire (coin bas-gauche) — best-effort.
+  const adCampaigns = await getAdCampaigns().catch(() => ({}) as Awaited<ReturnType<typeof getAdCampaigns>>);
+
   return (
     <html lang={localeTag(locale)} dir={localeDir(locale)} suppressHydrationWarning>
       <body className={`${fontVariables} antialiased bg-background text-foreground`}>
@@ -85,6 +91,12 @@ export default async function RootLayout({
               }}
             />
             </AudioPlayerProvider>
+          {/* Publicité flottante — coin inférieur gauche (fermable 24 h) */}
+          <AdCorner campaigns={adCampaigns["AD-11"] ?? []} label={translate("public.ad.label")} />
+
+          {/* Chatbot — coin inférieur droit */}
+          <Chatbot />
+
           {/* PWA — service worker + bannière d'installation/notifications */}
           <PwaRegister />
           <InstallBanner

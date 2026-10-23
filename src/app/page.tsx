@@ -331,6 +331,9 @@ export default async function HomePage() {
             {/* AD-04 : pavé latéral */}
             <AdBanner code="AD-04" campaigns={adCampaigns} />
 
+            {/* AD-05 : demi-page verticale (300×600) */}
+            <AdBanner code="AD-05" campaigns={adCampaigns} />
+
             {/* Les plus lus */}
             <section aria-label={translate("public.list.mostRead")} className="border border-rule bg-paper-alt p-4">
               <header className="border-b border-rule pb-2">
