@@ -114,23 +114,22 @@ export async function AdBanner({
         </SlotShell>
       );
     }
-    if (placeholder) {
-      const ph = HEIGHTS[formatOverride ?? FORMAT_BY_SLOT[code] ?? "leaderboard"];
-      return (
-        <SlotShell
-          code={code}
-          label={translate("public.ad.label")}
-          className={`w-full ${ph} ${className}`}
-        >
-          <div className="ad-placeholder flex h-full w-full items-center justify-center border border-dashed p-2 text-center">
-            <p className="text-[0.7rem] uppercase tracking-[0.2em] text-ink-faint/70">
-              {translate("public.ad.label")} · {code}
-            </p>
-          </div>
-        </SlotShell>
-      );
-    }
-    return null;
+    // Sans campagne : la glissière régie anime déjà l'emplacement (le cycle
+    // vit même vide et incite à commander l'espace).
+    const ph = HEIGHTS[formatOverride ?? FORMAT_BY_SLOT[code] ?? "leaderboard"];
+    return (
+      <SlotShell
+        code={code}
+        label={translate("public.ad.label")}
+        className={`w-full overflow-hidden ${ph} ${className}`}
+      >
+        <AdRotation campaigns={[]} houseLabels={{
+          title: translate("public.ad.houseTitle"),
+          subtitle: translate("public.ad.houseSub"),
+          cta: translate("public.ad.houseCta"),
+        }} />
+      </SlotShell>
+    );
   }
 
   const format = formatOverride ?? FORMAT_BY_SLOT[code] ?? "leaderboard";
@@ -140,7 +139,14 @@ export async function AdBanner({
       label={translate("public.ad.label")}
       className={`w-full overflow-hidden ${HEIGHTS[format]} ${className}`}
     >
-      <AdRotation campaigns={slotCampaigns} />
+      <AdRotation
+        campaigns={slotCampaigns}
+        houseLabels={{
+          title: translate("public.ad.houseTitle"),
+          subtitle: translate("public.ad.houseSub"),
+          cta: translate("public.ad.houseCta"),
+        }}
+      />
     </SlotShell>
   );
 }

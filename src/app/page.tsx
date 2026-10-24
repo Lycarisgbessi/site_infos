@@ -14,6 +14,8 @@ import {
   getSiteBanners,
   getWeather,
   getWorldArticles,
+  getInterviewArticles,
+  attachVideoPreviews,
   getAdCampaigns,
   getFallbackSections,
   type AdCampaignMap,
@@ -28,6 +30,7 @@ import { AdBanner, AdNativeCard, AdSelfPromo, AdWeatherSponsor } from "@/compone
 import { MobileStickyAd } from "@/components/public/mobile-sticky-ad";
 import { ContinuousItem, timeAgo, HeroCard, MostReadItem, SideCard } from "@/components/public/article-cards";
 import { ContinuousFeed, type ContinuousFeedItem } from "@/components/public/continuous-feed";
+import { InterviewsCarousel } from "@/components/public/interviews-carousel";
 import { DossierBlock, OpinionCards, SectionBlock, VideoSection, WorldGrid } from "@/components/public/section-block";
 import { NewsletterBlock } from "@/components/public/newsletter-block";
 import { WeatherStrip } from "@/components/public/weather-strip";
@@ -136,7 +139,7 @@ export default async function HomePage() {
   // moins un article publié, triées par position (les 8 historiques en
   // tête d'affichage) — résolution dans homepage-data.getFallbackSections.
   const sectionsConfig = await getFallbackSections();
-  const [hero, latest, mostRead, live, videos, dossier, opinions, world, weather, ...sections] = await Promise.all([
+  const [heroRaw, latest, mostRead, live, videos, dossier, opinions, world, weather, interviews, ...sections] = await Promise.all([
     getHeroArticles(5),
     getLatestArticles(12),
     getMostReadArticles(5),
@@ -146,10 +149,12 @@ export default async function HomePage() {
     getOpinionArticles(4),
     getWorldArticles(8),
     weatherEnabled ? getWeather() : Promise.resolve<WeatherNow[]>([]),
+    getInterviewArticles(12),
     ...sectionsConfig.map((s) => getSectionArticles(s.slug, 5)),
   ]);
 
   const sectionData = sectionsConfig.map((s, i) => ({ slug: s.slug, articles: sections[i] }));
+  const hero = await attachVideoPreviews(heroRaw);
   const [heroMain, ...heroSide] = hero;
 
   return (
@@ -243,6 +248,23 @@ export default async function HomePage() {
                 />
               </Reveal>
             </div>
+
+            {/* ── Interviews : balayage continu, y compris les anciennes ──── */}
+            {interviews.length > 0 && (
+              <Reveal variant="zoom">
+                <InterviewsCarousel
+                  interviews={interviews}
+                  labels={{
+                    kicker: translate("public.interviews.kicker"),
+                    watch: translate("public.interviews.watch"),
+                    listen: translate("public.interviews.listen"),
+                    read: translate("public.interviews.read"),
+                    prev: translate("public.interviews.prev"),
+                    next: translate("public.interviews.next"),
+                  }}
+                />
+              </Reveal>
+            )}
 
             {/* ── Z-11 : Dossier immersif ─────────────────────────────────── */}
             {dossier?.cover && <DossierBlock dossier={dossier} kickerLabel={translate("public.dossier.kicker")} />}

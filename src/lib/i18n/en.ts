@@ -233,4 +233,17 @@ export const enDictionary: Dictionary = {
   "public.footer.explore": "Explore",
   "public.footer.pages": "Pages",
 
+  // ─── Régie pub (glissière) + Interviews ──────────────────────────
+  "public.ad.houseTitle": "Your ad here",
+  "public.ad.houseSub": "Banners, animated GIFs, videos — seen by thousands of readers",
+  "public.ad.houseCta": "Book this space",
+  "public.interviews.kicker": "Interviews",
+  "public.interviews.title": "Interviews",
+  "public.interviews.subtitle": "They spoke to us — portraits, meetings and long-form interviews, newest to oldest.",
+  "public.interviews.watch": "Watch",
+  "public.interviews.listen": "Listen",
+  "public.interviews.read": "Read",
+  "public.interviews.prev": "Previous interview",
+  "public.interviews.next": "Next interview",
+
 };

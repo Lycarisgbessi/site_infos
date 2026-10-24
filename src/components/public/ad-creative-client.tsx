@@ -9,10 +9,10 @@ import type { PublicAdCampaign } from "@/lib/public/homepage-data";
  * Clic compté via /api/public/ads/[id]/click puis ouverture dans un nouvel
  * onglet ; impression comptée au montage, fire-and-forget (jamais bloquant).
  *
- * Contient aussi AdRotation : wrapper de rotation pondérée qui affiche
- * successivement les campagnes d'un même emplacement (tirage initial côté
- * client + rotation toutes les 30 s avec fondu 500 ms, en pause quand
- * l'onglet est masqué). AdCreativeView reste le renderer d'UNE campagne.
+ * AdRotation : cycle ANIMÉ des campagnes d'un emplacement, entremêlées
+ * d'une glissière « régie » qui invite les visiteurs à commander une
+ * publicité — rotation 10 s, fondu glissé, pastilles de progression,
+ * pause au survol. Même sans campagne, l'emplacement vit.
  */
 
 function youtubeEmbedId(url: string): string | null {
@@ -63,18 +63,16 @@ export function AdCreativeView({ campaign }: { campaign: PublicAdCampaign }) {
     "aria-label": `${campaign.advertiser} — ${campaign.name}`,
   };
 
-  // Vidéo
   if (campaign.mediaKind === "video") {
     const youtubeId = campaign.videoUrl ? youtubeEmbedId(campaign.videoUrl) : null;
     return (
-      <div className="relative h-full w-full bg-ink">
+      <div className="relative h-full w-full">
         {youtubeId ? (
           <iframe
-            src={`https://www.youtube-nocookie.com/embed/${youtubeId}?autoplay=1&mute=1&controls=0&rel=0&modestbranding=1&playsinline=1&loop=1&playlist=${youtubeId}`}
-            title={campaign.name}
-            allow="autoplay; encrypted-media; picture-in-picture"
-            tabIndex={-1}
-            className="pointer-events-none h-full w-full"
+            src={`https://www.youtube-nocookie.com/embed/${youtubeId}?autoplay=1&mute=1&controls=0&loop=1&playlist=${youtubeId}&modestbranding=1&rel=0&playsinline=1`}
+            title={campaign.alt || campaign.name}
+            allow="autoplay; encrypted-media"
+            className="h-full w-full"
           />
         ) : (
           <video
@@ -83,8 +81,8 @@ export function AdCreativeView({ campaign }: { campaign: PublicAdCampaign }) {
             muted
             loop
             playsInline
-            className="pointer-events-none h-full w-full object-cover"
-            aria-label={campaign.name}
+            className="h-full w-full object-cover"
+            aria-label={campaign.alt || campaign.name}
           />
         )}
         {/* Voile cliquable : le clic est compté, le lecteur reste décoratif. */}
@@ -110,61 +108,75 @@ export function AdCreativeView({ campaign }: { campaign: PublicAdCampaign }) {
   );
 }
 
-// ─── Rotation pondérée (2026-10) ─────────────────────────────────────────
+// ─── Cycle animé : campagnes + glissière régie ──────────────────────────
 
-const ROTATE_INTERVAL_MS = 30_000;
-const FADE_MS = 500;
+const ROTATE_INTERVAL_MS = 10_000;
+const FADE_MS = 450;
 
-/** Poids de tirage d'une campagne : `weight` de la créative si disponible
- * (> 0), sinon repli sur priority + 1 (une campagne de priorité 4 a
- * 5 fois plus de chances qu'une priorité 0). */
+/** Glissière auto-promotion : invite à commander cet espace publicitaire. */
+function AdHouseSlide({ labels }: { labels: AdHouseLabels }) {
+  return (
+    <div className="relative flex h-full w-full items-center justify-center overflow-hidden bg-ink">
+      {/* Fond animé : vagues dégradées rouge/orange */}
+      <div aria-hidden className="ad-house-waves absolute inset-0" />
+      <div className="relative z-10 px-4 py-2 text-center">
+        <p className="text-sm font-black uppercase tracking-widest text-white md:text-base">
+          {labels.title}
+        </p>
+        <p className="mt-1 text-[0.65rem] font-medium text-white/75 md:text-xs">{labels.subtitle}</p>
+        <span className="mt-2 inline-block rounded-full bg-white px-3 py-1 text-[0.65rem] font-black uppercase tracking-widest text-brand-red shadow-sm transition-transform duration-200 hover:scale-105 md:text-xs">
+          {labels.cta} →
+        </span>
+      </div>
+    </div>
+  );
+}
+
+export interface AdHouseLabels {
+  title: string;
+  subtitle: string;
+  cta: string;
+}
+
+type Slide =
+  | { kind: "campaign"; campaign: PublicAdCampaign }
+  | { kind: "house" };
+
+/** Poids de tirage : weight de la créative si disponible, sinon priorité+1. */
 function campaignWeight(c: PublicAdCampaign): number {
-  const w = (c as PublicAdCampaign & { weight?: number }).weight;
-  return typeof w === "number" && Number.isFinite(w) && w > 0 ? w : Math.max(1, c.priority + 1);
+  const rec = c as unknown as Record<string, unknown>;
+  const w = typeof rec.weight === "number" && rec.weight > 0 ? rec.weight : c.priority + 1;
+  return Math.max(1, w);
 }
 
-/** Tirage pondéré (weight de la créative, sinon priorité) : `exclude`
- * permet d'éviter de re-tirer la campagne courante lors des rotations
- * suivantes. */
-function pickWeightedIndex(campaigns: PublicAdCampaign[], exclude = -1): number {
-  const pool = campaigns.map((c, i) => ({ i, w: campaignWeight(c) }));
-  const filtered = pool.filter((p) => p.i !== exclude);
-  const candidates = filtered.length > 0 ? filtered : pool;
-  const total = candidates.reduce((sum, c) => sum + c.w, 0);
-  let roll = Math.random() * total;
-  for (const c of candidates) {
-    roll -= c.w;
-    if (roll < 0) return c.i;
-  }
-  return candidates[candidates.length - 1].i;
-}
+export function AdRotation({
+  campaigns,
+  houseLabels,
+}: {
+  campaigns: PublicAdCampaign[];
+  houseLabels?: AdHouseLabels;
+}) {
+  // Diapositives : campagnes (ordre priorité) + glissière régie en fin de cycle.
+  const hasHouse = Boolean(houseLabels);
+  const slides: Slide[] = [
+    ...campaigns.map((campaign) => ({ kind: "campaign" as const, campaign })),
+    ...(hasHouse ? [{ kind: "house" as const }] : []),
+  ];
 
-/** Rotation des campagnes d'un emplacement : tirage pondéré au chargement
- * (côté client, pour répartir entre les visites), puis rotation temporisée
- * toutes les 30 s si plusieurs campagnes — fondu 500 ms, pause quand
- * l'onglet est masqué (visibilitychange). Chaque créative affichée remonte
- * AdCreativeView (key = creativeId) : l'impression est donc comptée à chaque
- * apparition via son effet existant, inchangé. */
-export function AdRotation({ campaigns }: { campaigns: PublicAdCampaign[] }) {
   const [index, setIndex] = useState(0);
   const [visible, setVisible] = useState(true);
+  const [paused, setPaused] = useState(false);
 
-  // Tirage initial pondéré, côté client uniquement (évite le mismatch
-  // d'hydratation : le serveur rend la première campagne de la liste).
+  // Cycle : rotation toutes les 10 s, fondu glissé, pause au survol/onglet caché.
   useEffect(() => {
-    setIndex((prev) => (prev === 0 ? pickWeightedIndex(campaigns) : prev));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // Rotation temporisée, en pause quand l'onglet est masqué.
-  useEffect(() => {
-    if (campaigns.length < 2) return;
+    if (slides.length < 2) return;
     let interval: number | undefined;
     let fadeTimeout: number | undefined;
     const rotate = () => {
+      if (paused || document.hidden) return;
       setVisible(false);
       fadeTimeout = window.setTimeout(() => {
-        setIndex((prev) => pickWeightedIndex(campaigns, prev));
+        setIndex((prev) => (prev + 1) % slides.length);
         setVisible(true);
       }, FADE_MS);
     };
@@ -185,17 +197,44 @@ export function AdRotation({ campaigns }: { campaigns: PublicAdCampaign[] }) {
       if (fadeTimeout !== undefined) window.clearTimeout(fadeTimeout);
       document.removeEventListener("visibilitychange", onVisibility);
     };
-  }, [campaigns]);
+  }, [slides.length, paused]);
 
-  if (campaigns.length === 0) return null;
-  const campaign = campaigns[Math.min(index, campaigns.length - 1)];
+  if (slides.length === 0) {
+    return houseLabels ? <AdHouseSlide labels={houseLabels} /> : null;
+  }
+  const slide = slides[Math.min(index, slides.length - 1)];
 
   return (
     <div
-      className="h-full w-full transition-opacity duration-500 ease-in-out"
-      style={{ opacity: visible ? 1 : 0 }}
+      className="relative h-full w-full overflow-hidden"
+      onMouseEnter={() => setPaused(true)}
+      onMouseLeave={() => setPaused(false)}
     >
-      <AdCreativeView key={campaign.creativeId} campaign={campaign} />
+      <div
+        className="ad-slide h-full w-full transition-all duration-500"
+        style={{ opacity: visible ? 1 : 0, transform: visible ? "translateX(0)" : "translateX(6%)" }}
+      >
+        {slide.kind === "campaign" ? (
+          <AdCreativeView key={slide.campaign.creativeId} campaign={slide.campaign} />
+        ) : (
+          <AdHouseSlide labels={houseLabels!} />
+        )}
+      </div>
+
+      {/* Pastilles de progression */}
+      {slides.length > 1 && (
+        <div className="absolute bottom-1.5 start-1/2 z-20 flex -translate-x-1/2 gap-1.5 rtl:translate-x-1/2">
+          {slides.map((_, i) => (
+            <span
+              key={i}
+              aria-hidden
+              className={`h-1.5 rounded-full transition-all duration-300 ${
+                i === index ? "w-4 bg-white" : "w-1.5 bg-white/50"
+              }`}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 }

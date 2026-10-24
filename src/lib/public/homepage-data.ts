@@ -25,6 +25,8 @@ export interface PublicArticle {
   category: { name: string; slug: string; colorAccent: string | null } | null;
   cover: { url: string; alt: string | null; credit: string | null; width: number | null; height: number | null } | null;
   authors: { role: string; name: string }[];
+  /** Aperçu vidéo (coin de couverture) si l'article contient une vidéo. */
+  videoPreview: { kind: "youtube" | "file"; src: string } | null;
 }
 
 const articleSelect = {
@@ -81,6 +83,7 @@ function toPublicArticle(a: ArticleRow): PublicArticle {
         }
       : null,
     authors: a.authors.map((au) => ({ role: au.role, name: au.user.display_name })),
+    videoPreview: null,
   };
 }
 
@@ -315,6 +318,65 @@ export async function getVideoArticles(count = 6): Promise<PublicArticle[]> {
     select: articleSelect,
   });
   return rows.map(toPublicArticle);
+}
+
+/** Extrait un aperçu vidéo du corps d'article (bloc video youtube ou embed). */
+export interface VideoPreview {
+  kind: "youtube" | "file";
+  src: string;
+}
+
+function extractVideoPreview(body: string | null): VideoPreview | null {
+  if (!body) return null;
+  let blocks: unknown;
+  try {
+    blocks = JSON.parse(body);
+  } catch {
+    return null;
+  }
+  if (!Array.isArray(blocks)) return null;
+  for (const b of blocks) {
+    if (!b || typeof b !== "object") continue;
+    const block = b as Record<string, unknown>;
+    if (block.type === "video") {
+      if (block.provider === "youtube" && typeof block.playbackId === "string") {
+        return { kind: "youtube", src: block.playbackId };
+      }
+    }
+    if (block.type === "embed" && typeof block.url === "string") {
+      const m =
+        block.url.match(/[?&]v=([\w-]{6,})/) ??
+        block.url.match(/youtu\.be\/([\w-]{6,})/) ??
+        block.url.match(/youtube(?:-nocookie)?\.com\/(?:embed|shorts)\/([\w-]{6,})/);
+      if (m) return { kind: "youtube", src: m[1] };
+      if (/\.mp4($|\?)/i.test(block.url)) return { kind: "file", src: block.url };
+    }
+  }
+  return null;
+}
+
+/** Attache les aperçus vidéo à une liste d'articles (une seule requête). */
+export async function attachVideoPreviews(articles: PublicArticle[]): Promise<PublicArticle[]> {
+  const missing = articles.filter((a) => a.videoPreview === undefined);
+  if (missing.length === 0) return articles;
+  const rows = await db.article.findMany({
+    where: { id: { in: missing.map((a) => a.id) } },
+    select: { id: true, body: true },
+  });
+  const byId = new Map(rows.map((r) => [r.id, extractVideoPreview(r.body)]));
+  return articles.map((a) => ({ ...a, videoPreview: byId.get(a.id) ?? null }));
+}
+
+/** Interviews (format éditorial « interview ») — y compris les anciennes,
+ * pour le carrousel « balayage » qui les fait revenir. */
+export async function getInterviewArticles(count = 12): Promise<PublicArticle[]> {
+  const rows = await db.article.findMany({
+    where: { ...PUBLISHED, format: "interview" },
+    orderBy: { published_at: "desc" },
+    take: count,
+    select: articleSelect,
+  });
+  return attachVideoPreviews(rows.map(toPublicArticle));
 }
 
 export interface PublicDossier {
@@ -942,7 +1004,7 @@ export async function getComposedHomepage(): Promise<ComposedBlock[] | null> {
           };
         }
         case "lead":
-          return { ...base, type: "lead" as const, articles: await getHeroArticles(count) };
+          return { ...base, type: "lead" as const, articles: await attachVideoPreviews(await getHeroArticles(count)) };
         case "live":
           return { ...base, type: "live" as const, live: await getActiveLive() };
         case "latest": {

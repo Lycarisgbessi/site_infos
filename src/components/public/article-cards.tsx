@@ -90,6 +90,40 @@ function categoryColor(article: PublicArticle): string | undefined {
   return article.category?.colorAccent ?? undefined;
 }
 
+/** Aperçu vidéo incrusté — coin inférieur droit de la couverture :
+ *  lecture muette en boucle ; au survol, l'encart s'agrandit pour un
+ *  confort de visionnage sans quitter la une. */
+function VideoPreviewPiP({ preview }: { preview: { kind: "youtube" | "file"; src: string } }) {
+  return (
+    <div
+      className="group/pip absolute bottom-3 end-3 z-10 h-[4.5rem] w-28 overflow-hidden rounded-md border-2 border-white/90 shadow-[0_6px_20px_rgba(0,0,0,0.45)] transition-transform duration-300 ease-[var(--ease-inout)] hover:scale-[1.65] hover-origin-bottom-right md:h-24 md:w-36"
+      style={{ transformOrigin: "bottom right" }}
+      aria-label="Aperçu vidéo de l'article"
+    >
+      {preview.kind === "youtube" ? (
+        <iframe
+          src={`https://www.youtube-nocookie.com/embed/${preview.src}?autoplay=1&mute=1&controls=0&loop=1&playlist=${preview.src}&modestbranding=1&rel=0&playsinline=1`}
+          title="Aperçu vidéo"
+          allow="autoplay; encrypted-media; picture-in-picture"
+          className="pointer-events-none h-full w-full"
+          tabIndex={-1}
+        />
+      ) : (
+        <video
+          src={preview.src}
+          muted
+          autoPlay
+          loop
+          playsInline
+          preload="metadata"
+          aria-label="Aperçu vidéo"
+          className="h-full w-full object-cover"
+        />
+      )}
+    </div>
+  );
+}
+
 /** Carte vedette de la une (grande image + titre + chapô). */
 export async function HeroCard({ article }: { article: PublicArticle }) {
   const { translate } = await getTranslations();
@@ -105,6 +139,7 @@ export async function HeroCard({ article }: { article: PublicArticle }) {
         <div className="absolute start-3 top-3 flex gap-2">
           <Badge article={article} />
         </div>
+        {article.videoPreview && <VideoPreviewPiP preview={article.videoPreview} />}
       </div>
       <div className="pt-4">
         <p className="kicker flex items-center gap-1.5 text-brand-red" style={categoryColor(article) ? { color: categoryColor(article) } : undefined}>

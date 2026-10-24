@@ -65,6 +65,7 @@ function toPublicArticle(a: ArticleRow): PublicArticle {
         }
       : null,
     authors: a.authors.map((au) => ({ role: au.role, name: au.user.display_name })),
+    videoPreview: null,
   };
 }
 

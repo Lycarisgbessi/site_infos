@@ -556,3 +556,20 @@
   .title-sweep, .title-sweep > .accent-gradient,
   [data-ad-slot], [data-ad-slot]::before, .hero-stage, .progress-bar { animation: none; }
 }
+
+/* ── Glissière régie : vagues dégradées animées ─────────────────────── */
+.ad-house-waves {
+  background:
+    radial-gradient(120% 160% at 15% 20%, rgba(220, 38, 38, 0.95) 0%, transparent 55%),
+    radial-gradient(120% 160% at 85% 80%, rgba(245, 158, 11, 0.85) 0%, transparent 55%),
+    #0a0a0b;
+  background-size: 180% 180%;
+  animation: ad-house-flow 9s ease-in-out infinite;
+}
+@keyframes ad-house-flow {
+  0%, 100% { background-position: 0% 0%, 100% 100%, 0 0; }
+  50%      { background-position: 100% 60%, 0% 40%, 0 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ad-house-waves { animation: none; }
+}

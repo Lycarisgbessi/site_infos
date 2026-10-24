@@ -236,4 +236,17 @@ export const arDictionary: Dictionary = {
   "public.footer.explore": "استكشف",
   "public.footer.pages": "الصفحات",
 
+  // ─── Régie pub (glissière) + Interviews ──────────────────────────
+  "public.ad.houseTitle": "إعلانك هنا",
+  "public.ad.houseSub": "ملصقات وصور متحركة وفيديوهات — يشاهدها آلاف القراء",
+  "public.ad.houseCta": "احجز هذه المساحة",
+  "public.interviews.kicker": "مقابلات",
+  "public.interviews.title": "مقابلات",
+  "public.interviews.subtitle": "حدثونا — بورتريهات ولقاءات وحوارات كبيرة، من الأحدث إلى الأقدم.",
+  "public.interviews.watch": "مشاهدة",
+  "public.interviews.listen": "استماع",
+  "public.interviews.read": "قراءة",
+  "public.interviews.prev": "المقابلة السابقة",
+  "public.interviews.next": "المقابلة التالية",
+
 };

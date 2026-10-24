@@ -242,6 +242,19 @@ export const frDictionary = {
   // ─── Pied de page : colonnes Explorer et Pages ────────────────────
   "public.footer.explore": "Explorer",
   "public.footer.pages": "Pages",
+  // ─── Régie pub (glissière) + Interviews ──────────────────────────
+  "public.ad.houseTitle": "Votre publicité ici",
+  "public.ad.houseSub": "Affiches, GIF animés, vidéos — vue par des milliers de lecteurs",
+  "public.ad.houseCta": "Réserver cet espace",
+  "public.interviews.kicker": "Interviews",
+  "public.interviews.title": "Interviews",
+  "public.interviews.subtitle": "Ils nous ont parlé — portraits, rencontres et grands entretiens, du plus récent au plus ancien.",
+  "public.interviews.watch": "Voir",
+  "public.interviews.listen": "Écouter",
+  "public.interviews.read": "Lire",
+  "public.interviews.prev": "Interview précédente",
+  "public.interviews.next": "Interview suivante",
+
 } as const satisfies Record<string, string>;
 
 /** Contrat d'exhaustivité : chaque dictionnaire doit couvrir TOUTES les clés FR. */

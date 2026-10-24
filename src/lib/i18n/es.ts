@@ -237,4 +237,17 @@ export const esDictionary: Dictionary = {
   "public.footer.explore": "Explorar",
   "public.footer.pages": "Páginas",
 
+  // ─── Régie pub (glissière) + Interviews ──────────────────────────
+  "public.ad.houseTitle": "Su publicidad aquí",
+  "public.ad.houseSub": "Carteles, GIF animados, vídeos — vistos por miles de lectores",
+  "public.ad.houseCta": "Reservar este espacio",
+  "public.interviews.kicker": "Entrevistas",
+  "public.interviews.title": "Entrevistas",
+  "public.interviews.subtitle": "Nos hablaron — retratos, encuentros y grandes entrevistas, de la más reciente a la más antigua.",
+  "public.interviews.watch": "Ver",
+  "public.interviews.listen": "Escuchar",
+  "public.interviews.read": "Leer",
+  "public.interviews.prev": "Entrevista anterior",
+  "public.interviews.next": "Entrevista siguiente",
+
 };

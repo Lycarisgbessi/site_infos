@@ -229,4 +229,17 @@ export const zhDictionary: Dictionary = {
   "public.footer.explore": "探索",
   "public.footer.pages": "页面",
 
+  // ─── Régie pub (glissière) + Interviews ──────────────────────────
+  "public.ad.houseTitle": "在此投放广告",
+  "public.ad.houseSub": "海报、动图、视频——触达数千读者",
+  "public.ad.houseCta": "预订此广告位",
+  "public.interviews.kicker": "专访",
+  "public.interviews.title": "专访",
+  "public.interviews.subtitle": "他们与我们对话——人物特写、深度访谈，从最新到最早。",
+  "public.interviews.watch": "观看",
+  "public.interviews.listen": "收听",
+  "public.interviews.read": "阅读",
+  "public.interviews.prev": "上一篇专访",
+  "public.interviews.next": "下一篇专访",
+
 };
