@@ -114,24 +114,54 @@ export function AdCreativeView({ campaign }: { campaign: PublicAdCampaign }) {
 const ROTATE_INTERVAL_MS = 10_000;
 const FADE_MS = 450;
 
-/** Glissières auto-promotion : trois designs distincts qui tournent
- *  même sans aucune campagne — l'emplacement vit toujours. */
+/** Glissières régie — PREMIUM : trois univers haut de gamme.
+ *  1. Ébène & or : noir profond, filets dorés, titre serif doré.
+ *  2. Ivoire éditorial : page magazine crème, serif noir, filet rouge.
+ *  3. Verre sombre : noir translucide, halo rouge flouté, chip verre.
+ */
 function AdHouseSlide({ variant, labels }: { variant: 1 | 2 | 3; labels: AdHouseLabels }) {
-  const bg =
-    variant === 1 ? "ad-house-waves"
-    : variant === 2 ? "ad-house-grid"
-    : "ad-house-orbit";
+  if (variant === 2) {
+    return (
+      <Link href="/pages/publicite" className="group relative flex h-full w-full items-center justify-center overflow-hidden bg-[#faf7f0]" aria-label={labels.cta}>
+        <div aria-hidden className="pointer-events-none absolute inset-3 border border-[#d8d2c4]" />
+        <div aria-hidden className="ivory-flare pointer-events-none absolute inset-0" />
+        <div className="relative z-10 max-w-[92%] px-2 py-1 text-center">
+          <p className="font-serif text-[0.6rem] uppercase tracking-[0.42em] text-[#9a8f78]">Régie INFOSPRO</p>
+          <p className="mt-1.5 font-serif text-sm font-black italic leading-tight text-ink md:text-base">{labels.title}</p>
+          <p className="mt-1 text-[0.62rem] font-medium tracking-wide text-[#6f6753]">{labels.subtitle}</p>
+          <span className="mt-2 inline-block border-b border-brand-red pb-0.5 text-[0.62rem] font-bold uppercase tracking-[0.22em] text-brand-red transition-colors duration-200 group-hover:bg-brand-red group-hover:text-white">
+            {labels.cta} →
+          </span>
+        </div>
+      </Link>
+    );
+  }
+  if (variant === 3) {
+    return (
+      <Link href="/pages/publicite" className="group relative flex h-full w-full items-center justify-center overflow-hidden bg-[#0b0b0d]" aria-label={labels.cta}>
+        <div aria-hidden className="glass-glow absolute inset-0" />
+        <div aria-hidden className="pointer-events-none absolute inset-0 bg-[radial-gradient(60%_80%_at_50%_120%,rgba(220,38,38,0.35),transparent_70%)]" />
+        <div className="relative z-10 max-w-[92%] px-2 py-1 text-center">
+          <p className="text-[0.6rem] font-semibold uppercase tracking-[0.4em] text-white/50">Studio régie</p>
+          <p className="mt-1.5 font-serif text-sm font-bold leading-tight text-white md:text-base">{labels.title}</p>
+          <p className="mt-1 text-[0.62rem] font-medium text-white/60">{labels.subtitle}</p>
+          <span className="glass-chip mt-2 inline-block px-3.5 py-1 text-[0.62rem] font-bold uppercase tracking-[0.2em] text-white">
+            {labels.cta} →
+          </span>
+        </div>
+      </Link>
+    );
+  }
+  // 1 — Ébène & or
   return (
-    <Link href="/pages/publicite" className="group relative flex h-full w-full items-center justify-center overflow-hidden bg-ink" aria-label={labels.cta}>
-      <div aria-hidden className={`${bg} absolute inset-0`} />
-      {/* Reflet traversant au survol */}
-      <div aria-hidden className="ad-flare pointer-events-none absolute inset-0" />
-      <div className="relative z-10 px-4 py-2 text-center">
-        <p className={`font-black uppercase tracking-widest text-white ${variant === 2 ? "text-xs md:text-sm" : "text-sm md:text-base"}`}>
-          {labels.title}
-        </p>
-        <p className="mt-1 text-[0.65rem] font-medium text-white/80 md:text-xs">{labels.subtitle}</p>
-        <span className="ad-cta-pulse mt-2 inline-block rounded-full bg-white px-3 py-1 text-[0.65rem] font-black uppercase tracking-widest text-brand-red shadow-md md:text-xs">
+    <Link href="/pages/publicite" className="group relative flex h-full w-full items-center justify-center overflow-hidden bg-[#0c0c0e]" aria-label={labels.cta}>
+      <div aria-hidden className="gold-border absolute inset-[5px] rounded-[10px]" />
+      <div aria-hidden className="gold-shimmer pointer-events-none absolute inset-0" />
+      <div className="relative z-10 max-w-[92%] px-3 py-1 text-center">
+        <p className="gold-text text-[0.6rem] font-semibold uppercase tracking-[0.42em]">Régie INFOSPRO</p>
+        <p className="gold-text mt-1.5 font-serif text-sm font-black leading-tight md:text-base">{labels.title}</p>
+        <p className="mt-1 text-[0.62rem] font-medium tracking-wide text-white/60">{labels.subtitle}</p>
+        <span className="mt-2 inline-block rounded-[3px] border border-[#d4af37]/70 px-3.5 py-1 text-[0.62rem] font-bold uppercase tracking-[0.2em] text-[#e8c96a] transition-all duration-300 group-hover:bg-[#d4af37] group-hover:text-[#0c0c0e]">
           {labels.cta} →
         </span>
       </div>

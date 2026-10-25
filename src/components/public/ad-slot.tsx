@@ -75,10 +75,13 @@ function SlotShell({
     <aside
       aria-label={`${label} ${code}`}
       data-ad-slot={code}
-      className={`group relative border border-rule bg-paper-alt [&_.ad-placeholder]:border-dashed [&_.ad-placeholder]:bg-paper ${className}`}
+      className={`group relative bg-paper-alt [&_.ad-placeholder]:border-dashed [&_.ad-placeholder]:bg-paper ${className}`}
     >
-      <span className="absolute -top-2 end-2 z-20 bg-paper px-1.5 text-[0.6rem] font-bold uppercase tracking-[0.18em] text-ink-faint">
-        {label}
+      {/* Étiquette éditoriale — filets latéraux, centrée */}
+      <span className="absolute -top-2.5 start-1/2 z-20 flex -translate-x-1/2 items-center gap-2 bg-paper px-2.5 rtl:translate-x-1/2">
+        <span aria-hidden className="h-px w-4 bg-rule-strong" />
+        <span className="text-[0.56rem] font-semibold uppercase tracking-[0.34em] text-ink-faint">{label}</span>
+        <span aria-hidden className="h-px w-4 bg-rule-strong" />
       </span>
       {children}
     </aside>
