@@ -4,7 +4,7 @@
  *  - navigations (pages)    : network-first avec repli cache, puis "/"
  *  - /admin/** et /api/**   : JAMAIS mis en cache (réseau uniquement)
  */
-const VERSION = "infospro-v1";
+const VERSION = "infospro-v3";
 const STATIC_CACHE = `${VERSION}-static`;
 const PAGES_CACHE = `${VERSION}-pages`;
 const MAX_PAGES = 30;
@@ -56,22 +56,26 @@ self.addEventListener("fetch", (event) => {
   }
   if (isNeverCache(url)) return; // réseau pur
 
-  // Cache-first : assets statiques
+  // Stale-while-revalidate : assets statiques — réponse immédiate depuis
+  // le cache, mise à jour en arrière-plan (le rechargement suivant voit
+  // les nouveautés ; les URL /_next/static sont de toute façon hachées).
   if (isStaticAsset(url)) {
     event.respondWith(
       (async () => {
-        const cached = await caches.match(request);
-        if (cached) return cached;
-        try {
-          const response = await fetch(request);
-          if (response.ok) {
-            const cache = await caches.open(STATIC_CACHE);
-            cache.put(request, response.clone());
-          }
-          return response;
-        } catch {
-          return cached || Response.error();
+        const cache = await caches.open(STATIC_CACHE);
+        const cached = await cache.match(request);
+        const network = fetch(request)
+          .then((response) => {
+            if (response.ok) cache.put(request, response.clone());
+            return response;
+          })
+          .catch(() => null);
+        if (cached) {
+          event.waitUntil(network);
+          return cached;
         }
+        const response = await network;
+        return response || Response.error();
       })(),
     );
     return;
