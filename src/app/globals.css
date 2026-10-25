@@ -573,3 +573,88 @@
 @media (prefers-reduced-motion: reduce) {
   .ad-house-waves { animation: none; }
 }
+
+/* ── Glissières régie : 3 designs premium ───────────────────────────── */
+/* 1 — vagues rouge/orange */
+.ad-house-waves {
+  background:
+    radial-gradient(120% 160% at 15% 20%, rgba(220, 38, 38, 0.95) 0%, transparent 55%),
+    radial-gradient(120% 160% at 85% 80%, rgba(245, 158, 11, 0.85) 0%, transparent 55%),
+    #0a0a0b;
+  background-size: 180% 180%;
+  animation: ad-house-flow 9s ease-in-out infinite;
+}
+/* 2 — grille phosphorescente */
+.ad-house-grid {
+  background:
+    linear-gradient(rgba(220, 38, 38, 0.14) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(245, 158, 11, 0.10) 1px, transparent 1px),
+    radial-gradient(140% 120% at 50% 0%, rgba(220, 38, 38, 0.5), #0a0a0b 70%);
+  background-size: 26px 26px, 26px 26px, 100% 100%;
+  animation: ad-house-grid-move 14s linear infinite;
+}
+@keyframes ad-house-grid-move {
+  from { background-position: 0 0, 0 0, 0 0; }
+  to   { background-position: 26px 52px, 52px 26px, 0 0; }
+}
+/* 3 — orbites lumineuses */
+.ad-house-orbit {
+  background:
+    radial-gradient(28% 36% at 20% 30%, rgba(245, 158, 11, 0.55), transparent 70%),
+    radial-gradient(24% 32% at 78% 68%, rgba(220, 38, 38, 0.6), transparent 70%),
+    #0a0a0b;
+  background-size: 160% 160%;
+  animation: ad-house-orbit 11s ease-in-out infinite alternate;
+}
+@keyframes ad-house-orbit {
+  from { background-position: 0% 0%, 100% 100%, 0 0; }
+  to   { background-position: 60% 70%, 30% 20%, 0 0; }
+}
+/* CTA qui respire doucement */
+.ad-cta-pulse { animation: ad-cta-pulse 2.6s ease-in-out infinite; }
+@keyframes ad-cta-pulse {
+  0%, 100% { transform: scale(1);    box-shadow: 0 0 0 0 rgba(255,255,255,0.35); }
+  50%      { transform: scale(1.05); box-shadow: 0 0 0 6px rgba(255,255,255,0); }
+}
+/* Reflet traversant au survol des glissières */
+.ad-flare { transform: skewX(-18deg) translateX(-240%); background: linear-gradient(105deg, transparent, rgba(255,255,255,0.28), transparent); }
+.group:hover .ad-flare, a:hover > .ad-flare { animation: ad-flare-sweep 0.9s cubic-bezier(0.22,1,0.36,1); }
+@keyframes ad-flare-sweep {
+  from { transform: skewX(-18deg) translateX(-240%); }
+  to   { transform: skewX(-18deg) translateX(680%); }
+}
+
+/* ── Cadre pub PREMIUM : coins arrondis, halo, double reflet ────────── */
+[data-ad-slot] {
+  border-radius: 0.75rem;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 8px 24px -12px rgba(0,0,0,0.18);
+  transition: box-shadow 0.35s ease, transform 0.35s cubic-bezier(0.22,1,0.36,1);
+}
+[data-ad-slot]:hover {
+  box-shadow: 0 2px 6px rgba(0,0,0,0.10), 0 16px 38px -14px rgba(220,38,38,0.38);
+  transform: translateY(-2px);
+}
+[data-ad-slot]::before {
+  border-radius: 0.75rem;
+}
+/* Second reflet — balayage inverse espacé */
+[data-ad-slot]::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 15;
+  border-radius: 0.75rem;
+  background: linear-gradient(255deg, transparent 35%, rgba(255,255,255,0.14) 50%, transparent 65%);
+  transform: translateX(130%) skewX(-12deg);
+  animation: ad-sheen-back 7s ease-in-out 3.5s infinite;
+  pointer-events: none;
+}
+@keyframes ad-sheen-back {
+  0%, 40%  { transform: translateX(130%) skewX(-12deg); }
+  65%, 100% { transform: translateX(-130%) skewX(-12deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ad-house-waves, .ad-house-grid, .ad-house-orbit, .ad-cta-pulse { animation: none; }
+  [data-ad-slot]::before, [data-ad-slot]::after { animation: none; display: none; }
+}

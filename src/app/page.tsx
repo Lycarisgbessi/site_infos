@@ -343,17 +343,28 @@ export default async function HomePage() {
 
           {/* ── Colonne latérale (Z-06) ──────────────────────────────────── */}
           <aside className="min-w-0 space-y-6 lg:sticky lg:top-16 lg:self-start" id="en-continu">
-            {/* En continu */}
+            {/* En continu — 1ʳᵉ partie (articles 1-6) */}
             <section aria-label={translate("public.list.continuous")} className="scroll-mt-20 border border-rule bg-paper-alt p-4">
               <header className="flex items-center gap-2 border-b-2 border-brand-red pb-2">
                 <span aria-hidden className="live-dot size-2.5 rounded-full bg-brand-red" />
                 <h2 className="kicker text-base font-bold text-brand-red">{translate("public.list.continuous")}</h2>
               </header>
-              <ContinuousFeed items={toFeedItems(latest, translate)} labels={{ all: translate("public.list.continuous") }} />
+              <ContinuousFeed items={toFeedItems(latest.slice(0, 6), translate)} labels={{ all: translate("public.list.continuous") }} />
             </section>
 
-            {/* AD-04 : pavé latéral */}
-            <AdBanner code="AD-04" campaigns={adCampaigns} />
+            {/* AD-04 : grand encart VERTICAL entre les deux volets « En continu » */}
+            <AdBanner code="AD-04" campaigns={adCampaigns} formatOverride="halfpage" />
+
+            {/* En continu — 2ᵉ partie (articles 7-12, numérotation continue) */}
+            {latest.length > 6 && (
+              <section aria-label={translate("public.list.continuous")} className="border border-rule bg-paper-alt p-4">
+                <ContinuousFeed
+                  items={toFeedItems(latest.slice(6, 12), translate)}
+                  labels={{ all: translate("public.list.continuous") }}
+                  startIndex={6}
+                />
+              </section>
+            )}
 
             {/* AD-05 : demi-page verticale (300×600) */}
             <AdBanner code="AD-05" campaigns={adCampaigns} />
@@ -481,10 +492,24 @@ function ComposedMain({ blocks, adCampaigns, tvEnabled, weatherEnabled, translat
               <span aria-hidden className="live-dot size-2.5 rounded-full bg-brand-red" />
               <h2 className="kicker text-base font-bold text-brand-red">{b.title ?? translate("public.list.continuous")}</h2>
             </header>
-            <ContinuousFeed items={toFeedItems(b.articles, translate)} labels={{ all: translate("public.list.continuous") }} />
+            <ContinuousFeed items={toFeedItems(b.articles.slice(0, 6), translate)} labels={{ all: translate("public.list.continuous") }} />
           </section>
         )}
-        {b.settings.sidebarAd ? <AdBanner code={b.settings.sidebarAd} campaigns={adCampaigns} /> : null}
+        {/* Grand encart vertical entre les deux volets « En continu » */}
+        {b.settings.sidebarAd ? (
+          <AdBanner code={b.settings.sidebarAd} campaigns={adCampaigns} formatOverride="halfpage" />
+        ) : (
+          <AdBanner code="AD-04" campaigns={adCampaigns} formatOverride="halfpage" />
+        )}
+        {b.articles.length > 6 && (
+          <section aria-label={translate("public.list.continuous")} className="border border-rule bg-paper-alt p-4">
+            <ContinuousFeed
+              items={toFeedItems(b.articles.slice(6, 12), translate)}
+              labels={{ all: translate("public.list.continuous") }}
+              startIndex={6}
+            />
+          </section>
+        )}
         {mostRead}
       </>
     );

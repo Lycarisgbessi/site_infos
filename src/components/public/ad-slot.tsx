@@ -127,6 +127,12 @@ export async function AdBanner({
           title: translate("public.ad.houseTitle"),
           subtitle: translate("public.ad.houseSub"),
           cta: translate("public.ad.houseCta"),
+          title2: translate("public.ad.house2Title"),
+          subtitle2: translate("public.ad.house2Sub"),
+          cta2: translate("public.ad.house2Cta"),
+          title3: translate("public.ad.house3Title"),
+          subtitle3: translate("public.ad.house3Sub"),
+          cta3: translate("public.ad.house3Cta"),
         }} />
       </SlotShell>
     );
@@ -145,6 +151,12 @@ export async function AdBanner({
           title: translate("public.ad.houseTitle"),
           subtitle: translate("public.ad.houseSub"),
           cta: translate("public.ad.houseCta"),
+          title2: translate("public.ad.house2Title"),
+          subtitle2: translate("public.ad.house2Sub"),
+          cta2: translate("public.ad.house2Cta"),
+          title3: translate("public.ad.house3Title"),
+          subtitle3: translate("public.ad.house3Sub"),
+          cta3: translate("public.ad.house3Cta"),
         }}
       />
     </SlotShell>

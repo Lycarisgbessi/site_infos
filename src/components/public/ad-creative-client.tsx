@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import type { PublicAdCampaign } from "@/lib/public/homepage-data";
 
 /**
@@ -113,22 +114,28 @@ export function AdCreativeView({ campaign }: { campaign: PublicAdCampaign }) {
 const ROTATE_INTERVAL_MS = 10_000;
 const FADE_MS = 450;
 
-/** Glissière auto-promotion : invite à commander cet espace publicitaire. */
-function AdHouseSlide({ labels }: { labels: AdHouseLabels }) {
+/** Glissières auto-promotion : trois designs distincts qui tournent
+ *  même sans aucune campagne — l'emplacement vit toujours. */
+function AdHouseSlide({ variant, labels }: { variant: 1 | 2 | 3; labels: AdHouseLabels }) {
+  const bg =
+    variant === 1 ? "ad-house-waves"
+    : variant === 2 ? "ad-house-grid"
+    : "ad-house-orbit";
   return (
-    <div className="relative flex h-full w-full items-center justify-center overflow-hidden bg-ink">
-      {/* Fond animé : vagues dégradées rouge/orange */}
-      <div aria-hidden className="ad-house-waves absolute inset-0" />
+    <Link href="/pages/publicite" className="group relative flex h-full w-full items-center justify-center overflow-hidden bg-ink" aria-label={labels.cta}>
+      <div aria-hidden className={`${bg} absolute inset-0`} />
+      {/* Reflet traversant au survol */}
+      <div aria-hidden className="ad-flare pointer-events-none absolute inset-0" />
       <div className="relative z-10 px-4 py-2 text-center">
-        <p className="text-sm font-black uppercase tracking-widest text-white md:text-base">
+        <p className={`font-black uppercase tracking-widest text-white ${variant === 2 ? "text-xs md:text-sm" : "text-sm md:text-base"}`}>
           {labels.title}
         </p>
-        <p className="mt-1 text-[0.65rem] font-medium text-white/75 md:text-xs">{labels.subtitle}</p>
-        <span className="mt-2 inline-block rounded-full bg-white px-3 py-1 text-[0.65rem] font-black uppercase tracking-widest text-brand-red shadow-sm transition-transform duration-200 hover:scale-105 md:text-xs">
+        <p className="mt-1 text-[0.65rem] font-medium text-white/80 md:text-xs">{labels.subtitle}</p>
+        <span className="ad-cta-pulse mt-2 inline-block rounded-full bg-white px-3 py-1 text-[0.65rem] font-black uppercase tracking-widest text-brand-red shadow-md md:text-xs">
           {labels.cta} →
         </span>
       </div>
-    </div>
+    </Link>
   );
 }
 
@@ -136,11 +143,17 @@ export interface AdHouseLabels {
   title: string;
   subtitle: string;
   cta: string;
+  title2?: string;
+  subtitle2?: string;
+  cta2?: string;
+  title3?: string;
+  subtitle3?: string;
+  cta3?: string;
 }
 
 type Slide =
   | { kind: "campaign"; campaign: PublicAdCampaign }
-  | { kind: "house" };
+  | { kind: "house"; variant: 1 | 2 | 3 };
 
 /** Poids de tirage : weight de la créative si disponible, sinon priorité+1. */
 function campaignWeight(c: PublicAdCampaign): number {
@@ -156,11 +169,18 @@ export function AdRotation({
   campaigns: PublicAdCampaign[];
   houseLabels?: AdHouseLabels;
 }) {
-  // Diapositives : campagnes (ordre priorité) + glissière régie en fin de cycle.
+  // Diapositives : campagnes (ordre priorité) + les 3 glissières régie.
+  // Un emplacement affiche donc TOUJOURS plusieurs contenus qui tournent.
   const hasHouse = Boolean(houseLabels);
   const slides: Slide[] = [
     ...campaigns.map((campaign) => ({ kind: "campaign" as const, campaign })),
-    ...(hasHouse ? [{ kind: "house" as const }] : []),
+    ...(hasHouse
+      ? [
+          { kind: "house" as const, variant: 1 as const },
+          { kind: "house" as const, variant: 2 as const },
+          { kind: "house" as const, variant: 3 as const },
+        ]
+      : []),
   ];
 
   const [index, setIndex] = useState(0);
@@ -199,9 +219,7 @@ export function AdRotation({
     };
   }, [slides.length, paused]);
 
-  if (slides.length === 0) {
-    return houseLabels ? <AdHouseSlide labels={houseLabels} /> : null;
-  }
+  if (slides.length === 0) return null;
   const slide = slides[Math.min(index, slides.length - 1)];
 
   return (
@@ -217,7 +235,15 @@ export function AdRotation({
         {slide.kind === "campaign" ? (
           <AdCreativeView key={slide.campaign.creativeId} campaign={slide.campaign} />
         ) : (
-          <AdHouseSlide labels={houseLabels!} />
+          <AdHouseSlide
+            key={`house-${slide.variant}`}
+            variant={slide.variant}
+            labels={{
+              title: (slide.variant === 1 ? houseLabels!.title : slide.variant === 2 ? houseLabels!.title2 : houseLabels!.title3) ?? houseLabels!.title,
+              subtitle: (slide.variant === 1 ? houseLabels!.subtitle : slide.variant === 2 ? houseLabels!.subtitle2 : houseLabels!.subtitle3) ?? houseLabels!.subtitle,
+              cta: (slide.variant === 1 ? houseLabels!.cta : slide.variant === 2 ? houseLabels!.cta2 : houseLabels!.cta3) ?? houseLabels!.cta,
+            }}
+          />
         )}
       </div>
 

@@ -19,7 +19,7 @@ export interface ContinuousFeedItem {
   timeAgo: string;
 }
 
-function FeedRow({ item, index, ariaHidden }: { item: ContinuousFeedItem; index: number; ariaHidden?: boolean }) {
+function FeedRow({ item, number, ariaHidden }: { item: ContinuousFeedItem; number: number; ariaHidden?: boolean }) {
   return (
     <Link
       href={`/article/${item.slug}`}
@@ -31,7 +31,7 @@ function FeedRow({ item, index, ariaHidden }: { item: ContinuousFeedItem; index:
         aria-hidden
         className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-sm bg-brand-red font-mono text-[0.7rem] font-bold text-white transition-transform duration-200 group-hover:scale-110"
       >
-        {String(index + 1).padStart(2, "0")}
+        {String(number).padStart(2, "0")}
       </span>
       <span className="min-w-0">
         <span className="line-clamp-2 block text-sm font-bold leading-snug text-ink transition-colors duration-200 group-hover:text-brand-red">
@@ -48,9 +48,12 @@ function FeedRow({ item, index, ariaHidden }: { item: ContinuousFeedItem; index:
 export function ContinuousFeed({
   items,
   labels,
+  startIndex = 0,
 }: {
   items: ContinuousFeedItem[];
   labels: { all: string };
+  /** Décalage de numérotation (suite d'une première partie). */
+  startIndex?: number;
 }) {
   if (items.length === 0) return null;
 
@@ -61,7 +64,7 @@ export function ContinuousFeed({
     <div
       role="feed"
       aria-label={labels.all}
-      className="vmarquee-viewport group/feed relative overflow-hidden"
+      className="vmarquee-viewport group/feed relative max-h-[19rem] overflow-hidden"
     >
       {/* Fondu haut/bas pour marquer le mouvement */}
       <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 z-10 h-6 bg-gradient-to-b from-paper-alt to-transparent" />
@@ -70,12 +73,12 @@ export function ContinuousFeed({
       <div className="vmarquee-track" style={{ "--vmarquee-duration": duration } as React.CSSProperties}>
         <div>
           {items.map((a, i) => (
-            <FeedRow key={`v-${a.id}`} item={a} index={i} />
+            <FeedRow key={`v-${a.id}`} item={a} number={startIndex + i + 1} />
           ))}
         </div>
         <div aria-hidden>
           {items.map((a, i) => (
-            <FeedRow key={`h-${a.id}`} item={a} index={i} ariaHidden />
+            <FeedRow key={`h-${a.id}`} item={a} number={startIndex + i + 1} ariaHidden />
           ))}
         </div>
       </div>
