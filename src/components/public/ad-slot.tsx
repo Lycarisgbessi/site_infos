@@ -1,14 +1,15 @@
 import { getTranslations } from "@/lib/i18n";
 import type { AdCampaignMap, PublicAdCampaign } from "@/lib/public/homepage-data";
-import { AdRotation } from "@/components/public/ad-creative-client";
+import { AdRotation, type AdHouseLabels } from "@/components/public/ad-creative-client";
 
 /**
  * Emplacements publicitaires du front-office (§13.1, slots AD-01→AD-19).
- * Composants SERVEUR. Depuis la rotation (2026-10) : chaque emplacement
- * reçoit TOUTES les campagnes actives de son slot et les fait tourner
- * (tirage pondéré par priorité côté client + rotation 30 s) via AdRotation ;
- * sans campagne active, l'emplacement n'affiche RIEN, sauf auto-promotion
- * maison (AdSelfPromo, AD-19).
+ * Composants SERVEUR. Système « taquin » 2026-10 : chaque emplacement
+ * reçoit TOUTES les campagnes actives éligibles de son slot et les fait
+ * tourner (roue 5 s + glissières auto-promo selon la règle 0→3 / 1-2→2 /
+ * ≥3→1) via AdRotation ; sans campagne active, l'employment vit avec les
+ * seules glissières auto-promo, sauf auto-promotion maison (AdSelfPromo,
+ * AD-19). Charte ROUGE SANG #A4161A / BLANC / NOIR.
  * Task ID: 9-ADS
  */
 
@@ -19,19 +20,26 @@ type AdFormat =
   | "halfpage"
   | "native"
   | "footer"
+  | "header"
   | "promo"
   | "sticky"
-  | "video";
+  | "video"
+  | "inarticle"
+  | "sidebar_sticky";
 
 /** Format de rendu par emplacement — calqué sur AD_SLOT_RENDER du seed
- * (prisma/seed-data/ads-newsletters.ts) : tous les slots AD-01→AD-19 y
- * sont décrits pour être utilisables via AdBanner code="AD-xx". */
+ * (prisma/seed-data/ads-newsletters.ts). Mise à jour « taquin » 2026-10 :
+ *  - AD-02 : bandeau d'en-tête pleine largeur h-28/h-36 ;
+ *  - AD-04 : pavé sidebar 250 px ;
+ *  - AD-05 : demi-page sticky sidebar 600 px ;
+ *  - AD-13 : IN_ARTICLE horizontal 680×180 ;
+ *  - AD-15 : pied de page pleine largeur h-28/h-36. */
 const FORMAT_BY_SLOT: Record<string, AdFormat> = {
   "AD-01": "billboard",
-  "AD-02": "leaderboard",
+  "AD-02": "header",
   "AD-03": "billboard",
   "AD-04": "pave",
-  "AD-05": "halfpage",
+  "AD-05": "sidebar_sticky",
   "AD-06": "pave",
   "AD-07": "leaderboard",
   "AD-08": "native",
@@ -39,7 +47,7 @@ const FORMAT_BY_SLOT: Record<string, AdFormat> = {
   "AD-10": "leaderboard",
   "AD-11": "video",
   "AD-12": "sticky",
-  "AD-13": "native",
+  "AD-13": "inarticle",
   "AD-14": "leaderboard",
   "AD-15": "footer",
   "AD-16": "native",
@@ -54,11 +62,50 @@ const HEIGHTS: Record<AdFormat, string> = {
   pave: "h-[250px]",
   halfpage: "h-[400px]",
   native: "h-[110px]",
-  footer: "h-[110px]",
+  footer: "h-28 md:h-36",
+  header: "h-28 md:h-36",
   promo: "h-[200px]",
   sticky: "h-[50px]",
   video: "h-[180px] md:h-[220px]",
+  /** Horizontal 680×180 dans le corps d'article (max-w-full, ratio auto). */
+  inarticle: "h-[110px] md:h-[180px]",
+  /** Colonne latérale collante : 300×600. */
+  sidebar_sticky: "h-[600px]",
 };
+
+/** Contrainte de largeur par format (inarticle : 680 px centrés). */
+const WIDTHS: Partial<Record<AdFormat, string>> = {
+  inarticle: "mx-auto w-full max-w-full md:max-w-[680px]",
+};
+
+/** Libellés des glissières auto-promo, traduits côté serveur — réutilisé
+ * par les présences taquines du layout (SidePeekAd, InterstitialAd). */
+export async function buildHouseLabels(): Promise<AdHouseLabels> {
+  const { translate } = await getTranslations();
+  return {
+    adLabel: translate("public.ad.label"),
+    eyebrow: translate("public.ad.houseEyebrow"),
+    count: translate("public.ad.houseCount"),
+    brand: {
+      title: translate("public.ad.houseBrandTitle"),
+      subtitle: translate("public.ad.houseBrandSub"),
+      cta: translate("public.ad.houseCta"),
+    },
+    audience: {
+      title: translate("public.ad.houseAudienceTitle"),
+      subtitle: translate("public.ad.houseAudienceSub"),
+      cta: translate("public.ad.houseLaunchCta"),
+    },
+    motion: {
+      title: translate("public.ad.houseMotionTitle"),
+      subtitle: translate("public.ad.houseMotionSub"),
+      cta: translate("public.ad.houseFormatsCta"),
+    },
+    formatBanner: translate("public.ad.houseFormatBanner"),
+    formatVideo: translate("public.ad.houseFormatVideo"),
+    formatNative: translate("public.ad.houseFormatNative"),
+  };
+}
 
 function SlotShell({
   code,
@@ -88,16 +135,18 @@ function SlotShell({
   );
 }
 
-/** Bannière par emplacement — rotation pondérée des campagnes actives du
- * slot (voir AdRotation), sinon rien. Cas particulier AD-19 : sans
+/** Bannière par emplacement — roue animée des campagnes actives du slot
+ * (voir AdRotation) + glissières auto-promo. Cas particulier AD-19 : sans
  * campagne active, l'emplacement bascule sur l'auto-promotion maison
- * (repli) au lieu de disparaître. */
+ * (repli) au lieu de la roue.
+ * `enabled=false` (réglage ads.* de l'admin) : l'emplacement disparaît. */
 export async function AdBanner({
   code,
   campaigns,
   className = "",
   formatOverride,
   placeholder = false,
+  enabled = true,
 }: {
   code: string;
   campaigns: AdCampaignMap;
@@ -106,7 +155,10 @@ export async function AdBanner({
   formatOverride?: AdFormat;
   /** Afficher un cadre réservé discret même sans campagne active. */
   placeholder?: boolean;
+  /** Court-circuit réglages admin (ads.header, ads.sidebar…). */
+  enabled?: boolean;
 }) {
+  if (!enabled) return null;
   const { translate } = await getTranslations();
   const slotCampaigns: PublicAdCampaign[] | undefined = campaigns[code];
   if (!slotCampaigns || slotCampaigns.length === 0) {
@@ -117,26 +169,17 @@ export async function AdBanner({
         </SlotShell>
       );
     }
-    // Sans campagne : la glissière régie anime déjà l'emplacement (le cycle
+    // Sans campagne : la roue auto-promo anime déjà l'emplacement (le cycle
     // vit même vide et incite à commander l'espace).
     const ph = HEIGHTS[formatOverride ?? FORMAT_BY_SLOT[code] ?? "leaderboard"];
+    const pw = WIDTHS[formatOverride ?? FORMAT_BY_SLOT[code] ?? "leaderboard"] ?? "w-full";
     return (
       <SlotShell
         code={code}
         label={translate("public.ad.label")}
-        className={`w-full overflow-hidden ${ph} ${className}`}
+        className={`${pw} overflow-hidden ${ph} ${className}`}
       >
-        <AdRotation campaigns={[]} houseLabels={{
-          title: translate("public.ad.houseTitle"),
-          subtitle: translate("public.ad.houseSub"),
-          cta: translate("public.ad.houseCta"),
-          title2: translate("public.ad.house2Title"),
-          subtitle2: translate("public.ad.house2Sub"),
-          cta2: translate("public.ad.house2Cta"),
-          title3: translate("public.ad.house3Title"),
-          subtitle3: translate("public.ad.house3Sub"),
-          cta3: translate("public.ad.house3Cta"),
-        }} />
+        <AdRotation campaigns={[]} houseLabels={await buildHouseLabels()} />
       </SlotShell>
     );
   }
@@ -146,30 +189,27 @@ export async function AdBanner({
     <SlotShell
       code={code}
       label={translate("public.ad.label")}
-      className={`w-full overflow-hidden ${HEIGHTS[format]} ${className}`}
+      className={`${WIDTHS[format] ?? "w-full"} overflow-hidden ${HEIGHTS[format]} ${className}`}
     >
-      <AdRotation
-        campaigns={slotCampaigns}
-        houseLabels={{
-          title: translate("public.ad.houseTitle"),
-          subtitle: translate("public.ad.houseSub"),
-          cta: translate("public.ad.houseCta"),
-          title2: translate("public.ad.house2Title"),
-          subtitle2: translate("public.ad.house2Sub"),
-          cta2: translate("public.ad.house2Cta"),
-          title3: translate("public.ad.house3Title"),
-          subtitle3: translate("public.ad.house3Sub"),
-          cta3: translate("public.ad.house3Cta"),
-        }}
-      />
+      <AdRotation campaigns={slotCampaigns} houseLabels={await buildHouseLabels()} />
     </SlotShell>
   );
 }
 
 /** Créative native — carte au gabarit éditorial dans le fil (AD-08, AD-16).
  * Carte serveur : la campagne affichée est la première du slot (priorité
- * maximale), pas de rotation temporisée pour ce format. */
-export async function AdNativeCard({ code, campaigns }: { code: string; campaigns: AdCampaignMap }) {
+ * maximale), pas de rotation temporisée pour ce format.
+ * `enabled=false` : la carte disparaît (réglage ads.native). */
+export async function AdNativeCard({
+  code,
+  campaigns,
+  enabled = true,
+}: {
+  code: string;
+  campaigns: AdCampaignMap;
+  enabled?: boolean;
+}) {
+  if (!enabled) return null;
   const { translate } = await getTranslations();
   const campaign: PublicAdCampaign | undefined = campaigns[code]?.[0];
   if (!campaign) return null;

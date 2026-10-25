@@ -91,6 +91,14 @@ export const SETTING_GROUPS: { group: string; label: string; fields: SettingFiel
       { key: "ads.enabled", label: "Activation globale", type: "boolean" },
       { key: "ads.max_density", label: "Densité maximale", type: "number" },
       { key: "ads.sensitive_keywords", label: "Mots-clés sensibles excluant la publicité", type: "list" },
+      // Interrupteurs « taquin » 2026-10 : un par famille d'emplacements.
+      { key: "ads.header", label: "Bandeau d'en-tête (AD-02)", type: "boolean" },
+      { key: "ads.sidebar", label: "Colonne latérale (AD-04, AD-05, encart « Suggestion »)", type: "boolean" },
+      { key: "ads.inarticle", label: "Publicité dans les articles (AD-13)", type: "boolean" },
+      { key: "ads.native", label: "Cartes natives dans le fil (AD-08, AD-16)", type: "boolean" },
+      { key: "ads.footer", label: "Bannière de pied de page (AD-15)", type: "boolean" },
+      { key: "ads.stickyMobile", label: "Bandeau collant mobile (AD-12)", type: "boolean" },
+      { key: "ads.interstitial", label: "Interstitiel plein écran (1×/session)", type: "boolean" },
     ],
   },
   {
@@ -150,6 +158,14 @@ export const SETTING_DEFAULTS: Record<string, string> = {
   "features.fm": "true",
   "direct.live_url": "",
   "direct.live_title": "En direct",
+  // Publicité « taquin » : toutes les familles d'emplacements actives.
+  "ads.header": "true",
+  "ads.sidebar": "true",
+  "ads.inarticle": "true",
+  "ads.native": "true",
+  "ads.footer": "true",
+  "ads.stickyMobile": "true",
+  "ads.interstitial": "true",
 };
 
 export async function getSettingsByGroup(group?: string) {

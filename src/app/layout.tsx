@@ -9,10 +9,13 @@ import { AudioPlayerProvider } from "@/components/public/audio-player/context";
 import { AudioFloatingBar } from "@/components/public/audio-player/floating-bar";
 import { PwaRegister } from "@/components/public/pwa/pwa-register";
 import { InstallBanner } from "@/components/public/pwa/install-banner";
-import { AdCorner } from "@/components/public/ad-corner";
+import { MagazineTeaserCorner } from "@/components/public/ad-corner";
+import { SidePeekAd } from "@/components/public/side-peek-ad";
+import { InterstitialAd } from "@/components/public/interstitial-ad";
+import { buildHouseLabels } from "@/components/public/ad-slot";
 import { Chatbot } from "@/components/public/chatbot";
 import { ProgressBar } from "@/components/public/progress-bar";
-import { getAdCampaigns } from "@/lib/public/homepage-data";
+import { getAdCampaigns, getLatestArticles } from "@/lib/public/homepage-data";
 
 /**
  * Layout racine. La langue du produit est le français (§00.2 règle 10).
@@ -69,8 +72,16 @@ export default async function RootLayout({
   const { translate } = await getTranslations();
   const locale = await resolveLocale();
 
-  // Campagnes du popup publicitaire (coin bas-gauche) — best-effort.
-  const adCampaigns = await getAdCampaigns().catch(() => ({}) as Awaited<ReturnType<typeof getAdCampaigns>>);
+  // Campagnes publicitaires + derniers articles (cache-cache magazine) +
+  // réglages des présences taquines — best-effort, jamais bloquants.
+  const [adCampaigns, latestArticles, houseLabels, adSettings] = await Promise.all([
+    getAdCampaigns().catch(() => ({}) as Awaited<ReturnType<typeof getAdCampaigns>>),
+    getLatestArticles(5).catch(() => []),
+    buildHouseLabels(),
+    getSettingsValues(["ads.interstitial", "ads.sidebar"]).catch(() => ({}) as Record<string, string>),
+  ]);
+  const interstitialEnabled = adSettings["ads.interstitial"] !== "false";
+  const sidePeekEnabled = adSettings["ads.sidebar"] !== "false";
 
   return (
     <html lang={localeTag(locale)} dir={localeDir(locale)} suppressHydrationWarning>
@@ -94,9 +105,32 @@ export default async function RootLayout({
                 close: translate("public.audio.close"),
               }}
             />
-            </AudioPlayerProvider>
-          {/* Publicité flottante — coin inférieur gauche (fermable 24 h) */}
-          <AdCorner campaigns={adCampaigns["AD-11"] ?? []} label={translate("public.ad.label")} />
+
+            {/* ── Présences taquines (système publicitaire 2026-10) ── */}
+            {/* Cache-cache magazine : couvertures des derniers articles */}
+            <MagazineTeaserCorner
+              articles={latestArticles}
+              labels={{ read: translate("public.ad.teaserRead"), close: translate("common.close") }}
+            />
+            {/* Encart latéral droit AD-06 « Suggestion » */}
+            <SidePeekAd
+              campaigns={adCampaigns["AD-06"] ?? []}
+              houseLabels={houseLabels}
+              label={translate("public.ad.suggestion")}
+              closeLabel={translate("common.close")}
+              enabled={sidePeekEnabled}
+            />
+            {/* Interstitiel 1×/session (AD-11) */}
+            <InterstitialAd
+              campaigns={adCampaigns["AD-11"] ?? []}
+              houseLabels={houseLabels}
+              labels={{
+                discover: translate("public.ad.interstitialDiscover"),
+                close: translate("common.close"),
+              }}
+              enabled={interstitialEnabled}
+            />
+          </AudioPlayerProvider>
 
           {/* Chatbot — coin inférieur droit */}
           <Chatbot />

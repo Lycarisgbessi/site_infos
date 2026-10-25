@@ -16,11 +16,14 @@ const httpUrl = z
 export const AD_MEDIA_KINDS = ["image", "gif", "video"] as const;
 export type AdMediaKind = (typeof AD_MEDIA_KINDS)[number];
 
+export const AD_DEVICE_TARGETS = ["ALL", "MOBILE", "DESKTOP"] as const;
+export type AdDeviceTarget = (typeof AD_DEVICE_TARGETS)[number];
+
 const isoDate = z
   .string()
   .trim()
   .min(1)
-  .refine((value) => !Number.isNaN(new Date(value).getTime()), "Date invalide (ISO 8601 attendu).");
+  .refine((value) => !Number.isNaN(new Date(value).getTime()), "Date invalide (ISO 8601 attendue).");
 
 const adCampaignFields = {
   name: z.string().trim().min(1).max(200),
@@ -34,17 +37,28 @@ const adCampaignFields = {
   ends_at: isoDate.nullable().optional(),
   priority: z.number().int().min(1).max(9).optional(),
   is_active: z.boolean().optional(),
+  // Système « taquin » 2026-10 : ciblage + créative HTML de repli.
+  device_targeting: z.enum(AD_DEVICE_TARGETS).optional(),
+  category_targeting: z
+    .string()
+    .trim()
+    .max(500, "Liste de rubriques trop longue (500 caractères max).")
+    .nullable()
+    .optional(),
+  html_code: z.string().max(20_000, "Code HTML trop volumineux (20 000 caractères max).").nullable().optional(),
 };
 
 export const adCampaignCreateSchema = z.object(adCampaignFields).superRefine((data, ctx) => {
-  if (data.media_kind === "video" && !data.video_url) {
+  // Créative HTML de repli : dispense de média/vidéo (rendu sanitizé).
+  const hasHtmlFallback = Boolean(data.html_code && data.html_code.trim());
+  if (data.media_kind === "video" && !data.video_url && !hasHtmlFallback) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
       path: ["video_url"],
       message: "Une URL vidéo (YouTube ou mp4) est requise pour une campagne vidéo.",
     });
   }
-  if (data.media_kind !== "video" && !data.media_id) {
+  if (data.media_kind !== "video" && !data.media_id && !hasHtmlFallback) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
       path: ["media_id"],
@@ -63,14 +77,15 @@ export const adCampaignCreateSchema = z.object(adCampaignFields).superRefine((da
 // Partial appliqué sur l'objet brut (Zod interdit .partial() après refinement) ;
 // la cohérence des champs fournis est revalidée côté service.
 export const adCampaignUpdateSchema = z.object(adCampaignFields).partial().superRefine((data, ctx) => {
-  if (data.media_kind === "video" && data.video_url === undefined) {
+  const hasHtmlFallback = Boolean(data.html_code && data.html_code.trim());
+  if (data.media_kind === "video" && data.video_url === undefined && !hasHtmlFallback) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
       path: ["video_url"],
       message: "Une URL vidéo (YouTube ou mp4) est requise pour une campagne vidéo.",
     });
   }
-  if (data.media_kind !== undefined && data.media_kind !== "video" && data.media_id === undefined) {
+  if (data.media_kind !== undefined && data.media_kind !== "video" && data.media_id === undefined && !hasHtmlFallback) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
       path: ["media_id"],

@@ -27,6 +27,10 @@ export interface AdminAdCampaignView {
   impressions: number;
   clicks: number;
   created_at: string;
+  // Système « taquin » 2026-10 : ciblage + créative HTML de repli.
+  device_targeting: "ALL" | "MOBILE" | "DESKTOP";
+  category_targeting: string | null;
+  html_code: string | null;
 }
 
 export interface AdSlotView {
@@ -68,12 +72,16 @@ function toView(
       video_url: string | null;
       click_url: string;
       type: string;
+      device_targeting: string;
+      category_targeting: string | null;
+      html_code: string | null;
       media: { url: string; mime_type: string } | null;
       slot: { name: string } | null;
     }[];
   },
 ): AdminAdCampaignView {
   const creative = campaign.creatives[0] ?? null;
+  const device = creative?.device_targeting;
   return {
     id: campaign.id,
     name: campaign.name,
@@ -93,6 +101,9 @@ function toView(
     impressions: Number(campaign.impressions),
     clicks: Number(campaign.clicks),
     created_at: campaign.created_at.toISOString(),
+    device_targeting: device === "MOBILE" || device === "DESKTOP" ? device : "ALL",
+    category_targeting: creative?.category_targeting ?? null,
+    html_code: creative?.html_code ?? null,
   };
 }
 
@@ -107,6 +118,17 @@ const campaignInclude = {
     },
   },
 } as const;
+
+/** Normalise un CSV de slugs de rubriques (vide → null). */
+function normalizeCategoryTargeting(value: string | null | undefined): string | null {
+  if (value == null) return null;
+  const csv = value
+    .split(",")
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean)
+    .join(",");
+  return csv === "" ? null : csv;
+}
 
 export async function listAdCampaigns(): Promise<AdminAdCampaignView[]> {
   const campaigns = await db.adCampaign.findMany({
@@ -173,6 +195,10 @@ export async function createAdCampaign(
           click_url: input.click_url,
           alt_text: input.name,
           is_active: isActive,
+          // Ciblage & repli « taquin » 2026-10.
+          device_targeting: input.device_targeting ?? "ALL",
+          category_targeting: normalizeCategoryTargeting(input.category_targeting ?? null),
+          html_code: input.html_code?.trim() ? input.html_code : null,
         },
       },
     },
@@ -240,7 +266,10 @@ export async function updateAdCampaign(
     input.media_id !== undefined ||
     input.video_url !== undefined ||
     input.click_url !== undefined ||
-    input.is_active !== undefined;
+    input.is_active !== undefined ||
+    input.device_targeting !== undefined ||
+    input.category_targeting !== undefined ||
+    input.html_code !== undefined;
   if (creativeInput) {
     const current = campaign.creatives[0];
     const mediaKind = input.media_kind ?? (current ? mediaKindOf(current) : "image");
@@ -252,6 +281,11 @@ export async function updateAdCampaign(
       click_url: input.click_url ?? current?.click_url ?? input.click_url,
       ...(input.name !== undefined ? { alt_text: input.name } : {}),
       ...(input.is_active !== undefined ? { is_active: input.is_active } : {}),
+      ...(input.device_targeting !== undefined ? { device_targeting: input.device_targeting } : {}),
+      ...(input.category_targeting !== undefined
+        ? { category_targeting: normalizeCategoryTargeting(input.category_targeting) }
+        : {}),
+      ...(input.html_code !== undefined ? { html_code: input.html_code?.trim() ? input.html_code : null } : {}),
     };
     if (current) {
       await db.adCreative.update({ where: { id: current.id }, data });

@@ -407,8 +407,7 @@
 
 /* ── Fil « En continu » : marquee vertical automatique ────────────────
    Piste dupliquée ×2 ; translation Y de -50 % = boucle sans rupture.
-   Pause au survol/focus pour laisser lire. Aucune scrollbar : le
-   conteneur est en overflow hidden. En prefers-reduced-motion, la
+   Pause au survol/focus pour laisser lire. En prefers-reduced-motion, la
    piste devient une liste statique complète. */
 .vmarquee-track {
   animation: vmarquee-scroll var(--vmarquee-duration, 45s) linear infinite;
@@ -450,8 +449,7 @@
   to   { opacity: 1; transform: none; }
 }
 
-/* ── 2. Titres de section : la barre d'accent POUUSSE puis le texte
-        monte — sensation d'écriture éditoriale ──────────────────────── */
+/* ── 2. Titres de section ───────────────────────────────────────────── */
 .title-sweep {
   position: relative;
   animation: title-settle 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
@@ -469,7 +467,6 @@
 }
 
 /* ── 3. Micro-interactions cartes & boutons ─────────────────────────── */
-/* Sous-lignement du titre qui se déploie au survol */
 .title-underline {
   background-image: linear-gradient(var(--brand-red), var(--brand-red));
   background-repeat: no-repeat;
@@ -482,7 +479,6 @@
   background-size: 100% 2px;
 }
 
-/* Pression tactile sur les éléments interactifs */
 .press {
   transition: transform 0.15s cubic-bezier(0.22, 1, 0.36, 1);
 }
@@ -490,8 +486,6 @@
   transform: scale(0.96);
 }
 
-/* Cartes : élévation + zoom image déjà en place — on ajoute le flare
-   lumineux qui traverse la carte au survol (reflet pro) */
 .card-flare { position: relative; overflow: hidden; }
 .card-flare::after {
   content: "";
@@ -507,24 +501,7 @@
   transform: skewX(-18deg) translateX(560%);
 }
 
-/* ── 4. Publicités : reflet périodique + entrée en scène ────────────── */
-[data-ad-slot] { animation: reveal-enter 0.6s cubic-bezier(0.22, 1, 0.36, 1) both; }
-[data-ad-slot]::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: 15;
-  background: linear-gradient(105deg, transparent 30%, rgba(255, 255, 255, 0.22) 50%, transparent 70%);
-  transform: translateX(-130%);
-  animation: ad-sheen 7s ease-in-out infinite;
-  pointer-events: none;
-}
-@keyframes ad-sheen {
-  0%, 55%  { transform: translateX(-130%); }
-  75%, 100% { transform: translateX(130%); }
-}
-
-/* ── 5. Barre de progression (navigation + lecture) ─────────────────── */
+/* ── 4. Barre de progression (navigation + lecture) ─────────────────── */
 .progress-bar {
   position: fixed;
   top: 0;
@@ -542,217 +519,263 @@
   to   { background-position: 200% 0; }
 }
 
-/* ── 6. Apparition du hero : léger parallaxe d'entrée ───────────────── */
+/* ── 5. Apparition du hero : léger parallaxe d'entrée ───────────────── */
 .hero-stage { animation: hero-stage-in 0.8s cubic-bezier(0.22, 1, 0.36, 1) both; }
 @keyframes hero-stage-in {
   from { opacity: 0; transform: translateY(18px) scale(0.985); }
   to   { opacity: 1; transform: none; }
 }
 
+/* ══════════════════════════════════════════════════════════════════════
+   SYSTÈME PUBLICITAIRE « TAQUIN » — charte ROUGE SANG #A4161A / BLANC / NOIR
+   Cadre signature, roue animée, glissières auto-promo riches, présence
+   taquine (cache-cache, coucou, side-peek, interstitiel).
+   Tout est neutralisé par prefers-reduced-motion (bloc final).
+   ══════════════════════════════════════════════════════════════════════ */
+
+/* ── Cadre d'emplacement : arrondi 10 px, fond neutre, liseré rouge ──
+      AD-12 (bandeau collant mobile, animation bottom propre) et AD-06
+      (encart latéral fixed, transform de positionnement) sont exclus :
+      leurs transitions/transform sont gérés par leurs composants. */
+[data-ad-slot]:not([data-ad-slot="AD-12"]):not([data-ad-slot="AD-06"]) {
+  border-radius: 10px;
+  background: var(--paper);
+  animation: reveal-enter 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
+  box-shadow:
+    0 0 0 1px rgba(164, 22, 26, 0.16),
+    0 1px 2px rgba(0, 0, 0, 0.05),
+    0 10px 26px -14px rgba(0, 0, 0, 0.28);
+  transition:
+    box-shadow 0.35s ease,
+    transform 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+}
+[data-ad-slot]:not([data-ad-slot="AD-12"]):not([data-ad-slot="AD-06"]):hover {
+  box-shadow:
+    0 0 0 1px rgba(164, 22, 26, 0.45),
+    0 2px 5px rgba(0, 0, 0, 0.07),
+    0 18px 40px -16px rgba(164, 22, 26, 0.38);
+  transform: translateY(-2px);
+}
+
+/* ── Cadre créa : liseré intérieur 1 px → 2 px + halo au survol ────── */
+.ad-creative-frame {
+  position: relative;
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+}
+.ad-creative-frame img {
+  transition: transform 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.ad-creative-frame:hover img {
+  transform: scale(1.02);
+}
+.ad-creative-frame::after {
+  content: "";
+  position: absolute;
+  inset: 6px;
+  z-index: 15;
+  border-radius: 6px;
+  border: 1px solid rgba(164, 22, 26, 0.25);
+  transition: border-width 0.3s ease, box-shadow 0.3s ease;
+  pointer-events: none;
+}
+.ad-creative-frame:hover::after {
+  border-width: 2px;
+  box-shadow: 0 0 22px rgba(164, 22, 26, 0.28);
+}
+
+/* ── Entrées de roue ────────────────────────────────────────────────── */
+/* Créas : balayage énergique + micro-rebond, 640 ms. */
+@keyframes ad-sweep {
+  0%   { opacity: 0; transform: translateX(60px) skewX(-4deg) scale(1.04); }
+  55%  { opacity: 1; transform: translateX(-7px) skewX(0deg) scale(1.01); }
+  78%  { transform: translateX(3px) skewX(0deg) scale(1); }
+  100% { opacity: 1; transform: none; }
+}
+.ad-enter-sweep {
+  animation: ad-sweep 640ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* Promos : entrée latérale avec rebond. */
+@keyframes ad-slide-in {
+  0%   { opacity: 0; transform: translateX(30px); }
+  60%  { opacity: 1; transform: translateX(-6px); }
+  100% { opacity: 1; transform: none; }
+}
+.ad-enter-slide {
+  animation: ad-slide-in 560ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* Textes promo en cascade montée (délais 60/150/240/330 ms). */
+@keyframes ad-slide-up {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: none; }
+}
+.ad-slide-up {
+  animation: ad-slide-up 480ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.ad-d1 { animation-delay: 60ms; }
+.ad-d2 { animation-delay: 150ms; }
+.ad-d3 { animation-delay: 240ms; }
+.ad-d4 { animation-delay: 330ms; }
+
+/* Compteur « 10 000 » qui surgit en zoom. */
+@keyframes ad-count-zoom {
+  0%   { opacity: 0; transform: scale(0.4); }
+  70%  { opacity: 1; transform: scale(1.12); }
+  100% { opacity: 1; transform: scale(1); }
+}
+.ad-count {
+  animation: ad-count-zoom 620ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* ── « Coucou » taquin : tapotement rotate ±0,7° entre 88 % et 100 %
+      d'une timeline de 12 s ─────────────────────────────────────────── */
+@keyframes ad-tease-tap {
+  0%, 87.9%, 100% { transform: none; }
+  90%             { transform: rotate(-0.7deg) translateY(-2px); }
+  94%             { transform: rotate(0.7deg) translateY(-2px); }
+  97%             { transform: rotate(-0.4deg) translateY(-1px); }
+}
+.ad-tease {
+  animation: ad-tease-tap 12s ease-in-out infinite;
+}
+
+/* ── Glissières auto-promo riches (jamais de fond plat) ────────────── */
+/* Reflet blanc skew-x qui balaie en continu : -45 % → 125 % en 4,6 s. */
+@keyframes ad-reflect-sweep {
+  from { left: -45%; }
+  to   { left: 125%; }
+}
+.ad-reflect {
+  position: absolute;
+  top: -25%;
+  bottom: -25%;
+  left: -45%;
+  width: 22%;
+  z-index: 5;
+  transform: skewX(-20deg);
+  background: linear-gradient(105deg, transparent, rgba(255, 255, 255, 0.28) 50%, transparent);
+  animation: ad-reflect-sweep 4.6s linear infinite;
+  pointer-events: none;
+}
+
+/* Halos rouges floutés aux coins (fonds noirs des glissières). */
+.ad-house-halo {
+  background:
+    radial-gradient(46% 60% at 8% 6%, rgba(164, 22, 26, 0.45), transparent 65%),
+    radial-gradient(50% 65% at 94% 96%, rgba(164, 22, 26, 0.36), transparent 65%);
+  filter: blur(10px);
+}
+
+/* Trame diagonale blanche 14 %. */
+.ad-house-diagonal {
+  background: repeating-linear-gradient(
+    45deg,
+    rgba(255, 255, 255, 0.14) 0 1px,
+    transparent 1px 7px
+  );
+}
+
+/* Mégaphone flottant : oscillation 2,6 s. */
+@keyframes ad-megaphone-float {
+  0%, 100% { transform: translateY(0) rotate(-4deg); }
+  50%      { transform: translateY(-7px) rotate(4deg); }
+}
+.ad-megaphone {
+  animation: ad-megaphone-float 2.6s ease-in-out infinite;
+}
+
+/* CTA blanc pulsé. */
+@keyframes ad-cta-pulse {
+  0%, 100% { transform: scale(1);    box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.35); }
+  50%      { transform: scale(1.05); box-shadow: 0 0 0 6px rgba(255, 255, 255, 0); }
+}
+.ad-cta-pulse {
+  animation: ad-cta-pulse 2.6s ease-in-out infinite;
+}
+
+/* ── MagazineTeaserCorner : cache-cache bas-gauche ──────────────────── */
+/* Fuite hors écran (x:-130 %, rotation -8°) puis retour en ressort. */
+.mag-teaser {
+  transition: transform 650ms cubic-bezier(0.55, 0, 0.35, 1), opacity 500ms ease;
+}
+.mag-teaser.mag-hidden {
+  transform: translateX(-130%) rotate(-8deg);
+}
+.mag-teaser.mag-return {
+  transition: transform 950ms cubic-bezier(0.34, 1.56, 0.64, 1), opacity 400ms ease;
+}
+
+/* Mini-coverflow des couvertures : perspective 700 px, rotateY ±40°. */
+.coverflow-stage {
+  perspective: 700px;
+  transform-style: preserve-3d;
+}
+.coverflow-item {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  margin-left: -32px;
+  width: 64px;
+  height: 88px;
+  transition: transform 620ms cubic-bezier(0.22, 1, 0.36, 1), opacity 420ms ease, z-index 0s;
+  will-change: transform;
+}
+
+/* Filet signature bas qui s'étire au survol. */
+.signature-rule {
+  transform: scaleX(0.35);
+  transform-origin: left center;
+  transition: transform 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.group:hover .signature-rule,
+.mag-teaser:hover .signature-rule {
+  transform: scaleX(1);
+}
+
+/* ── SidePeekAd : glissade depuis le bord droit (ressort overshoot) ─── */
+.side-peek {
+  position: fixed;
+  top: 50%;
+  right: 1rem;
+  transform: translateY(-50%) translateX(0);
+  transition: transform 750ms cubic-bezier(0.34, 1.56, 0.64, 1), opacity 420ms ease;
+}
+.side-peek.peek-out {
+  transform: translateY(-50%) translateX(calc(100% + 2rem));
+  opacity: 0;
+}
+
+/* ── Interstitiel ───────────────────────────────────────────────────── */
+@keyframes interstitial-pop {
+  from { opacity: 0; transform: scale(0.92) translateY(18px); }
+  to   { opacity: 1; transform: none; }
+}
+.interstitial-card {
+  animation: interstitial-pop 480ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* ── Neutralisation prefers-reduced-motion ──────────────────────────── */
 @media (prefers-reduced-motion: reduce) {
   .reveal-up, .reveal-left, .reveal-right, .reveal-zoom, .reveal-fade { opacity: 1; transform: none; }
   .reveal-up.reveal-visible, .reveal-left.reveal-visible, .reveal-right.reveal-visible,
   .reveal-zoom.reveal-visible, .reveal-fade.reveal-visible,
   .title-sweep, .title-sweep > .accent-gradient,
-  [data-ad-slot], [data-ad-slot]::before, .hero-stage, .progress-bar { animation: none; }
-}
-
-/* ── Glissière régie : vagues dégradées animées ─────────────────────── */
-.ad-house-waves {
-  background:
-    radial-gradient(120% 160% at 15% 20%, rgba(220, 38, 38, 0.95) 0%, transparent 55%),
-    radial-gradient(120% 160% at 85% 80%, rgba(245, 158, 11, 0.85) 0%, transparent 55%),
-    #0a0a0b;
-  background-size: 180% 180%;
-  animation: ad-house-flow 9s ease-in-out infinite;
-}
-@keyframes ad-house-flow {
-  0%, 100% { background-position: 0% 0%, 100% 100%, 0 0; }
-  50%      { background-position: 100% 60%, 0% 40%, 0 0; }
-}
-@media (prefers-reduced-motion: reduce) {
-  .ad-house-waves { animation: none; }
-}
-
-/* ── Glissières régie : 3 designs premium ───────────────────────────── */
-/* 1 — vagues rouge/orange */
-.ad-house-waves {
-  background:
-    radial-gradient(120% 160% at 15% 20%, rgba(220, 38, 38, 0.95) 0%, transparent 55%),
-    radial-gradient(120% 160% at 85% 80%, rgba(245, 158, 11, 0.85) 0%, transparent 55%),
-    #0a0a0b;
-  background-size: 180% 180%;
-  animation: ad-house-flow 9s ease-in-out infinite;
-}
-/* 2 — grille phosphorescente */
-.ad-house-grid {
-  background:
-    linear-gradient(rgba(220, 38, 38, 0.14) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(245, 158, 11, 0.10) 1px, transparent 1px),
-    radial-gradient(140% 120% at 50% 0%, rgba(220, 38, 38, 0.5), #0a0a0b 70%);
-  background-size: 26px 26px, 26px 26px, 100% 100%;
-  animation: ad-house-grid-move 14s linear infinite;
-}
-@keyframes ad-house-grid-move {
-  from { background-position: 0 0, 0 0, 0 0; }
-  to   { background-position: 26px 52px, 52px 26px, 0 0; }
-}
-/* 3 — orbites lumineuses */
-.ad-house-orbit {
-  background:
-    radial-gradient(28% 36% at 20% 30%, rgba(245, 158, 11, 0.55), transparent 70%),
-    radial-gradient(24% 32% at 78% 68%, rgba(220, 38, 38, 0.6), transparent 70%),
-    #0a0a0b;
-  background-size: 160% 160%;
-  animation: ad-house-orbit 11s ease-in-out infinite alternate;
-}
-@keyframes ad-house-orbit {
-  from { background-position: 0% 0%, 100% 100%, 0 0; }
-  to   { background-position: 60% 70%, 30% 20%, 0 0; }
-}
-/* CTA qui respire doucement */
-.ad-cta-pulse { animation: ad-cta-pulse 2.6s ease-in-out infinite; }
-@keyframes ad-cta-pulse {
-  0%, 100% { transform: scale(1);    box-shadow: 0 0 0 0 rgba(255,255,255,0.35); }
-  50%      { transform: scale(1.05); box-shadow: 0 0 0 6px rgba(255,255,255,0); }
-}
-/* Reflet traversant au survol des glissières */
-.ad-flare { transform: skewX(-18deg) translateX(-240%); background: linear-gradient(105deg, transparent, rgba(255,255,255,0.28), transparent); }
-.group:hover .ad-flare, a:hover > .ad-flare { animation: ad-flare-sweep 0.9s cubic-bezier(0.22,1,0.36,1); }
-@keyframes ad-flare-sweep {
-  from { transform: skewX(-18deg) translateX(-240%); }
-  to   { transform: skewX(-18deg) translateX(680%); }
-}
-
-/* ── Cadre pub PREMIUM : coins arrondis, halo, double reflet ────────── */
-[data-ad-slot] {
-  border-radius: 0.75rem;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 8px 24px -12px rgba(0,0,0,0.18);
-  transition: box-shadow 0.35s ease, transform 0.35s cubic-bezier(0.22,1,0.36,1);
-}
-[data-ad-slot]:hover {
-  box-shadow: 0 2px 6px rgba(0,0,0,0.10), 0 16px 38px -14px rgba(220,38,38,0.38);
-  transform: translateY(-2px);
-}
-[data-ad-slot]::before {
-  border-radius: 0.75rem;
-}
-/* Second reflet — balayage inverse espacé */
-[data-ad-slot]::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: 15;
-  border-radius: 0.75rem;
-  background: linear-gradient(255deg, transparent 35%, rgba(255,255,255,0.14) 50%, transparent 65%);
-  transform: translateX(130%) skewX(-12deg);
-  animation: ad-sheen-back 7s ease-in-out 3.5s infinite;
-  pointer-events: none;
-}
-@keyframes ad-sheen-back {
-  0%, 40%  { transform: translateX(130%) skewX(-12deg); }
-  65%, 100% { transform: translateX(-130%) skewX(-12deg); }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .ad-house-waves, .ad-house-grid, .ad-house-orbit, .ad-cta-pulse { animation: none; }
-  [data-ad-slot]::before, [data-ad-slot]::after { animation: none; display: none; }
-}
-
-/* ══════════════════════════════════════════════════════════════════════
-   ESPACES PUBLICITAIRES — DESIGN PREMIUM
-   Cadrage galerie, or éditorial, ivoire magazine, verre sombre.
-   ══════════════════════════════════════════════════════════════════════ */
-
-/* Cadre galerie : passe-partout fin, liseré discret, ombre feutrée */
-[data-ad-slot] {
-  border-radius: 0.875rem;
-  padding: 5px;
-  background: linear-gradient(160deg, #ffffff 0%, #f3efe7 100%);
-  box-shadow:
-    0 0 0 1px rgba(20, 18, 14, 0.10),
-    0 1px 2px rgba(20, 18, 14, 0.05),
-    0 14px 34px -18px rgba(20, 18, 14, 0.35);
-  transition: box-shadow 0.4s ease, transform 0.4s cubic-bezier(0.22, 1, 0.36, 1);
-}
-[data-ad-slot] > *:first-child { border-radius: 0.625rem; }
-[data-ad-slot]:hover {
-  transform: translateY(-3px);
-  box-shadow:
-    0 0 0 1px rgba(180, 150, 80, 0.35),
-    0 2px 4px rgba(20, 18, 14, 0.06),
-    0 22px 48px -18px rgba(180, 150, 80, 0.45);
-}
-/* Liseré doré interne au survol */
-[data-ad-slot]::after {
-  content: "";
-  position: absolute;
-  inset: 5px;
-  z-index: 14;
-  border-radius: 0.625rem;
-  border: 1px solid transparent;
-  background: linear-gradient(120deg, rgba(232,201,106,0.0) 30%, rgba(232,201,106,0.35) 50%, rgba(232,201,106,0.0) 70%) border-box;
-  -webkit-mask: linear-gradient(#fff 0 0) padding-box, linear-gradient(#fff 0 0);
-  -webkit-mask-composite: xor;
-  mask-composite: exclude;
-  opacity: 0;
-  transition: opacity 0.4s ease;
-  pointer-events: none;
-}
-[data-ad-slot]:hover::after { opacity: 1; }
-[data-ad-slot]::before { display: none; }
-
-/* Or éditorial */
-.gold-text {
-  background: linear-gradient(100deg, #b8892e 0%, #e8c96a 35%, #f6e27a 50%, #e8c96a 65%, #b8892e 100%);
-  background-size: 200% auto;
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-  animation: gold-flow 5s linear infinite;
-}
-@keyframes gold-flow { to { background-position: 200% center; } }
-.gold-border {
-  border: 1px solid rgba(212, 175, 55, 0.45);
-  box-shadow: inset 0 0 0 3px rgba(12, 12, 14, 1), inset 0 0 24px rgba(212, 175, 55, 0.08);
-}
-.gold-shimmer {
-  background: linear-gradient(115deg, transparent 38%, rgba(232, 201, 106, 0.16) 50%, transparent 62%);
-  transform: translateX(-130%);
-  animation: gold-sheen 6.5s ease-in-out infinite;
-}
-@keyframes gold-sheen {
-  0%, 45%  { transform: translateX(-130%); }
-  70%, 100% { transform: translateX(130%); }
-}
-
-/* Ivoire magazine — reflet papier au survol */
-.ivory-flare {
-  background: linear-gradient(105deg, transparent 40%, rgba(255,255,255,0.75) 50%, transparent 60%);
-  transform: translateX(-130%);
-}
-.group:hover .ivory-flare { animation: gold-sheen 1s cubic-bezier(0.22,1,0.36,1); }
-
-/* Verre sombre */
-.glass-glow {
-  background:
-    radial-gradient(50% 65% at 18% 22%, rgba(220, 38, 38, 0.30), transparent 65%),
-    radial-gradient(45% 60% at 82% 78%, rgba(230, 160, 30, 0.22), transparent 65%);
-  background-size: 170% 170%;
-  animation: ad-house-orbit 12s ease-in-out infinite alternate;
-  filter: blur(2px);
-}
-.glass-chip {
-  background: rgba(255, 255, 255, 0.10);
-  border: 1px solid rgba(255, 255, 255, 0.22);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  border-radius: 999px;
-  transition: background 0.3s ease, transform 0.3s ease;
-}
-.group:hover .glass-chip { background: rgba(255, 255, 255, 0.2); transform: scale(1.05); }
-
-@media (prefers-reduced-motion: reduce) {
-  .gold-text, .gold-shimmer, .glass-glow { animation: none; }
+  [data-ad-slot], .hero-stage, .progress-bar { animation: none; }
   [data-ad-slot]:hover { transform: none; }
+
+  /* Coucou, flottements, reflets, coverflow, ressorts : tout coupé. */
+  .ad-tease, .ad-megaphone, .ad-reflect, .ad-cta-pulse,
+  .ad-enter-sweep, .ad-enter-slide, .ad-slide-up, .ad-count,
+  .ad-kenburns { animation: none; }
+  .ad-slide-up, .ad-count { opacity: 1; transform: none; }
+  .ad-creative-frame:hover img { transform: none; }
+  .coverflow-item { transition: none; }
+  .mag-teaser, .mag-teaser.mag-return { transition: none; }
+  .mag-teaser.mag-hidden { transform: translateX(-130%); }
+  .side-peek { transition: none; }
+  .side-peek.peek-out { transform: translateY(-50%) translateX(calc(100% + 2rem)); }
+  .interstitial-card { animation: none; }
 }

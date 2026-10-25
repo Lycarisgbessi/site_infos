@@ -2,23 +2,28 @@
 
 import { useEffect, useState } from "react";
 import type { PublicAdCampaign } from "@/lib/public/homepage-data";
+import { useAudioPlayer } from "@/components/public/audio-player/context";
 
 /**
  * Bandeau collant mobile (AD-12) — refermable, mobile uniquement.
- * Depuis la rotation (2026-10) : reçoit TOUTES les campagnes actives du
- * slot et en tire une au hasard, pondérée par priorité (weight =
- * priority + 1), côté client au chargement — pas de rotation temporisée
- * pour ce format intrusif, mais répartition entre les visites. Le clic est
- * compté avant l'ouverture (fire-and-forget), l'impression au montage.
+ * Système « taquin » 2026-10 : le bandeau SE SOULÈVE de 86 px quand la
+ * barre audio flottante est visible (l'état `track` du contexte audio du
+ * layout racine pilote le décalage — les deux barres ne se chevauchent
+ * jamais). Tirage pondéré côté client (weight, repli priorité + 1) ;
+ * le clic est compté avant l'ouverture (fire-and-forget), l'impression
+ * au montage. `enabled=false` (réglage ads.stickyMobile) : rien.
  * Task ID: 9-ADS
  */
 
-/** Tirage pondéré par priorité (weight = priority + 1). */
+/** Hauteur de soulèvement au-dessus de la barre audio flottante. */
+const AUDIO_BAR_LIFT_PX = 86;
+
+/** Tirage pondéré par weight (repli priorité + 1). */
 function pickWeightedIndex(campaigns: PublicAdCampaign[]): number {
-  const total = campaigns.reduce((sum, c) => sum + Math.max(1, c.priority + 1), 0);
+  const total = campaigns.reduce((sum, c) => sum + Math.max(1, c.weight > 0 ? c.weight : c.priority + 1), 0);
   let roll = Math.random() * total;
   for (let i = 0; i < campaigns.length; i++) {
-    roll -= Math.max(1, campaigns[i].priority + 1);
+    roll -= Math.max(1, campaigns[i].weight > 0 ? campaigns[i].weight : campaigns[i].priority + 1);
     if (roll < 0) return i;
   }
   return campaigns.length - 1;
@@ -29,12 +34,16 @@ export function MobileStickyAd({
   cta,
   closeLabel,
   campaigns,
+  enabled = true,
 }: {
   label: string;
   cta: string;
   closeLabel: string;
   campaigns: PublicAdCampaign[];
+  /** Court-circuit réglage admin ads.stickyMobile. */
+  enabled?: boolean;
 }) {
+  const { track } = useAudioPlayer();
   const [closed, setClosed] = useState(false);
   // Tirage côté client uniquement (pas de mismatch d'hydratation) : tant
   // que picked est null, le bandeau ne s'affiche pas.
@@ -60,7 +69,7 @@ export function MobileStickyAd({
     }
   }, [campaign]);
 
-  if (closed || !campaign) return null;
+  if (!enabled || closed || !campaign) return null;
 
   const handleClick = (event: React.MouseEvent<HTMLAnchorElement>) => {
     event.preventDefault();
@@ -82,8 +91,10 @@ export function MobileStickyAd({
 
   return (
     <div
-      className="animate-slide-in-up fixed inset-x-0 bottom-0 z-50 border-t border-rule bg-paper-alt shadow-[0_-4px_16px_rgba(0,0,0,0.08)] lg:hidden"
+      className="animate-slide-in-up fixed inset-x-0 bottom-0 z-50 border-t border-rule bg-paper-alt shadow-[0_-4px_16px_rgba(0,0,0,0.08)] transition-[bottom] duration-500 ease-out lg:hidden"
+      style={track ? { bottom: `${AUDIO_BAR_LIFT_PX}px` } : undefined}
       data-ad-slot="AD-12"
+      data-audio-lift={track ? "true" : undefined}
       role="complementary"
       aria-label={`${label} AD-12`}
     >

@@ -1,4 +1,5 @@
 import { Prisma } from "@prisma/client";
+import { headers } from "next/headers";
 import { db } from "@/lib/db";
 
 /**
@@ -496,58 +497,110 @@ export interface PublicAdCampaign {
   advertiser: string;
   name: string;
   priority: number;
+  /** Poids de rotation de la créative (≥ 1) — tirage pondéré côté client. */
+  weight: number;
   mediaKind: "image" | "gif" | "video";
   imageUrl: string | null;
   alt: string;
   videoUrl: string | null;
   clickUrl: string;
+  /** Ciblage appareil brut : ALL | MOBILE | DESKTOP. */
+  deviceTargeting: string;
+  /** CSV de slugs de rubriques ciblées (null = toutes). */
+  categoryTargeting: string | null;
+  /** Créative HTML de repli, sanitizée au rendu (voir lib/ad-html). */
+  htmlCode: string | null;
 }
 
 /** Toutes les campagnes actives d'un emplacement, triées par priorité décroissante. */
 export type AdCampaignMap = Record<string, PublicAdCampaign[]>;
 
+/** Détecte un appareil mobile depuis un User-Agent (tablette ≈ desktop). */
+export function isMobileUserAgent(ua: string | null): boolean {
+  if (!ua) return false;
+  return /android|iphone|ipod|windows phone|mobile/i.test(ua);
+}
+
+/** Une créative est-elle éligible pour l'appareil courant ? */
+function matchesDevice(deviceTargeting: string, isMobile: boolean): boolean {
+  if (deviceTargeting === "MOBILE") return isMobile;
+  if (deviceTargeting === "DESKTOP") return !isMobile;
+  return true; // ALL (ou valeur inconnue)
+}
+
+/** Une créative est-elle éligible pour la rubrique consultée ?
+ * Sans contexte de rubrique (null) : toujours éligible. */
+function matchesCategory(categoryTargeting: string | null, categorySlug: string | null): boolean {
+  if (!categoryTargeting || !categorySlug) return true;
+  return categoryTargeting
+    .split(",")
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean)
+    .includes(categorySlug.toLowerCase());
+}
+
 /** Campagnes publicitaires actives : status running + fenêtre de dates,
  * créative active, emplacement actif — triées par priorité décroissante.
  * Depuis la rotation (2026-10) : TOUTES les campagnes actives d'un slot
  * sont renvoyées (une créative principale par campagne, take 1 par weight) ;
- * le choix pondéré parmi elles se fait côté client (AdRotation). */
-export async function getAdCampaigns(): Promise<AdCampaignMap> {
+ * le choix pondéré parmi elles se fait côté client (AdRotation).
+ * Système « taquin » 2026-10 : ciblage appareil (User-Agent via headers())
+ * et rubrique (categorySlug optionnel — CSV category_targeting de la créative). */
+export async function getAdCampaigns(categorySlug?: string | null): Promise<AdCampaignMap> {
   const now = new Date();
   const rows = await db.adCampaign.findMany({
-    where: {
-      deleted_at: null,
-      status: "running",
-      starts_at: { lte: now },
-      ends_at: { gt: now },
-      creatives: { some: { is_active: true, slot: { is_active: true } } },
-    },
-    orderBy: { priority: "desc" },
-    select: {
-      id: true,
-      name: true,
-      priority: true,
-      advertiser: { select: { name: true } },
-      creatives: {
-        where: { is_active: true },
-        orderBy: { weight: "desc" },
-        take: 1,
-        select: {
-          id: true,
-          slot_code: true,
-          type: true,
-          video_url: true,
-          click_url: true,
-          alt_text: true,
-          media: { select: { url: true, alt_text: true, mime_type: true } },
+      where: {
+        deleted_at: null,
+        status: "running",
+        starts_at: { lte: now },
+        ends_at: { gt: now },
+        creatives: { some: { is_active: true, slot: { is_active: true } } },
+      },
+      orderBy: { priority: "desc" },
+      select: {
+        id: true,
+        name: true,
+        priority: true,
+        advertiser: { select: { name: true } },
+        creatives: {
+          where: { is_active: true },
+          orderBy: { weight: "desc" },
+          take: 1,
+          select: {
+            id: true,
+            slot_code: true,
+            type: true,
+            video_url: true,
+            click_url: true,
+            alt_text: true,
+            weight: true,
+            device_targeting: true,
+            category_targeting: true,
+            html_code: true,
+            media: { select: { url: true, alt_text: true, mime_type: true } },
+          },
         },
       },
-    },
   });
+
+  // Ciblage appareil via l'User-Agent — hors contexte requête (prérendu
+  // de la 404 au build, scripts), headers() est indisponible : aucun
+  // ciblage n'est alors appliqué (toutes les créas restent éligibles).
+  let userAgent: string | null = null;
+  try {
+    userAgent = (await headers()).get("user-agent");
+  } catch {
+    /* rendu hors requête : repli sans ciblage */
+  }
+  const isMobile = isMobileUserAgent(userAgent);
+  const category = categorySlug?.trim() ? categorySlug.trim() : null;
 
   const bySlot: AdCampaignMap = {};
   for (const row of rows) {
     const creative = row.creatives[0];
     if (!creative) continue;
+    if (!matchesDevice(creative.device_targeting, isMobile)) continue;
+    if (!matchesCategory(creative.category_targeting, category)) continue;
     const mediaKind: PublicAdCampaign["mediaKind"] =
       creative.type === "video" || creative.video_url
         ? "video"
@@ -561,11 +614,15 @@ export async function getAdCampaigns(): Promise<AdCampaignMap> {
       advertiser: row.advertiser.name,
       name: row.name,
       priority: row.priority,
+      weight: creative.weight > 0 ? creative.weight : row.priority + 1,
       mediaKind,
       imageUrl: creative.media?.url ?? null,
       alt: creative.media?.alt_text || creative.alt_text || row.name,
       videoUrl: creative.video_url ?? null,
       clickUrl: creative.click_url,
+      deviceTargeting: creative.device_targeting,
+      categoryTargeting: creative.category_targeting ?? null,
+      htmlCode: creative.html_code ?? null,
     });
   }
   return bySlot;

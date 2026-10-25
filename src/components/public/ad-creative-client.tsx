@@ -1,19 +1,23 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { FileText, Image as ImageIcon, Megaphone, TrendingUp, Video } from "lucide-react";
 import type { PublicAdCampaign } from "@/lib/public/homepage-data";
+import { sanitizeAdHtml } from "@/lib/ad-html";
 
 /**
- * Créative publicitaire réelle (régie simplifiée 2026-10) — rendu client :
- * image, GIF (URL originale, sans réencodage) ou vidéo (YouTube / mp4).
+ * Créative publicitaire réelle (système « taquin » 2026-10) — rendu client :
+ * image, GIF (URL originale), vidéo (YouTube / mp4) ou HTML de repli
+ * (sanitisé strictement, voir lib/ad-html). Charte ROUGE SANG / BLANC / NOIR.
  * Clic compté via /api/public/ads/[id]/click puis ouverture dans un nouvel
- * onglet ; impression comptée au montage, fire-and-forget (jamais bloquant).
+ * onglet ; impression comptée au montage, fire-and-forget.
  *
- * AdRotation : cycle ANIMÉ des campagnes d'un emplacement, entremêlées
- * d'une glissière « régie » qui invite les visiteurs à commander une
- * publicité — rotation 10 s, fondu glissé, pastilles de progression,
- * pause au survol. Même sans campagne, l'emplacement vit.
+ * AdRotation : roue de 5 s — créas + glissières AUTO-PROMO (règle : 0 créa →
+ * 3 promos ; 1-2 créas → 2 promos ; ≥ 3 créas → 1 promo). Entrées animées
+ * (balayage énergique pour les créas, cascade montée pour les promos),
+ * « coucou » taquin toutes les 12 s, pause au survol, pastilles de
+ * progression. prefers-reduced-motion coupe toutes les animations (globals).
  */
 
 function youtubeEmbedId(url: string): string | null {
@@ -25,7 +29,7 @@ function youtubeEmbedId(url: string): string | null {
   return match ? match[1] : null;
 }
 
-export function AdCreativeView({ campaign }: { campaign: PublicAdCampaign }) {
+export function AdCreativeView({ campaign, adLabel }: { campaign: PublicAdCampaign; adLabel?: string }) {
   // Impression best-effort : sans await, sans état d'erreur visible.
   useEffect(() => {
     try {
@@ -37,6 +41,14 @@ export function AdCreativeView({ campaign }: { campaign: PublicAdCampaign }) {
       /* ignoré */
     }
   }, [campaign.creativeId]);
+
+  // Créative HTML de repli : sanitisation STRICTE côté client uniquement
+  // (jamais de HTML brut rendu au SSR), puis injection.
+  const [safeHtml, setSafeHtml] = useState<string | null>(null);
+  useEffect(() => {
+    if (!campaign.htmlCode) return;
+    setSafeHtml(sanitizeAdHtml(campaign.htmlCode));
+  }, [campaign.htmlCode]);
 
   const handleClick = (event: React.MouseEvent<HTMLAnchorElement>) => {
     event.preventDefault();
@@ -64,10 +76,37 @@ export function AdCreativeView({ campaign }: { campaign: PublicAdCampaign }) {
     "aria-label": `${campaign.advertiser} — ${campaign.name}`,
   };
 
+  const pill = (
+    <span className="absolute end-1.5 top-1.5 z-20 rounded-full bg-black/60 px-2 py-0.5 text-[0.55rem] font-bold uppercase tracking-[0.14em] text-white backdrop-blur-sm">
+      {adLabel ?? "Publicité"}
+    </span>
+  );
+
+  // Créative HTML de repli (aucun média, aucun vidéo) : contenu sanitizé.
+  if (campaign.mediaKind !== "video" && !campaign.imageUrl && campaign.htmlCode) {
+    return (
+      <div className="ad-creative-frame bg-[#0d0c0c]">
+        {pill}
+        {safeHtml ? (
+          <div
+            className="ad-html-fallback h-full w-full overflow-hidden p-3 text-center text-white [&_a]:text-white [&_a]:underline"
+            dangerouslySetInnerHTML={{ __html: safeHtml }}
+          />
+        ) : (
+          <div className="flex h-full w-full items-center justify-center px-4">
+            <p className="truncate font-serif text-sm font-bold text-white/80">{campaign.name}</p>
+          </div>
+        )}
+        <a {...clickLinkProps} className="absolute inset-0 z-10" />
+      </div>
+    );
+  }
+
   if (campaign.mediaKind === "video") {
     const youtubeId = campaign.videoUrl ? youtubeEmbedId(campaign.videoUrl) : null;
     return (
-      <div className="relative h-full w-full">
+      <div className="ad-creative-frame">
+        {pill}
         {youtubeId ? (
           <iframe
             src={`https://www.youtube-nocookie.com/embed/${youtubeId}?autoplay=1&mute=1&controls=0&loop=1&playlist=${youtubeId}&modestbranding=1&rel=0&playsinline=1`}
@@ -93,103 +132,187 @@ export function AdCreativeView({ campaign }: { campaign: PublicAdCampaign }) {
   }
 
   // Image / GIF — <img> simple pour préserver l'animation des GIF.
-  // Les affiches figées s'animent doucement (ken-burns) pour vivifier
-  // l'emplacement ; les GIF restent animés par nature.
   const isGif = /\.gif($|\?)/i.test(campaign.imageUrl ?? "");
   return (
-    <a {...clickLinkProps} className="block h-full w-full overflow-hidden">
-      <img
-        src={campaign.imageUrl ?? ""}
-        alt={campaign.alt}
-        className={`h-full w-full object-cover ${isGif ? "" : "ad-kenburns"}`}
-        loading="lazy"
-        decoding="async"
-      />
-    </a>
+    <div className="ad-creative-frame">
+      {pill}
+      <a {...clickLinkProps} className="block h-full w-full overflow-hidden">
+        <img
+          src={campaign.imageUrl ?? ""}
+          alt={campaign.alt}
+          className={`h-full w-full object-cover ${isGif ? "" : "ad-kenburns"}`}
+          loading="lazy"
+          decoding="async"
+        />
+      </a>
+    </div>
   );
 }
 
-// ─── Cycle animé : campagnes + glissière régie ──────────────────────────
+// ─── Glissières auto-promo — charte rouge sang / blanc / noir ──────────
 
-const ROTATE_INTERVAL_MS = 10_000;
-const FADE_MS = 450;
+export interface AdHouseSlideLabels {
+  title: string;
+  subtitle: string;
+  cta: string;
+}
 
-/** Glissières régie — PREMIUM : trois univers haut de gamme.
- *  1. Ébène & or : noir profond, filets dorés, titre serif doré.
- *  2. Ivoire éditorial : page magazine crème, serif noir, filet rouge.
- *  3. Verre sombre : noir translucide, halo rouge flouté, chip verre.
- */
-function AdHouseSlide({ variant, labels }: { variant: 1 | 2 | 3; labels: AdHouseLabels }) {
-  if (variant === 2) {
-    return (
-      <Link href="/pages/publicite" className="group relative flex h-full w-full items-center justify-center overflow-hidden bg-[#faf7f0]" aria-label={labels.cta}>
-        <div aria-hidden className="pointer-events-none absolute inset-3 border border-[#d8d2c4]" />
-        <div aria-hidden className="ivory-flare pointer-events-none absolute inset-0" />
-        <div className="relative z-10 max-w-[92%] px-2 py-1 text-center">
-          <p className="font-serif text-[0.6rem] uppercase tracking-[0.42em] text-[#9a8f78]">Régie INFOSPRO</p>
-          <p className="mt-1.5 font-serif text-sm font-black italic leading-tight text-ink md:text-base">{labels.title}</p>
-          <p className="mt-1 text-[0.62rem] font-medium tracking-wide text-[#6f6753]">{labels.subtitle}</p>
-          <span className="mt-2 inline-block border-b border-brand-red pb-0.5 text-[0.62rem] font-bold uppercase tracking-[0.22em] text-brand-red transition-colors duration-200 group-hover:bg-brand-red group-hover:text-white">
-            {labels.cta} →
-          </span>
-        </div>
-      </Link>
-    );
-  }
-  if (variant === 3) {
-    return (
-      <Link href="/pages/publicite" className="group relative flex h-full w-full items-center justify-center overflow-hidden bg-[#0b0b0d]" aria-label={labels.cta}>
-        <div aria-hidden className="glass-glow absolute inset-0" />
-        <div aria-hidden className="pointer-events-none absolute inset-0 bg-[radial-gradient(60%_80%_at_50%_120%,rgba(220,38,38,0.35),transparent_70%)]" />
-        <div className="relative z-10 max-w-[92%] px-2 py-1 text-center">
-          <p className="text-[0.6rem] font-semibold uppercase tracking-[0.4em] text-white/50">Studio régie</p>
-          <p className="mt-1.5 font-serif text-sm font-bold leading-tight text-white md:text-base">{labels.title}</p>
-          <p className="mt-1 text-[0.62rem] font-medium text-white/60">{labels.subtitle}</p>
-          <span className="glass-chip mt-2 inline-block px-3.5 py-1 text-[0.62rem] font-bold uppercase tracking-[0.2em] text-white">
-            {labels.cta} →
-          </span>
-        </div>
-      </Link>
-    );
-  }
-  // 1 — Ébène & or
+export interface AdHouseLabels {
+  /** Étiquette « Publicité » (pilule des créas). */
+  adLabel: string;
+  /** Surtitre commun « Régie INFOSPRO ». */
+  eyebrow: string;
+  /** Compteur « 10 000 lecteurs/mois » (adapté par langue). */
+  count: string;
+  /** a — « Votre marque ici ? » (mégaphone flottant). */
+  brand: AdHouseSlideLabels;
+  /** b — « Votre audience est ici. » (dégradé rouge). */
+  audience: AdHouseSlideLabels;
+  /** c — « Votre créa, en mouvement. » (mini-formats). */
+  motion: AdHouseSlideLabels;
+  formatBanner: string;
+  formatVideo: string;
+  formatNative: string;
+}
+
+/** Reflet blanc skew qui balaie en continu (4,6 s : -45 % → 125 %). */
+function AdReflect() {
+  return <span aria-hidden className="ad-reflect" />;
+}
+
+/** a — « Votre marque ici ? » : noir profond, halos rouges, mégaphone
+ *  flottant avec onde ping, compteur zoom, CTA blanc pulsé. */
+function AdHouseBrandSlide({ labels }: { labels: AdHouseLabels }) {
   return (
-    <Link href="/pages/publicite" className="group relative flex h-full w-full items-center justify-center overflow-hidden bg-[#0c0c0e]" aria-label={labels.cta}>
-      <div aria-hidden className="gold-border absolute inset-[5px] rounded-[10px]" />
-      <div aria-hidden className="gold-shimmer pointer-events-none absolute inset-0" />
-      <div className="relative z-10 max-w-[92%] px-3 py-1 text-center">
-        <p className="gold-text text-[0.6rem] font-semibold uppercase tracking-[0.42em]">Régie INFOSPRO</p>
-        <p className="gold-text mt-1.5 font-serif text-sm font-black leading-tight md:text-base">{labels.title}</p>
-        <p className="mt-1 text-[0.62rem] font-medium tracking-wide text-white/60">{labels.subtitle}</p>
-        <span className="mt-2 inline-block rounded-[3px] border border-[#d4af37]/70 px-3.5 py-1 text-[0.62rem] font-bold uppercase tracking-[0.2em] text-[#e8c96a] transition-all duration-300 group-hover:bg-[#d4af37] group-hover:text-[#0c0c0e]">
-          {labels.cta} →
+    <Link
+      href="/pages/publicite"
+      className="ad-house-slide group relative flex h-full w-full items-center justify-center overflow-hidden bg-[#0b0a0a]"
+      aria-label={labels.brand.cta}
+    >
+      {/* Halos rouges floutés aux coins */}
+      <span aria-hidden className="ad-house-halo pointer-events-none absolute inset-0" />
+      {/* Trame diagonale blanche 14 % */}
+      <span aria-hidden className="ad-house-diagonal pointer-events-none absolute inset-0" />
+      <AdReflect />
+      <div className="relative z-10 flex h-full w-full items-center gap-3 px-4 py-2 sm:gap-4">
+        {/* Mégaphone rouge flottant + onde ping */}
+        <span aria-hidden className="relative flex shrink-0 items-center justify-center">
+          <span className="absolute inline-flex size-12 animate-ping rounded-full bg-[#A4161A]/40" />
+          <span className="relative flex size-10 items-center justify-center rounded-full bg-[#A4161A] text-white shadow-[0_0_18px_rgba(164,22,26,0.55)] md:size-11">
+            <Megaphone className="ad-megaphone size-5 md:size-6" aria-hidden />
+          </span>
         </span>
+        <div className="min-w-0 flex-1 text-start">
+          <p className="ad-slide-up ad-d1 text-[0.55rem] font-bold uppercase tracking-[0.32em] text-white/50">
+            {labels.eyebrow}
+          </p>
+          <p className="ad-slide-up ad-d2 mt-0.5 font-serif text-sm font-black leading-tight text-white md:text-base">
+            {labels.brand.title}
+          </p>
+          <p className="ad-count ad-d3 mt-1 text-[0.68rem] font-black uppercase tracking-[0.12em] text-[#ff5a60] md:text-xs">
+            {labels.count}
+          </p>
+          <span className="ad-slide-up ad-d4 mt-1.5 inline-block rounded-full bg-white px-3 py-1 text-[0.62rem] font-black uppercase tracking-[0.14em] text-[#0b0a0a] transition-transform duration-300 group-hover:scale-105 ad-cta-pulse">
+            {labels.brand.cta}
+          </span>
+        </div>
       </div>
     </Link>
   );
 }
 
-export interface AdHouseLabels {
-  title: string;
-  subtitle: string;
-  cta: string;
-  title2?: string;
-  subtitle2?: string;
-  cta2?: string;
-  title3?: string;
-  subtitle3?: string;
-  cta3?: string;
+/** b — « Votre audience est ici. » : dégradé rouge #A4161A→#5d0d10,
+ *  icône TrendingUp, compteur zoom, CTA. */
+function AdHouseAudienceSlide({ labels }: { labels: AdHouseLabels }) {
+  return (
+    <Link
+      href="/pages/publicite"
+      className="ad-house-slide group relative flex h-full w-full items-center justify-center overflow-hidden bg-gradient-to-br from-[#A4161A] to-[#5d0d10]"
+      aria-label={labels.audience.cta}
+    >
+      <span aria-hidden className="pointer-events-none absolute inset-0 bg-[radial-gradient(80%_120%_at_80%_-10%,rgba(255,255,255,0.16),transparent_60%)]" />
+      <span aria-hidden className="ad-house-diagonal pointer-events-none absolute inset-0 opacity-60" />
+      <AdReflect />
+      <div className="relative z-10 flex h-full w-full items-center gap-3 px-4 py-2 sm:gap-4">
+        <span aria-hidden className="flex size-10 shrink-0 items-center justify-center rounded-full bg-white/15 text-white ring-1 ring-white/30 md:size-11">
+          <TrendingUp className="size-5 md:size-6" aria-hidden />
+        </span>
+        <div className="min-w-0 flex-1 text-start">
+          <p className="ad-slide-up ad-d1 text-[0.55rem] font-bold uppercase tracking-[0.32em] text-white/60">
+            {labels.eyebrow}
+          </p>
+          <p className="ad-slide-up ad-d2 mt-0.5 font-serif text-sm font-black leading-tight text-white md:text-base">
+            {labels.audience.title}
+          </p>
+          <p className="ad-count ad-d3 mt-1 text-[0.68rem] font-black uppercase tracking-[0.12em] text-white/85 md:text-xs">
+            {labels.count}
+          </p>
+          <span className="ad-slide-up ad-d4 mt-1.5 inline-block rounded-full bg-white px-3 py-1 text-[0.62rem] font-black uppercase tracking-[0.14em] text-[#A4161A] transition-transform duration-300 group-hover:scale-105 ad-cta-pulse">
+            {labels.audience.cta}
+          </span>
+        </div>
+      </div>
+    </Link>
+  );
+}
+
+/** c — « Votre créa, en mouvement. » : noir + halos, 3 mini-formats
+ *  étiquetés (BANNIÈRE / VIDÉO / NATIF) en cascade à gauche, texte + CTA. */
+function AdHouseMotionSlide({ labels }: { labels: AdHouseLabels }) {
+  const formats = [
+    { icon: ImageIcon, label: labels.formatBanner },
+    { icon: Video, label: labels.formatVideo },
+    { icon: FileText, label: labels.formatNative },
+  ];
+  return (
+    <Link
+      href="/pages/publicite"
+      className="ad-house-slide group relative flex h-full w-full items-center justify-center overflow-hidden bg-[#0b0a0a]"
+      aria-label={labels.motion.cta}
+    >
+      <span aria-hidden className="ad-house-halo pointer-events-none absolute inset-0" />
+      <AdReflect />
+      <div className="relative z-10 flex h-full w-full items-center gap-3 px-4 py-2 sm:gap-4">
+        {/* Mini-formats en cascade */}
+        <div aria-hidden className="flex shrink-0 flex-col gap-1.5">
+          {formats.map(({ icon: Icon, label }, i) => (
+            <span
+              key={label}
+              className={`ad-slide-up ad-d${i + 1} flex items-center gap-1.5 rounded-[4px] border border-[#A4161A]/50 bg-[#A4161A]/15 px-2 py-1 text-[0.52rem] font-bold uppercase tracking-[0.18em] text-white/85`}
+            >
+              <Icon className="size-3 text-[#ff5a60]" aria-hidden />
+              {label}
+            </span>
+          ))}
+        </div>
+        <div className="min-w-0 flex-1 text-start">
+          <p className="ad-slide-up ad-d1 text-[0.55rem] font-bold uppercase tracking-[0.32em] text-white/50">
+            {labels.eyebrow}
+          </p>
+          <p className="ad-slide-up ad-d2 mt-0.5 font-serif text-sm font-black leading-tight text-white md:text-base">
+            {labels.motion.title}
+          </p>
+          <p className="ad-slide-up ad-d3 mt-0.5 truncate text-[0.6rem] font-medium text-white/60">
+            {labels.motion.subtitle}
+          </p>
+          <span className="ad-slide-up ad-d4 mt-1.5 inline-block rounded-full bg-[#A4161A] px-3 py-1 text-[0.62rem] font-black uppercase tracking-[0.14em] text-white ring-1 ring-white/25 transition-transform duration-300 group-hover:scale-105 ad-cta-pulse">
+            {labels.motion.cta}
+          </span>
+        </div>
+      </div>
+    </Link>
+  );
 }
 
 type Slide =
-  | { kind: "campaign"; campaign: PublicAdCampaign }
-  | { kind: "house"; variant: 1 | 2 | 3 };
+  | { kind: "campaign"; id: string; campaign: PublicAdCampaign }
+  | { kind: "house"; id: string; variant: 1 | 2 | 3 };
 
-/** Poids de tirage : weight de la créative si disponible, sinon priorité+1. */
-function campaignWeight(c: PublicAdCampaign): number {
-  const rec = c as unknown as Record<string, unknown>;
-  const w = typeof rec.weight === "number" && rec.weight > 0 ? rec.weight : c.priority + 1;
-  return Math.max(1, w);
+/** Règle auto-promo : 0 créa → 3 promos ; 1-2 créas → 2 promos ; ≥3 → 1. */
+function houseCountFor(campaignCount: number): number {
+  if (campaignCount === 0) return 3;
+  if (campaignCount < 3) return 2;
+  return 1;
 }
 
 export function AdRotation({
@@ -199,93 +322,72 @@ export function AdRotation({
   campaigns: PublicAdCampaign[];
   houseLabels?: AdHouseLabels;
 }) {
-  // Diapositives : campagnes (ordre priorité) + les 3 glissières régie.
-  // Un emplacement affiche donc TOUJOURS plusieurs contenus qui tournent.
-  const hasHouse = Boolean(houseLabels);
-  const slides: Slide[] = [
-    ...campaigns.map((campaign) => ({ kind: "campaign" as const, campaign })),
-    ...(hasHouse
-      ? [
-          { kind: "house" as const, variant: 1 as const },
-          { kind: "house" as const, variant: 2 as const },
-          { kind: "house" as const, variant: 3 as const },
-        ]
-      : []),
-  ];
+  const slides: Slide[] = useMemo(() => {
+    const houseSlides: Slide[] = houseLabels
+      ? Array.from({ length: houseCountFor(campaigns.length) }, (_, i) => ({
+          kind: "house" as const,
+          id: `house-${i + 1}`,
+          variant: (i + 1) as 1 | 2 | 3,
+        }))
+      : [];
+    return [
+      ...campaigns.map((campaign) => ({ kind: "campaign" as const, id: campaign.creativeId, campaign })),
+      ...houseSlides,
+    ];
+  }, [campaigns, houseLabels]);
 
   const [index, setIndex] = useState(0);
-  const [visible, setVisible] = useState(true);
   const [paused, setPaused] = useState(false);
 
-  // Cycle : rotation toutes les 10 s, fondu glissé, pause au survol/onglet caché.
+  // Roue : rotation toutes les 5 s ; l'entrée du nouveau slide relance son
+  // animation CSS (clé = identifiant du slide). Pause au survol/onglet caché.
   useEffect(() => {
     if (slides.length < 2) return;
-    let interval: number | undefined;
-    let fadeTimeout: number | undefined;
-    const rotate = () => {
+    const interval = window.setInterval(() => {
       if (paused || document.hidden) return;
-      setVisible(false);
-      fadeTimeout = window.setTimeout(() => {
-        setIndex((prev) => (prev + 1) % slides.length);
-        setVisible(true);
-      }, FADE_MS);
+      setIndex((prev) => (prev + 1) % slides.length);
+    }, 5000);
+    const onVisibility = () => {
+      /* le tick vérifie document.hidden : rien à faire, l'interval survit */
     };
-    const start = () => {
-      if (interval === undefined) interval = window.setInterval(rotate, ROTATE_INTERVAL_MS);
-    };
-    const stop = () => {
-      if (interval !== undefined) {
-        window.clearInterval(interval);
-        interval = undefined;
-      }
-    };
-    const onVisibility = () => (document.hidden ? stop() : start());
     document.addEventListener("visibilitychange", onVisibility);
-    if (!document.hidden) start();
     return () => {
-      stop();
-      if (fadeTimeout !== undefined) window.clearTimeout(fadeTimeout);
+      window.clearInterval(interval);
       document.removeEventListener("visibilitychange", onVisibility);
     };
   }, [slides.length, paused]);
 
   if (slides.length === 0) return null;
-  const slide = slides[Math.min(index, slides.length - 1)];
+  const safeIndex = Math.min(index, slides.length - 1);
+  const slide = slides[safeIndex];
 
   return (
     <div
-      className="relative h-full w-full overflow-hidden"
+      className="ad-tease relative h-full w-full overflow-hidden"
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
     >
-      <div
-        className="ad-slide h-full w-full transition-all duration-500"
-        style={{ opacity: visible ? 1 : 0, transform: visible ? "translateX(0)" : "translateX(6%)" }}
-      >
+      <div key={slide.id} className={`h-full w-full ${slide.kind === "campaign" ? "ad-enter-sweep" : "ad-enter-slide"}`}>
         {slide.kind === "campaign" ? (
-          <AdCreativeView key={slide.campaign.creativeId} campaign={slide.campaign} />
+          <AdCreativeView campaign={slide.campaign} adLabel={houseLabels?.adLabel} />
+        ) : slide.variant === 1 ? (
+          <AdHouseBrandSlide labels={houseLabels!} />
+        ) : slide.variant === 2 ? (
+          <AdHouseAudienceSlide labels={houseLabels!} />
         ) : (
-          <AdHouseSlide
-            key={`house-${slide.variant}`}
-            variant={slide.variant}
-            labels={{
-              title: (slide.variant === 1 ? houseLabels!.title : slide.variant === 2 ? houseLabels!.title2 : houseLabels!.title3) ?? houseLabels!.title,
-              subtitle: (slide.variant === 1 ? houseLabels!.subtitle : slide.variant === 2 ? houseLabels!.subtitle2 : houseLabels!.subtitle3) ?? houseLabels!.subtitle,
-              cta: (slide.variant === 1 ? houseLabels!.cta : slide.variant === 2 ? houseLabels!.cta2 : houseLabels!.cta3) ?? houseLabels!.cta,
-            }}
-          />
+          <AdHouseMotionSlide labels={houseLabels!} />
         )}
       </div>
 
-      {/* Pastilles de progression */}
+      {/* Pastilles de progression : barre active w-4 + points w-1.5 */}
       {slides.length > 1 && (
         <div className="absolute bottom-1.5 start-1/2 z-20 flex -translate-x-1/2 gap-1.5 rtl:translate-x-1/2">
-          {slides.map((_, i) => (
+          {slides.map((s, i) => (
             <span
-              key={i}
+              key={s.id}
               aria-hidden
               className={`h-1.5 rounded-full transition-all duration-300 ${
-                i === index ? "w-4 bg-white" : "w-1.5 bg-white/50"
+                i === safeIndex ? "w-4 bg-white shadow-[0_0_4px_rgba(0,0,0,0.6)]" : "w-1.5 bg-white/55 shadow-[0_0_3px_rgba(0,0,0,0.45)]"
               }`}
             />
           ))}

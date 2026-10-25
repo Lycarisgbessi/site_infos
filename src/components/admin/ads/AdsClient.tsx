@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
+import { Textarea } from "@/components/ui/textarea";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -23,13 +24,16 @@ import { MediaPicker, type MediaItem } from "@/components/admin/MediaPicker";
 import { apiFetch, errorMessage } from "@/lib/api/client";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
-import { ExternalLink, Image as ImageIcon, Loader2, Megaphone, MousePointerClick, Pencil, Plus, Power, Trash2, Eye } from "lucide-react";
+import { ExternalLink, Image as ImageIcon, Loader2, Megaphone, Monitor, MousePointerClick, Pencil, Plus, Power, Smartphone, Trash2, Eye } from "lucide-react";
 
 /**
  * Régie publicitaire (§11.2 /admin/ads) — gestion des campagnes réelles :
  * une campagne = annonceur + période + priorité + une créative (image,
  * GIF de la médiathèque ou vidéo externe YouTube/mp4) sur un emplacement
  * AD-01→AD-19. Compteurs d'impressions et de clics en lecture.
+ * Système « taquin » 2026-10 : ciblage appareils (Tous/Mobile/Desktop),
+ * rubriques ciblées (CSV de slugs) et code HTML de repli (sanitisé au
+ * rendu public).
  */
 
 interface AdCampaignItem {
@@ -50,6 +54,9 @@ interface AdCampaignItem {
   impressions: number;
   clicks: number;
   created_at: string;
+  device_targeting: "ALL" | "MOBILE" | "DESKTOP";
+  category_targeting: string | null;
+  html_code: string | null;
 }
 
 interface AdSlotItem {
@@ -138,6 +145,9 @@ interface FormState {
   endsAt: string;
   priority: string;
   isActive: boolean;
+  deviceTargeting: AdCampaignItem["device_targeting"];
+  categoryTargeting: string;
+  htmlCode: string;
 }
 
 const EMPTY_FORM: FormState = {
@@ -153,6 +163,9 @@ const EMPTY_FORM: FormState = {
   endsAt: "",
   priority: "5",
   isActive: true,
+  deviceTargeting: "ALL",
+  categoryTargeting: "",
+  htmlCode: "",
 };
 
 export function AdsClient({ canManage }: { canManage: boolean }) {
@@ -205,6 +218,9 @@ export function AdsClient({ canManage }: { canManage: boolean }) {
       endsAt: toInputDateTime(item.ends_at),
       priority: String(item.priority),
       isActive: item.is_active,
+      deviceTargeting: item.device_targeting ?? "ALL",
+      categoryTargeting: item.category_targeting ?? "",
+      htmlCode: item.html_code ?? "",
     });
     setFormOpen(true);
   };
@@ -218,12 +234,12 @@ export function AdsClient({ canManage }: { canManage: boolean }) {
       toast({ title: "URL de destination invalide", description: "Elle doit commencer par http:// ou https://.", variant: "destructive" });
       return;
     }
-    if (form.mediaKind === "video" && !/^https?:\/\//i.test(form.videoUrl.trim())) {
-      toast({ title: "URL vidéo requise", description: "Fournissez une URL YouTube ou mp4 (http/https).", variant: "destructive" });
+    if (form.mediaKind === "video" && !/^https?:\/\//i.test(form.videoUrl.trim()) && !form.htmlCode.trim()) {
+      toast({ title: "URL vidéo requise", description: "Fournissez une URL YouTube ou mp4 (http/https) ou un code HTML de repli.", variant: "destructive" });
       return;
     }
-    if (form.mediaKind !== "video" && !form.mediaId) {
-      toast({ title: "Média requis", description: "Choisissez une image ou un GIF dans la médiathèque.", variant: "destructive" });
+    if (form.mediaKind !== "video" && !form.mediaId && !form.htmlCode.trim()) {
+      toast({ title: "Média requis", description: "Choisissez une image ou un GIF dans la médiathèque, ou fournissez un code HTML de repli.", variant: "destructive" });
       return;
     }
     if (!form.startsAt) {
@@ -243,6 +259,9 @@ export function AdsClient({ canManage }: { canManage: boolean }) {
       ends_at: form.endsAt ? fromInputDateTime(form.endsAt) : null,
       priority: Number(form.priority) || 5,
       is_active: form.isActive,
+      device_targeting: form.deviceTargeting,
+      category_targeting: form.categoryTargeting.trim() ? form.categoryTargeting.trim() : null,
+      html_code: form.htmlCode.trim() ? form.htmlCode : null,
     };
 
     setSaving(true);
@@ -420,6 +439,54 @@ export function AdsClient({ canManage }: { canManage: boolean }) {
             </div>
 
             <div className="space-y-1">
+              <Label className="text-xs font-semibold text-ink-soft">Appareils ciblés</Label>
+              <Select value={form.deviceTargeting} onValueChange={(value) => setForm({ ...form, deviceTargeting: value as AdCampaignItem["device_targeting"] })}>
+                <SelectTrigger aria-label="Appareils ciblés">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ALL">Tous les appareils</SelectItem>
+                  <SelectItem value="MOBILE">Mobile uniquement</SelectItem>
+                  <SelectItem value="DESKTOP">Desktop uniquement</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-[11px] leading-snug text-ink-faint/90">
+                La créative n'est servie qu'aux appareils choisis (détection User-Agent).
+              </p>
+            </div>
+
+            <div className="space-y-1">
+              <Label htmlFor="ad-categories" className="text-xs font-semibold text-ink-soft">Rubriques ciblées (CSV de slugs, optionnel)</Label>
+              <Input
+                id="ad-categories"
+                value={form.categoryTargeting}
+                onChange={(e) => setForm({ ...form, categoryTargeting: e.target.value })}
+                maxLength={500}
+                placeholder="ex. politique,economie,sport"
+              />
+              <p className="text-[11px] leading-snug text-ink-faint/90">
+                Slugs de rubriques séparés par des virgules — vide = toutes les pages.
+              </p>
+            </div>
+
+            <div className="space-y-1 sm:col-span-2">
+              <Label htmlFor="ad-html" className="text-xs font-semibold text-ink-soft">Code HTML de repli (optionnel)</Label>
+              <Textarea
+                id="ad-html"
+                value={form.htmlCode}
+                onChange={(e) => setForm({ ...form, htmlCode: e.target.value })}
+                className="min-h-20 bg-paper font-mono text-xs"
+                placeholder="<div><strong>Votre marque</strong> — <a href='https://…'>découvrir</a></div>"
+                aria-label="Code HTML de repli"
+              />
+              <p className="text-[11px] leading-snug text-ink-faint/90">
+                Affiché si aucun média ni vidéo n'est disponible. Sanitisation stricte au rendu :
+                seules les balises b, i, em, strong, a, img, div, span, p, br sont conservées
+                (scripts, iframes et attributs on* supprimés ; liens http(s) uniquement).
+              </p>
+            </div>
+
+            <div className="space-y-1">
               <Label htmlFor="ad-starts" className="text-xs font-semibold text-ink-soft">Début de diffusion *</Label>
               <Input id="ad-starts" type="datetime-local" value={form.startsAt} onChange={(e) => setForm({ ...form, startsAt: e.target.value })} />
             </div>
@@ -496,6 +563,16 @@ export function AdsClient({ canManage }: { canManage: boolean }) {
                         {item.clicks.toLocaleString("fr-FR")}
                       </span>
                       <span>Priorité {item.priority}</span>
+                      <span className="inline-flex items-center gap-1" title="Appareils ciblés">
+                        {item.device_targeting === "MOBILE" ? <Smartphone className="size-3" aria-hidden /> : item.device_targeting === "DESKTOP" ? <Monitor className="size-3" aria-hidden /> : null}
+                        {item.device_targeting === "MOBILE" ? "Mobile" : item.device_targeting === "DESKTOP" ? "Desktop" : "Tous appareils"}
+                      </span>
+                      {item.category_targeting && (
+                        <span title={`Rubriques ciblées : ${item.category_targeting}`}>
+                          Ciblage : {item.category_targeting}
+                        </span>
+                      )}
+                      {item.html_code && <span title="Créative HTML de repli définie">HTML repli</span>}
                       <a
                         href={item.click_url}
                         target="_blank"

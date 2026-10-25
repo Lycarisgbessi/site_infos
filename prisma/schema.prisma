@@ -1156,6 +1156,14 @@ model AdCreative {
   weight       Int           @default(1)
   is_active    Boolean       @default(true) @map("is_active")
   created_at   DateTime      @default(now()) @map("created_at")
+  // Ciblage & repli (système publicitaire « taquin » 2026-10) :
+  //  - device_targeting : ALL (défaut) | MOBILE | DESKTOP
+  //  - category_targeting : CSV de slugs de rubriques ciblées (null = toutes)
+  //  - html_code : créative HTML de repli (servie si ni média ni vidéo),
+  //    sanitizée côté rendu (liste blanche de balises, aucun script).
+  device_targeting    String  @default("ALL") @map("device_targeting")
+  category_targeting  String? @map("category_targeting")
+  html_code           String? @map("html_code")
 
   campaign  AdCampaign      @relation(fields: [campaign_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
   slot      AdSlot          @relation(fields: [slot_code], references: [code], onDelete: Restrict, onUpdate: Cascade)

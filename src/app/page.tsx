@@ -86,7 +86,15 @@ export default async function HomePage() {
   const [banners, adCampaigns, settings, composed] = await Promise.all([
     getSiteBanners("/"),
     getAdCampaigns(),
-    getSettingsValues(["features.tv", "features.weather"]),
+    getSettingsValues([
+      "features.tv",
+      "features.weather",
+      "ads.header",
+      "ads.footer",
+      "ads.sidebar",
+      "ads.native",
+      "ads.stickyMobile",
+    ]),
     getComposedHomepage(),
   ]);
 
@@ -95,6 +103,12 @@ export default async function HomePage() {
   const tvEnabled = settings["features.tv"] !== "false";
   const weatherEnabled = settings["features.weather"] !== "false";
   const flashEnabled = composed === null || composed.some((b) => b.type === "flash");
+  // Réglages publicitaires « taquin » (§11.2, groupe Publicité).
+  const headerAdEnabled = settings["ads.header"] !== "false";
+  const footerAdEnabled = settings["ads.footer"] !== "false";
+  const sidebarAdEnabled = settings["ads.sidebar"] !== "false";
+  const nativeAdEnabled = settings["ads.native"] !== "false";
+  const stickyMobileAdEnabled = settings["ads.stickyMobile"] !== "false";
 
   const siteHeader = (
     <>
@@ -112,6 +126,7 @@ export default async function HomePage() {
         cta={translate("public.ad.cta")}
         closeLabel={translate("common.close")}
         campaigns={adCampaigns["AD-12"] ?? []}
+        enabled={stickyMobileAdEnabled}
       />
     </>
   );
@@ -127,6 +142,9 @@ export default async function HomePage() {
             tvEnabled={tvEnabled}
             weatherEnabled={weatherEnabled}
             translate={translate}
+            headerAdEnabled={headerAdEnabled}
+            footerAdEnabled={footerAdEnabled}
+            sidebarAdEnabled={sidebarAdEnabled}
           />
         </main>
         {siteFooter}
@@ -164,7 +182,7 @@ export default async function HomePage() {
       <main id="contenu" className="flex-1 pb-10">
         {/* ── Z-02 : Leaderboard d'en-tête (compact) ─────────────────────── */}
         <div className="container-page mt-4">
-          <AdBanner code="AD-02" campaigns={adCampaigns} />
+          <AdBanner code="AD-02" campaigns={adCampaigns} enabled={headerAdEnabled} />
         </div>
 
         {/* ── Z-04 : À la une (composeur home_lead) ──────────────────────── */}
@@ -229,8 +247,8 @@ export default async function HomePage() {
                       </div>
                     ) : idx === 1 ? (
                       <div className="mt-6 grid gap-4 sm:grid-cols-2">
-                        <AdNativeCard code="AD-08" campaigns={adCampaigns} />
-                        <AdNativeCard code="AD-16" campaigns={adCampaigns} />
+                        <AdNativeCard code="AD-08" campaigns={adCampaigns} enabled={nativeAdEnabled} />
+                        <AdNativeCard code="AD-16" campaigns={adCampaigns} enabled={nativeAdEnabled} />
                       </div>
                     ) : undefined
                   }
@@ -279,7 +297,7 @@ export default async function HomePage() {
                   adSlot={
                     idx === 2 ? (
                       <div className="mt-6">
-                        <AdNativeCard code="AD-08" campaigns={adCampaigns} />
+                        <AdNativeCard code="AD-08" campaigns={adCampaigns} enabled={nativeAdEnabled} />
                       </div>
                     ) : undefined
                   }
@@ -353,7 +371,7 @@ export default async function HomePage() {
             </section>
 
             {/* AD-04 : grand encart VERTICAL entre les deux volets « En continu » */}
-            <AdBanner code="AD-04" campaigns={adCampaigns} formatOverride="halfpage" />
+            <AdBanner code="AD-04" campaigns={adCampaigns} enabled={sidebarAdEnabled} />
 
             {/* En continu — 2ᵉ partie (articles 7-12, numérotation continue) */}
             {latest.length > 6 && (
@@ -366,8 +384,8 @@ export default async function HomePage() {
               </section>
             )}
 
-            {/* AD-05 : demi-page verticale (300×600) */}
-            <AdBanner code="AD-05" campaigns={adCampaigns} />
+            {/* AD-05 : demi-page verticale sticky (300×600) */}
+            <AdBanner code="AD-05" campaigns={adCampaigns} enabled={sidebarAdEnabled} />
 
             {/* Les plus lus */}
             <section aria-label={translate("public.list.mostRead")} className="border border-rule bg-paper-alt p-4">
@@ -391,7 +409,7 @@ export default async function HomePage() {
 
         {/* ── AD-15 : bannière pied de page ─────────────────────────────── */}
         <div className="container-page mt-10">
-          <AdBanner code="AD-15" campaigns={adCampaigns} />
+          <AdBanner code="AD-15" campaigns={adCampaigns} enabled={footerAdEnabled} />
         </div>
       </main>
 
@@ -408,6 +426,9 @@ interface ComposedMainProps {
   tvEnabled: boolean;
   weatherEnabled: boolean;
   translate: Translator;
+  headerAdEnabled: boolean;
+  footerAdEnabled: boolean;
+  sidebarAdEnabled: boolean;
 }
 
 /** Corps de l'accueil composé : la une, les directs et les publicités qui
@@ -415,7 +436,7 @@ interface ComposedMainProps {
  * zoning §09.1) ; les blocs latest/most_read/weather peuplent la colonne
  * latérale ; tout le reste suit l'ordre du composeur dans la colonne
  * principale. Le bandeau flash est rendu dans l'en-tête de la page. */
-function ComposedMain({ blocks, adCampaigns, tvEnabled, weatherEnabled, translate }: ComposedMainProps) {
+function ComposedMain({ blocks, adCampaigns, tvEnabled, weatherEnabled, translate, headerAdEnabled, footerAdEnabled, sidebarAdEnabled }: ComposedMainProps) {
   const flow = blocks.filter((b) => !isSidebarBlock(b) && b.type !== "flash");
   let topCount = 0;
   while (topCount < flow.length && ["lead", "live", "ad"].includes(flow[topCount].type)) {
@@ -465,7 +486,13 @@ function ComposedMain({ blocks, adCampaigns, tvEnabled, weatherEnabled, translat
       </Link>
     ) : null;
 
-  const renderAd = (slotCode: string | undefined) => (slotCode ? <AdBanner code={slotCode} campaigns={adCampaigns} /> : null);
+  const renderAd = (slotCode: string | undefined) => {
+    if (!slotCode) return null;
+    // Les emplacements d'habillage respectent leurs réglages admin.
+    const enabled =
+      slotCode === "AD-02" ? headerAdEnabled : slotCode === "AD-15" ? footerAdEnabled : true;
+    return <AdBanner code={slotCode} campaigns={adCampaigns} enabled={enabled} />;
+  };
 
   const mostReadWidget = (articles: PublicArticle[]) =>
     articles.length > 0 ? (
@@ -497,9 +524,9 @@ function ComposedMain({ blocks, adCampaigns, tvEnabled, weatherEnabled, translat
         )}
         {/* Grand encart vertical entre les deux volets « En continu » */}
         {b.settings.sidebarAd ? (
-          <AdBanner code={b.settings.sidebarAd} campaigns={adCampaigns} formatOverride="halfpage" />
+          <AdBanner code={b.settings.sidebarAd} campaigns={adCampaigns} enabled={sidebarAdEnabled} />
         ) : (
-          <AdBanner code="AD-04" campaigns={adCampaigns} formatOverride="halfpage" />
+          <AdBanner code="AD-04" campaigns={adCampaigns} enabled={sidebarAdEnabled} />
         )}
         {b.articles.length > 6 && (
           <section aria-label={translate("public.list.continuous")} className="border border-rule bg-paper-alt p-4">
@@ -670,7 +697,7 @@ function ComposedMain({ blocks, adCampaigns, tvEnabled, weatherEnabled, translat
 
       {/* ── AD-15 : bannière pied de page ─────────────────────────────── */}
       <div className="container-page mt-10">
-        <AdBanner code="AD-15" campaigns={adCampaigns} />
+        <AdBanner code="AD-15" campaigns={adCampaigns} enabled={footerAdEnabled} />
       </div>
     </>
   );

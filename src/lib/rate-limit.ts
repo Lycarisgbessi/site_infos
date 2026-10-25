@@ -16,6 +16,8 @@ export const RATE_LIMITS = {
   form: { limit: 3, windowSec: 60 },
   search: { limit: 30, windowSec: 60 },
   api: { limit: 120, windowSec: 60 },
+  /** API publique de sélection publicitaire /api/public/ads (30/min/IP). */
+  ads: { limit: 30, windowSec: 60 },
 } as const;
 
 export type RateLimitName = keyof typeof RATE_LIMITS;
