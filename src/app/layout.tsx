@@ -15,6 +15,7 @@ import { InterstitialAd } from "@/components/public/interstitial-ad";
 import { buildHouseLabels } from "@/components/public/ad-slot";
 import { Chatbot } from "@/components/public/chatbot";
 import { ProgressBar } from "@/components/public/progress-bar";
+import { PageTransition } from "@/components/public/page-transition";
 import { getAdCampaigns, getLatestArticles } from "@/lib/public/homepage-data";
 
 /**
@@ -95,9 +96,11 @@ export default async function RootLayout({
           {/* Barre de progression : navigation + lecture */}
           <ProgressBar />
 
+          {/* Transition de page — fluidité à la navigation */}
+
           {/* Lecteur audio flottant — état global persistant à travers la navigation */}
           <AudioPlayerProvider>
-            {children}
+            <PageTransition>{children}</PageTransition>
             <AudioFloatingBar
               labels={{
                 play: translate("public.audio.play"),

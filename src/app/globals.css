@@ -209,6 +209,8 @@
   }
 
   .marquee-track {
+    will-change: transform;
+    backface-visibility: hidden;
     animation: marquee-scroll var(--marquee-duration, 45s) linear infinite;
     will-change: transform;
   }
@@ -410,6 +412,8 @@
    Pause au survol/focus pour laisser lire. En prefers-reduced-motion, la
    piste devient une liste statique complète. */
 .vmarquee-track {
+  will-change: transform;
+  backface-visibility: hidden;
   animation: vmarquee-scroll var(--vmarquee-duration, 45s) linear infinite;
   will-change: transform;
 }
@@ -418,8 +422,8 @@
   animation-play-state: paused;
 }
 @keyframes vmarquee-scroll {
-  from { transform: translateY(0); }
-  to { transform: translateY(-50%); }
+  from { transform: translate3d(0, 0, 0); }
+  to { transform: translate3d(0, -50%, 0); }
 }
 @media (prefers-reduced-motion: reduce) {
   .vmarquee-track { animation: none; }
@@ -442,11 +446,12 @@
 .reveal-right.reveal-visible,
 .reveal-zoom.reveal-visible,
 .reveal-fade.reveal-visible {
-  animation: reveal-enter 0.65s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: reveal-enter 0.85s var(--ease-expo) both;
 }
 @keyframes reveal-enter {
-  from { opacity: 0; }
-  to   { opacity: 1; transform: none; }
+  0%   { filter: blur(8px); }
+  55%  { filter: blur(0); }
+  100% { opacity: 1; transform: none; filter: blur(0); }
 }
 
 /* ── 2. Titres de section ───────────────────────────────────────────── */
@@ -696,16 +701,60 @@
   animation: ad-cta-pulse 2.6s ease-in-out infinite;
 }
 
+/* ══════════════════════════════════════════════════════════════════════
+   FLUIDITÉ HAUT NIVEAU — tokens d'easing + compositing GPU
+   ══════════════════════════════════════════════════════════════════════ */
+:root {
+  --ease-fluid: cubic-bezier(0.22, 1, 0.36, 1);      /* sortie douce */
+  --ease-expo: cubic-bezier(0.16, 1, 0.3, 1);        /* expo-out pro */
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);  /* ressort léger overshoot */
+  --ease-spring-soft: cubic-bezier(0.28, 1.18, 0.45, 1); /* ressort contenu */
+}
+
+/* Transitions de page : fondu + montée + flou de mouvement */
+.page-enter {
+  animation: page-enter 620ms var(--ease-expo) both;
+}
+@keyframes page-enter {
+  from { opacity: 0; transform: translate3d(0, 14px, 0); filter: blur(6px); }
+  to   { opacity: 1; transform: translate3d(0, 0, 0); filter: blur(0); }
+}
+
+/* Corps d'article : chaque bloc entre en scène en cascade (pur CSS) */
+.article-body > * {
+  animation: block-in 720ms var(--ease-expo) both;
+}
+.article-body > *:nth-child(1) { animation-delay: 40ms; }
+.article-body > *:nth-child(2) { animation-delay: 110ms; }
+.article-body > *:nth-child(3) { animation-delay: 180ms; }
+.article-body > *:nth-child(4) { animation-delay: 250ms; }
+.article-body > *:nth-child(5) { animation-delay: 320ms; }
+.article-body > *:nth-child(n+6) { animation-delay: 380ms; }
+@keyframes block-in {
+  from { opacity: 0; transform: translate3d(0, 18px, 0); filter: blur(5px); }
+  to   { opacity: 1; transform: none; filter: blur(0); }
+}
+
 /* ── MagazineTeaserCorner : cache-cache bas-gauche ──────────────────── */
 /* Fuite hors écran (x:-130 %, rotation -8°) puis retour en ressort. */
 .mag-teaser {
-  transition: transform 650ms cubic-bezier(0.55, 0, 0.35, 1), opacity 500ms ease;
+  will-change: transform, opacity, filter;
+  transform: translate3d(0, 0, 0);
+  transition:
+    transform 900ms var(--ease-expo),
+    opacity 620ms var(--ease-fluid),
+    filter 620ms var(--ease-fluid);
 }
 .mag-teaser.mag-hidden {
-  transform: translateX(-130%) rotate(-8deg);
+  transform: translate3d(-135%, 0, 0) rotate(-7deg) scale(0.96);
+  opacity: 0;
+  filter: blur(5px);
 }
 .mag-teaser.mag-return {
-  transition: transform 950ms cubic-bezier(0.34, 1.56, 0.64, 1), opacity 400ms ease;
+  transition:
+    transform 1150ms var(--ease-spring),
+    opacity 480ms var(--ease-fluid),
+    filter 480ms var(--ease-fluid);
 }
 
 /* Mini-coverflow des couvertures : perspective 700 px, rotateY ±40°. */
@@ -720,7 +769,7 @@
   margin-left: -32px;
   width: 64px;
   height: 88px;
-  transition: transform 620ms cubic-bezier(0.22, 1, 0.36, 1), opacity 420ms ease, z-index 0s;
+  transition: transform 700ms var(--ease-spring-soft), opacity 480ms var(--ease-fluid), z-index 0s;
   will-change: transform;
 }
 
@@ -740,26 +789,34 @@
   position: fixed;
   top: 50%;
   right: 1rem;
-  transform: translateY(-50%) translateX(0);
-  transition: transform 750ms cubic-bezier(0.34, 1.56, 0.64, 1), opacity 420ms ease;
+  transform: translate3d(0, -50%, 0);
+  will-change: transform, opacity, filter;
+  transition:
+    transform 950ms var(--ease-spring),
+    opacity 560ms var(--ease-fluid),
+    filter 560ms var(--ease-fluid);
 }
 .side-peek.peek-out {
-  transform: translateY(-50%) translateX(calc(100% + 2rem));
+  transform: translate3d(calc(100% + 2.5rem), -50%, 0) rotate(3deg);
   opacity: 0;
+  filter: blur(4px);
 }
 
 /* ── Interstitiel ───────────────────────────────────────────────────── */
 @keyframes interstitial-pop {
-  from { opacity: 0; transform: scale(0.92) translateY(18px); }
-  to   { opacity: 1; transform: none; }
+  0%   { opacity: 0; transform: scale(0.88) translateY(28px); filter: blur(10px); }
+  60%  { filter: blur(0); }
+  100% { opacity: 1; transform: scale(1) translateY(0); filter: blur(0); }
 }
 .interstitial-card {
-  animation: interstitial-pop 480ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: interstitial-pop 780ms var(--ease-spring-soft) both;
+  will-change: transform, opacity, filter;
 }
 
 /* ── Neutralisation prefers-reduced-motion ──────────────────────────── */
 @media (prefers-reduced-motion: reduce) {
   .reveal-up, .reveal-left, .reveal-right, .reveal-zoom, .reveal-fade { opacity: 1; transform: none; }
+  .page-enter, .article-body > * { animation: none; }
   .reveal-up.reveal-visible, .reveal-left.reveal-visible, .reveal-right.reveal-visible,
   .reveal-zoom.reveal-visible, .reveal-fade.reveal-visible,
   .title-sweep, .title-sweep > .accent-gradient,

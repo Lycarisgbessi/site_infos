@@ -287,7 +287,7 @@ export default async function ArticlePage({ params }: PageProps) {
               )}
 
               {/* Corps : 1ʳᵉ moitié → ② pub MILIEU (AD-13) → reste → ③ pub BAS */}
-              <div className="mt-8">
+              <div className="article-body mt-8">
                 <BlockRenderer blocks={headBlocks} mediaById={mediaById} articleTitles={articleTitles} adsEnabled={false} ads={adCampaigns} />
               </div>
               {tailBlocks.length > 0 && (
@@ -295,7 +295,7 @@ export default async function ArticlePage({ params }: PageProps) {
                   <div className="my-8">
                     <AdBanner code="AD-13" campaigns={adCampaigns} enabled={inarticleEnabled} />
                   </div>
-                  <div>
+                  <div className="article-body">
                     <BlockRenderer blocks={tailBlocks} mediaById={mediaById} articleTitles={articleTitles} adsEnabled={false} ads={adCampaigns} />
                   </div>
                 </>
