@@ -326,7 +326,9 @@ export interface VideoPreview {
   src: string;
 }
 
-function extractVideoPreview(body: string | null): VideoPreview | null {
+type ExtractedPreview = VideoPreview | { kind: "media"; src: string } | null;
+
+function extractVideoPreview(body: string | null): ExtractedPreview {
   if (!body) return null;
   let blocks: unknown;
   try {
@@ -342,6 +344,10 @@ function extractVideoPreview(body: string | null): VideoPreview | null {
       if (block.provider === "youtube" && typeof block.playbackId === "string") {
         return { kind: "youtube", src: block.playbackId };
       }
+      // Vidéo de la médiathèque : mediaId résolu ensuite (URL du fichier).
+      if (typeof block.mediaId === "string" && block.mediaId) {
+        return { kind: "media", src: block.mediaId };
+      }
     }
     if (block.type === "embed" && typeof block.url === "string") {
       const m =
@@ -355,7 +361,7 @@ function extractVideoPreview(body: string | null): VideoPreview | null {
   return null;
 }
 
-/** Attache les aperçus vidéo à une liste d'articles (une seule requête). */
+/** Attache les aperçus vidéo à une liste d'articles (2 requêtes max). */
 export async function attachVideoPreviews(articles: PublicArticle[]): Promise<PublicArticle[]> {
   const missing = articles.filter((a) => a.videoPreview === undefined);
   if (missing.length === 0) return articles;
@@ -363,7 +369,27 @@ export async function attachVideoPreviews(articles: PublicArticle[]): Promise<Pu
     where: { id: { in: missing.map((a) => a.id) } },
     select: { id: true, body: true },
   });
-  const byId = new Map(rows.map((r) => [r.id, extractVideoPreview(r.body)]));
+  const raw = new Map(rows.map((r) => [r.id, extractVideoPreview(r.body)]));
+
+  // Résolution des vidéos médiathèque (mediaId → URL du fichier)
+  const mediaIds = [...raw.values()].filter((v) => v && v.kind === "media").map((v) => (v as { src: string }).src);
+  const mediaByUrl = new Map<string, string>();
+  if (mediaIds.length > 0) {
+    const medias = await db.media.findMany({
+      where: { id: { in: mediaIds } },
+      select: { id: true, url: true, mime_type: true },
+    });
+    for (const m of medias) {
+      if ((m.mime_type ?? "").startsWith("video/")) mediaByUrl.set(m.id, m.url);
+    }
+  }
+
+  const byId = new Map<string, VideoPreview | null>();
+  for (const [id, v] of raw) {
+    if (!v) byId.set(id, null);
+    else if (v.kind === "media") byId.set(id, mediaByUrl.has(v.src) ? { kind: "file", src: mediaByUrl.get(v.src)! } : null);
+    else byId.set(id, v as VideoPreview);
+  }
   return articles.map((a) => ({ ...a, videoPreview: byId.get(a.id) ?? null }));
 }
 
