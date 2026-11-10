@@ -145,6 +145,54 @@ export const arDictionary: Dictionary = {
   "public.pages.notFound": "الصفحة غير موجودة.",
   "public.pages.backHome": "الصفحة الرئيسية",
 
+  // ─── صفحة من نحن (/pages/a-propos) — المحتوى الافتراضي ─────────
+  "public.about.kicker": "INFOSPRO",
+  "public.about.title": "من نحن",
+  "public.about.intro1":
+    "إنفوسبرو (INFOSPRO) وسيلة إعلامية رقمية غينية مستقلة وعصرية. نُبقي الغينيين —في الداخل وفي المهجر— على اطلاع دائم بفضل غرفة تحرير محلية بنسبة 100 % ومصادر موثّقة وتواصل مباشر مع الأحداث.",
+  "public.about.intro2":
+    "سياسة واقتصاد ومجتمع ومناجم وثقافة: صحفيونا يروون قصة غينيا اليوم بلا مواربة ولا انحياز، وعلى كل الشاشات.",
+  "public.about.valuesTitle": "قيمنا",
+  "public.about.value1Title": "الاستقلالية",
+  "public.about.value1Text":
+    "لا ضغط ولا مصلحة خاصة تملي قراراتنا التحريرية. بوصلتنا الوحيدة: مصلحة القراء.",
+  "public.about.value2Title": "التحقق",
+  "public.about.value2Text":
+    "كل معلومة يُتحقق منها عبر مصادر موثوقة. وأخطاؤنا نصحّحها علنًا وبكل شفافية.",
+  "public.about.value3Title": "القرب",
+  "public.about.value3Text":
+    "صحفيونا على مقربة من واقع غينيا، من كوناكري إلى الولايات، ليرووا البلد كما يعيش فعلًا.",
+  "public.about.cta": "تواصلوا معنا",
+  "public.about.metaTitle": "من نحن — INFOSPRO",
+  "public.about.metaDescription":
+    "INFOSPRO، وسيلة إعلامية رقمية غينية مستقلة: مهمتنا وقيمنا والتزامنا بإعلام رصين وقريب من الغينيين.",
+
+  // ─── صفحة فريقنا (/pages/notre-equipe) ──────────────────────────
+  "public.team.kicker": "غرفة التحرير",
+  "public.team.title": "فريقنا",
+  "public.team.subtitle":
+    "صحفيون غينيون ملتزمون بإعلام رصين ومستقل وقريب منكم.",
+  "public.team.emptyTitle": "الفريق قادم قريبًا",
+  "public.team.emptyText":
+    "بورتريهات أعضاء غرفة التحرير ستُنشر هنا قريبًا جدًا.",
+  "public.team.write": "مراسلة {name}",
+  "public.team.metaTitle": "فريقنا — INFOSPRO",
+  "public.team.metaDescription":
+    "تعرّفوا على صحفيي INFOSPRO ومتعاونيها: غرفة تحرير وتقارير والتزام في خدمة الإعلام الغيني.",
+
+  // ─── صفحة شركاؤنا (/pages/nos-partenaires) ──────────────────────
+  "public.partners.kicker": "المنظومة",
+  "public.partners.title": "شركاؤنا",
+  "public.partners.subtitle":
+    "مؤسسات ووسائل إعلام وشركات ترافقنا في مهمتنا الإعلامية.",
+  "public.partners.otherCategory": "شركاء آخرون",
+  "public.partners.emptyTitle": "شركاء قادمون",
+  "public.partners.emptyText": "سيُعلن عن شراكاتنا هنا قريبًا.",
+  "public.partners.visit": "زيارة موقع {name}",
+  "public.partners.metaTitle": "شركاؤنا — INFOSPRO",
+  "public.partners.metaDescription":
+    "المؤسسات ووسائل الإعلام والشركات الشريكة لـ INFOSPRO، الفاعلة في المنظومة الإعلامية الغينية.",
+
   // ─── تذييل الصفحة ────────────────────────────────────────────────
   "public.footer.about":
     "INFOSPRO.net منصة إخبارية رقمية غينية مستقلة تغطي الأحداث السياسية والاقتصادية والاجتماعية والثقافية في غينيا وغرب أفريقيا.",

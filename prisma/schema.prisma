@@ -330,6 +330,8 @@ model Media {
   liveBlogs      LiveBlog[]
   creatives      AdCreative[]
   podcastEpisodes PodcastEpisode[] @relation("PodcastEpisodeCoverMedia")
+  teamMembers    TeamMember[]   // photos de l'équipe (page « Notre équipe »)
+  partners       Partner[]      // logos des partenaires (page « Nos partenaires »)
 
   @@index([type], map: "idx_media_type")
   @@index([checksum], map: "idx_media_checksum")
@@ -976,6 +978,48 @@ model NotFoundLog {
   last_seen DateTime @default(now()) @map("last_seen")
 
   @@map("not_found_log")
+}
+
+// ═════════════════════════════════════════════════════════════════════
+// ÉQUIPE & PARTENAIRES (pages publiques éditables, 2026-11)
+// Tables additives — alimentent /pages/notre-equipe et /pages/nos-partenaires.
+// ═════════════════════════════════════════════════════════════════════
+
+// Membre de la rédaction affiché sur la page « Notre équipe ».
+model TeamMember {
+  id             String    @id @default(uuid(7))
+  name           String
+  role           String // fonction : « Rédacteur en chef »…
+  bio            String?
+  photo_media_id String?   @map("photo_media_id")
+  email          String?
+  position       Int       @default(0)
+  is_active      Boolean   @default(true) @map("is_active")
+  created_at     DateTime  @default(now()) @map("created_at")
+  updated_at     DateTime  @default(now()) @updatedAt @map("updated_at")
+
+  photo Media? @relation(fields: [photo_media_id], references: [id], onDelete: SetNull, onUpdate: Cascade)
+
+  @@index([is_active, position], map: "idx_team_members_active_position")
+  @@map("team_members")
+}
+
+// Partenaire affiché sur la page « Nos partenaires », groupé par catégorie.
+model Partner {
+  id            String    @id @default(uuid(7))
+  name          String
+  category      String? // « Institutions », « Médias », « Entreprises »…
+  url           String?
+  logo_media_id String?   @map("logo_media_id")
+  position      Int       @default(0)
+  is_active     Boolean   @default(true) @map("is_active")
+  created_at    DateTime  @default(now()) @map("created_at")
+  updated_at    DateTime  @default(now()) @updatedAt @map("updated_at")
+
+  logo Media? @relation(fields: [logo_media_id], references: [id], onDelete: SetNull, onUpdate: Cascade)
+
+  @@index([is_active, position], map: "idx_partners_active_position")
+  @@map("partners")
 }
 
 // ═══════════════════════════════════════════════════════════════════

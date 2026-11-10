@@ -160,6 +160,56 @@ export const frDictionary = {
   "public.pages.notFound": "Page introuvable.",
   "public.pages.backHome": "Accueil",
 
+  // ─── Page À propos (/pages/a-propos) — par défaut éditoriale ────
+  // Contenu affiché uniquement si aucune Page admin publiée n'existe
+  // pour ce slug ; sinon les blocs de la page admin sont rendus.
+  "public.about.kicker": "INFOSPRO",
+  "public.about.title": "À propos",
+  "public.about.intro1":
+    "INFOSPRO est un média numérique guinéen, indépendant et moderne. Nous informons les Guinéens — sur le terrain comme au sein de la diaspora — avec une rédaction 100 % locale, des sources vérifiées et un rapport direct à l'actualité.",
+  "public.about.intro2":
+    "Politique, économie, société, mines, culture : nos journalistes racontent la Guinée d'aujourd'hui, sans détour et sans parti pris, sur tous les écrans.",
+  "public.about.valuesTitle": "Nos valeurs",
+  "public.about.value1Title": "Indépendance",
+  "public.about.value1Text":
+    "Aucune pression, aucun intérêt privé ne dicte nos choix éditoriaux. Notre seule boussole : l'intérêt des lecteurs.",
+  "public.about.value2Title": "Vérification",
+  "public.about.value2Text":
+    "Chaque information est recoupée auprès de sources fiables. Nos erreurs sont corrigées publiquement, avec transparence.",
+  "public.about.value3Title": "Proximité",
+  "public.about.value3Text":
+    "Nos journalistes sont au plus près des réalités guinéennes, de Conakry aux préfectures, pour raconter le pays tel qu'il vit.",
+  "public.about.cta": "Nous contacter",
+  "public.about.metaTitle": "À propos — INFOSPRO",
+  "public.about.metaDescription":
+    "INFOSPRO, média numérique guinéen indépendant : notre mission, nos valeurs et notre engagement pour une information rigoureuse et proche des Guinéens.",
+
+  // ─── Page Notre équipe (/pages/notre-equipe) ─────────────────────
+  "public.team.kicker": "Rédaction",
+  "public.team.title": "Notre équipe",
+  "public.team.subtitle":
+    "Des journalistes guinéens engagés pour une information rigoureuse, indépendante et proche de vous.",
+  "public.team.emptyTitle": "L'équipe arrive bientôt",
+  "public.team.emptyText":
+    "Les portraits de la rédaction seront publiés ici très prochainement.",
+  "public.team.write": "Écrire à {name}",
+  "public.team.metaTitle": "Notre équipe — INFOSPRO",
+  "public.team.metaDescription":
+    "Découvrez les journalistes et collaborateurs d'INFOSPRO : rédaction, reportages et engagement au service de l'information guinéenne.",
+
+  // ─── Page Nos partenaires (/pages/nos-partenaires) ───────────────
+  "public.partners.kicker": "Écosystème",
+  "public.partners.title": "Nos partenaires",
+  "public.partners.subtitle":
+    "Institutions, médias et entreprises qui nous accompagnent dans notre mission d'information.",
+  "public.partners.otherCategory": "Autres partenaires",
+  "public.partners.emptyTitle": "Partenaires à venir",
+  "public.partners.emptyText": "Nos partenariats seront annoncés ici prochainement.",
+  "public.partners.visit": "Visiter le site de {name}",
+  "public.partners.metaTitle": "Nos partenaires — INFOSPRO",
+  "public.partners.metaDescription":
+    "Les institutions, médias et entreprises partenaires d'INFOSPRO, acteurs de l'écosystème médiatique guinéen.",
+
   // ─── Pied de page ────────────────────────────────────────────────
   "public.footer.about":
     "INFOSPRO.net est un média numérique guinéen indépendant couvrant l'actualité politique, économique, sociale et culturelle de la Guinée et de l'Afrique de l'Ouest.",

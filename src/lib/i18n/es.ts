@@ -146,6 +146,54 @@ export const esDictionary: Dictionary = {
   "public.pages.notFound": "Página no encontrada.",
   "public.pages.backHome": "Inicio",
 
+  // ─── Página Quiénes somos (/pages/a-propos) — default editorial ──
+  "public.about.kicker": "INFOSPRO",
+  "public.about.title": "Quiénes somos",
+  "public.about.intro1":
+    "INFOSPRO es un medio digital guineano, independiente y moderno. Informamos a los guineanos —en el terreno y en la diáspora— con una redacción 100 % local, fuentes verificadas y una relación directa con la actualidad.",
+  "public.about.intro2":
+    "Política, economía, sociedad, minería, cultura: nuestros periodistas cuentan la Guinea de hoy, sin rodeos ni sesgos, en todas las pantallas.",
+  "public.about.valuesTitle": "Nuestros valores",
+  "public.about.value1Title": "Independencia",
+  "public.about.value1Text":
+    "Ninguna presión ni interés privado dicta nuestras decisiones editoriales. Nuestra única brújula: el interés de los lectores.",
+  "public.about.value2Title": "Verificación",
+  "public.about.value2Text":
+    "Cada información se contrasta con fuentes fiables. Nuestros errores se corrigen públicamente, con transparencia.",
+  "public.about.value3Title": "Proximidad",
+  "public.about.value3Text":
+    "Nuestros periodistas están cerca de las realidades guineanas, de Conakri a las prefecturas, para contar el país tal como vive.",
+  "public.about.cta": "Contactar con nosotros",
+  "public.about.metaTitle": "Quiénes somos — INFOSPRO",
+  "public.about.metaDescription":
+    "INFOSPRO, medio digital guineano independiente: nuestra misión, nuestros valores y nuestro compromiso con una información rigurosa y cercana a los guineanos.",
+
+  // ─── Página Nuestro equipo (/pages/notre-equipe) ─────────────────
+  "public.team.kicker": "Redacción",
+  "public.team.title": "Nuestro equipo",
+  "public.team.subtitle":
+    "Periodistas guineanos comprometidos con una información rigurosa, independiente y cercana a ustedes.",
+  "public.team.emptyTitle": "El equipo llegará pronto",
+  "public.team.emptyText":
+    "Los retratos de la redacción se publicarán aquí muy pronto.",
+  "public.team.write": "Escribir a {name}",
+  "public.team.metaTitle": "Nuestro equipo — INFOSPRO",
+  "public.team.metaDescription":
+    "Conozca a los periodistas y colaboradores de INFOSPRO: redacción, reportajes y compromiso al servicio de la información guineana.",
+
+  // ─── Página Nuestros socios (/pages/nos-partenaires) ─────────────
+  "public.partners.kicker": "Ecosistema",
+  "public.partners.title": "Nuestros socios",
+  "public.partners.subtitle":
+    "Instituciones, medios y empresas que nos acompañan en nuestra misión informativa.",
+  "public.partners.otherCategory": "Otros socios",
+  "public.partners.emptyTitle": "Socios próximos",
+  "public.partners.emptyText": "Nuestras alianzas se anunciarán aquí pronto.",
+  "public.partners.visit": "Visitar el sitio web de {name}",
+  "public.partners.metaTitle": "Nuestros socios — INFOSPRO",
+  "public.partners.metaDescription":
+    "Las instituciones, medios y empresas socias de INFOSPRO, actores del ecosistema mediático guineano.",
+
   // ─── Pie de página ───────────────────────────────────────────────
   "public.footer.about":
     "INFOSPRO.net es un medio digital guineano independiente que cubre la actualidad política, económica, social y cultural de Guinea y de África Occidental.",

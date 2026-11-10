@@ -7,19 +7,24 @@ import {
   ArrowRightLeft,
   EyeOff,
   FileText,
+  Handshake,
+  Image as ImageIcon,
   Loader2,
   Megaphone,
   Pencil,
   Plus,
+  Power,
   RotateCw,
   Save,
   Search,
   Trash2,
+  Users,
 } from "lucide-react";
 
 import { apiFetch, errorMessage } from "@/lib/api/client";
 import { useToast } from "@/hooks/use-toast";
 import { parseBlocks, type Block } from "@/types/blocks";
+import { MediaPicker, type MediaItem } from "@/components/admin/MediaPicker";
 
 import {
   AlertDialog,
@@ -140,6 +145,54 @@ interface RedirectFormState {
   status_code: string;
 }
 
+interface TeamMemberRow {
+  id: string;
+  name: string;
+  role: string;
+  bio: string | null;
+  email: string | null;
+  photo_media_id: string | null;
+  photo_url: string | null;
+  position: number;
+  is_active: boolean;
+  created_at: string;
+}
+
+interface TeamFormState {
+  name: string;
+  role: string;
+  bio: string;
+  email: string;
+  /** Champ nombre saisi en chaîne (conversion à l'enregistrement). */
+  position: string;
+  is_active: boolean;
+  photo_media_id: string | null;
+  photo_preview_url: string | null;
+}
+
+interface PartnerRow {
+  id: string;
+  name: string;
+  category: string | null;
+  url: string | null;
+  logo_media_id: string | null;
+  logo_url: string | null;
+  position: number;
+  is_active: boolean;
+  created_at: string;
+}
+
+interface PartnerFormState {
+  name: string;
+  category: string;
+  url: string;
+  /** Champ nombre saisi en chaîne (conversion à l'enregistrement). */
+  position: string;
+  is_active: boolean;
+  logo_media_id: string | null;
+  logo_preview_url: string | null;
+}
+
 interface EditorState {
   /** null = création. */
   id: string | null;
@@ -205,6 +258,37 @@ const EMPTY_REDIRECT_FORM: RedirectFormState = {
   target_path: "",
   status_code: "301",
 };
+
+const EMPTY_TEAM_FORM: TeamFormState = {
+  name: "",
+  role: "",
+  bio: "",
+  email: "",
+  position: "0",
+  is_active: true,
+  photo_media_id: null,
+  photo_preview_url: null,
+};
+
+const EMPTY_PARTNER_FORM: PartnerFormState = {
+  name: "",
+  category: "",
+  url: "",
+  position: "0",
+  is_active: true,
+  logo_media_id: null,
+  logo_preview_url: null,
+};
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+const HTTP_URL_RE = /^https?:\/\/\S+$/;
+
+/** Position saisie → entier ≥ 0 (0 si vide/invalide). */
+function parsePosition(value: string): number {
+  const parsed = Number.parseInt(value, 10);
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
+}
 
 /** Normalise un chemin côté client (aperçu live) : trim + « / » initial. */
 function previewPath(value: string): string {
@@ -372,6 +456,32 @@ export function PagesClient() {
   const [redirectSaving, setRedirectSaving] = useState(false);
   const [redirectDeleting, setRedirectDeleting] = useState<RedirectRow | null>(null);
   const [redirectDeleteBusy, setRedirectDeleteBusy] = useState(false);
+
+  // ── Équipe ─────────────────────────────────────────────────────────────
+  const [team, setTeam] = useState<TeamMemberRow[] | null>(null);
+  const [teamError, setTeamError] = useState(false);
+  const teamRequested = useRef(false);
+  const [teamDialogOpen, setTeamDialogOpen] = useState(false);
+  const [teamEditing, setTeamEditing] = useState<TeamMemberRow | null>(null);
+  const [teamForm, setTeamForm] = useState<TeamFormState>(EMPTY_TEAM_FORM);
+  const [teamSaving, setTeamSaving] = useState(false);
+  const [teamPickerOpen, setTeamPickerOpen] = useState(false);
+  const [teamTogglingId, setTeamTogglingId] = useState<string | null>(null);
+  const [teamDeleting, setTeamDeleting] = useState<TeamMemberRow | null>(null);
+  const [teamDeleteBusy, setTeamDeleteBusy] = useState(false);
+
+  // ── Partenaires ────────────────────────────────────────────────────────
+  const [partners, setPartners] = useState<PartnerRow[] | null>(null);
+  const [partnersError, setPartnersError] = useState(false);
+  const partnersRequested = useRef(false);
+  const [partnerDialogOpen, setPartnerDialogOpen] = useState(false);
+  const [partnerEditing, setPartnerEditing] = useState<PartnerRow | null>(null);
+  const [partnerForm, setPartnerForm] = useState<PartnerFormState>(EMPTY_PARTNER_FORM);
+  const [partnerSaving, setPartnerSaving] = useState(false);
+  const [partnerPickerOpen, setPartnerPickerOpen] = useState(false);
+  const [partnerTogglingId, setPartnerTogglingId] = useState<string | null>(null);
+  const [partnerDeleting, setPartnerDeleting] = useState<PartnerRow | null>(null);
+  const [partnerDeleteBusy, setPartnerDeleteBusy] = useState(false);
 
   const loadPages = useCallback(async () => {
     setPagesError(false);

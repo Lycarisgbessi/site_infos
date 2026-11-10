@@ -421,9 +421,22 @@ export function ArticleEditorClient({
           </Button>
 
           {(article.status === "draft" || article.status === "changes_requested") && (
-            <Button variant="outline" size="sm" onClick={() => void transition("submit")} disabled={!rights.editable}>
-              <Send className="mr-1 size-4" aria-hidden /> Soumettre à relecture
-            </Button>
+            <>
+              {rights.canPublish && (
+                <Button
+                  size="sm"
+                  className="bg-brand-red text-white shadow-sm hover:bg-red-deep"
+                  onClick={() => void transition("publish")}
+                  disabled={!rights.editable}
+                  title="Publication instantanée — passe la relecture"
+                >
+                  <CheckCheck className="mr-1 size-4" aria-hidden /> Publier maintenant
+                </Button>
+              )}
+              <Button variant="outline" size="sm" onClick={() => void transition("submit")} disabled={!rights.editable}>
+                <Send className="mr-1 size-4" aria-hidden /> Soumettre à relecture
+              </Button>
+            </>
           )}
           {article.status === "in_review" && (
             <>

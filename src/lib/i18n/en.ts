@@ -146,6 +146,54 @@ export const enDictionary: Dictionary = {
   "public.pages.notFound": "Page not found.",
   "public.pages.backHome": "Home",
 
+  // ─── About page (/pages/a-propos) — editorial default ────────────
+  "public.about.kicker": "INFOSPRO",
+  "public.about.title": "About us",
+  "public.about.intro1":
+    "INFOSPRO is an independent, modern Guinean digital news outlet. We keep Guineans informed — at home and across the diaspora — with a 100% local newsroom, verified sources and a direct line to the news.",
+  "public.about.intro2":
+    "Politics, economy, society, mining, culture: our journalists tell the story of today's Guinea, straight and unbiased, on every screen.",
+  "public.about.valuesTitle": "Our values",
+  "public.about.value1Title": "Independence",
+  "public.about.value1Text":
+    "No pressure and no private interest shapes our editorial choices. Our only compass: our readers' interest.",
+  "public.about.value2Title": "Verification",
+  "public.about.value2Text":
+    "Every piece of information is cross-checked against reliable sources. Our mistakes are corrected publicly, with transparency.",
+  "public.about.value3Title": "Proximity",
+  "public.about.value3Text":
+    "Our journalists stay close to Guinean realities, from Conakry to the prefectures, to tell the country as it lives.",
+  "public.about.cta": "Contact us",
+  "public.about.metaTitle": "About us — INFOSPRO",
+  "public.about.metaDescription":
+    "INFOSPRO, an independent Guinean digital news outlet: our mission, our values and our commitment to rigorous reporting close to Guineans.",
+
+  // ─── Our team page (/pages/notre-equipe) ─────────────────────────
+  "public.team.kicker": "Newsroom",
+  "public.team.title": "Our team",
+  "public.team.subtitle":
+    "Guinean journalists committed to rigorous, independent reporting that stays close to you.",
+  "public.team.emptyTitle": "The team is coming soon",
+  "public.team.emptyText":
+    "Portraits of the newsroom will be published here very shortly.",
+  "public.team.write": "Write to {name}",
+  "public.team.metaTitle": "Our team — INFOSPRO",
+  "public.team.metaDescription":
+    "Meet the journalists and contributors of INFOSPRO: newsroom, reporting and commitment in the service of Guinean news.",
+
+  // ─── Our partners page (/pages/nos-partenaires) ──────────────────
+  "public.partners.kicker": "Ecosystem",
+  "public.partners.title": "Our partners",
+  "public.partners.subtitle":
+    "The institutions, media outlets and companies that support our information mission.",
+  "public.partners.otherCategory": "Other partners",
+  "public.partners.emptyTitle": "Partners coming soon",
+  "public.partners.emptyText": "Our partnerships will be announced here soon.",
+  "public.partners.visit": "Visit {name}'s website",
+  "public.partners.metaTitle": "Our partners — INFOSPRO",
+  "public.partners.metaDescription":
+    "The institutions, media outlets and companies partnering with INFOSPRO, key players in the Guinean media ecosystem.",
+
   // ─── Footer ──────────────────────────────────────────────────────
   "public.footer.about":
     "INFOSPRO.net is an independent Guinean digital news outlet covering political, economic, social and cultural news from Guinea and West Africa.",

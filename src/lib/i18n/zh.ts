@@ -142,6 +142,51 @@ export const zhDictionary: Dictionary = {
   "public.pages.notFound": "页面未找到。",
   "public.pages.backHome": "首页",
 
+  // ─── 关于我们页面 (/pages/a-propos) — 默认内容 ────────────────────
+  "public.about.kicker": "INFOSPRO",
+  "public.about.title": "关于我们",
+  "public.about.intro1":
+    "INFOSPRO 是一家独立、现代的几内亚数字媒体。我们以百分之百本土的编辑部、经过核实的消息来源与对时事的直接呈现，为几内亚本土与海外侨胞提供资讯。",
+  "public.about.intro2":
+    "政治、经济、社会、矿业、文化：我们的记者不偏不倚、直截了当地在每一块屏幕上讲述今天的几内亚。",
+  "public.about.valuesTitle": "我们的价值观",
+  "public.about.value1Title": "独立性",
+  "public.about.value1Text":
+    "没有任何压力或私人利益左右我们的编辑决策。我们唯一的指南针：读者的利益。",
+  "public.about.value2Title": "事实核查",
+  "public.about.value2Text":
+    "每一条信息都经过可靠来源的交叉核实。我们的错误会被公开、透明地更正。",
+  "public.about.value3Title": "贴近现场",
+  "public.about.value3Text":
+    "我们的记者贴近几内亚的现实，从科纳克里到各省，真实地讲述这个国家。",
+  "public.about.cta": "联系我们",
+  "public.about.metaTitle": "关于我们 — INFOSPRO",
+  "public.about.metaDescription":
+    "INFOSPRO，独立的几内亚数字媒体：我们的使命、价值观，以及为贴近几内亚人的严谨报道所作的承诺。",
+
+  // ─── 我们的团队页面 (/pages/notre-equipe) ────────────────────────
+  "public.team.kicker": "编辑部",
+  "public.team.title": "我们的团队",
+  "public.team.subtitle": "致力于严谨、独立、贴近读者的报道的几内亚新闻工作者。",
+  "public.team.emptyTitle": "团队即将上线",
+  "public.team.emptyText": "编辑部成员的介绍将很快在这里发布。",
+  "public.team.write": "写信给 {name}",
+  "public.team.metaTitle": "我们的团队 — INFOSPRO",
+  "public.team.metaDescription":
+    "认识 INFOSPRO 的记者与撰稿人：编辑部、实地报道，以及为几内亚新闻服务的承诺。",
+
+  // ─── 我们的合作伙伴页面 (/pages/nos-partenaires) ─────────────────
+  "public.partners.kicker": "生态伙伴",
+  "public.partners.title": "我们的合作伙伴",
+  "public.partners.subtitle": "与我们一同推进资讯使命的机构、媒体与企业。",
+  "public.partners.otherCategory": "其他合作伙伴",
+  "public.partners.emptyTitle": "合作伙伴即将公布",
+  "public.partners.emptyText": "我们的合作将在此陆续公布。",
+  "public.partners.visit": "访问 {name} 的网站",
+  "public.partners.metaTitle": "我们的合作伙伴 — INFOSPRO",
+  "public.partners.metaDescription":
+    "与 INFOSPRO 携手同行的机构、媒体与企业——几内亚媒体生态中的关键角色。",
+
   // ─── 页脚 ────────────────────────────────────────────────────────
   "public.footer.about":
     "INFOSPRO.net 是一家独立的几内亚数字媒体，报道几内亚及西非的政治、经济、社会与文化新闻。",
