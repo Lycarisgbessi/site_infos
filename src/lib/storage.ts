@@ -1,4 +1,5 @@
 import { mkdir, writeFile, unlink } from "node:fs/promises";
+import { db } from "@/lib/db";
 import path from "node:path";
 import { createHash } from "node:crypto";
 
@@ -64,10 +65,34 @@ export async function putObject(
   if (isS3Configured()) {
     return putObjectS3(key, data, contentType);
   }
+  // Environnement serverless (Vercel…) : FS lecture seule → stockage en
+  // base (table stored_files), servi par /api/files/{key}. Zéro config.
+  if (process.env.VERCEL === "1" || process.env.SERVERLESS_STORAGE === "db") {
+    return putObjectDb(key, data, contentType);
+  }
   const full = path.join(UPLOAD_ROOT, key);
-  await mkdir(path.dirname(full), { recursive: true });
-  await writeFile(full, data);
-  return { key, url: `/uploads/${key}`, size: data.byteLength };
+  try {
+    await mkdir(path.dirname(full), { recursive: true });
+    await writeFile(full, data);
+    return { key, url: `/uploads/${key}`, size: data.byteLength };
+  } catch {
+    // FS non inscriptible (production sans Cloudinary) → repli base
+    return putObjectDb(key, data, contentType);
+  }
+}
+
+/** Stocke l'objet en base et renvoie son URL servie par l'API. */
+async function putObjectDb(
+  key: string,
+  data: Buffer,
+  contentType: string
+): Promise<PutResult> {
+  await db.storedFile.upsert({
+    where: { key },
+    create: { key, data: new Uint8Array(data), content_type: contentType },
+    update: { data: new Uint8Array(data), content_type: contentType },
+  });
+  return { key, url: `/api/files/${key}`, size: data.byteLength };
 }
 
 /** Supprime un objet (meilleur effort — les objets S3/Cloudinary orphelins sont purgés à terme). */
@@ -81,6 +106,8 @@ export async function deleteObject(key: string): Promise<void> {
     return; // clés locales historiques : rien à faire côté disque en mode Cloudinary
   }
   if (isS3Configured()) return; // purge S3 gérée par la tâche planifiée (Phase 3)
+  // Secours base : supprimer la ligne correspondante (meilleur effort)
+  await db.storedFile.deleteMany({ where: { key } }).catch(() => undefined);
   try {
     await unlink(path.join(UPLOAD_ROOT, key));
   } catch {

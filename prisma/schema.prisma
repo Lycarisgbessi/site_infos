@@ -1521,6 +1521,17 @@ model PushSubscription {
 // PODCAST / FM (§ saisons & épisodes, audio hébergé Google Drive)
 // ═══════════════════════════════════════════════════════════════════
 
+/// Secours de stockage serverless (Vercel = FS lecture seule) : les
+/// fichiers sont conservés en base et servis par /api/files/{key}.
+model StoredFile {
+  key          String   @id
+  data         Bytes
+  content_type String   @map("content_type")
+  created_at   DateTime @default(now()) @map("created_at")
+
+  @@map("stored_files")
+}
+
 model PodcastSeason {
   id          String   @id @default(uuid(7))
   title       String // titre libre (« Saison 1 », « Été 2026 »…)
