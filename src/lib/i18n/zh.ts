@@ -81,6 +81,9 @@ export const zhDictionary: Dictionary = {
   "public.podcast.episodesCount": "{count} 集",
   "public.podcast.noDuration": "时长未知",
   "public.podcast.nowPlaying": "正在播放",
+  "public.podcast.video": "视频",
+  "public.podcast.watch": "观看",
+  "public.podcast.audio": "音频",
 
   // ─── 文章 ────────────────────────────────────────────────────────
   "public.article.breadcrumb": "面包屑导航",

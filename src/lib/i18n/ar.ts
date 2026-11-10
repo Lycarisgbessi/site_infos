@@ -82,6 +82,9 @@ export const arDictionary: Dictionary = {
   "public.podcast.episodesCount": "{count} حلقة",
   "public.podcast.noDuration": "مدة غير معروفة",
   "public.podcast.nowPlaying": "قيد التشغيل",
+  "public.podcast.video": "فيديو",
+  "public.podcast.watch": "مشاهدة",
+  "public.podcast.audio": "صوت",
 
   // ─── المقال ──────────────────────────────────────────────────────
   "public.article.breadcrumb": "مسار التصفح",

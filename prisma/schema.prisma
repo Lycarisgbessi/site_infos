@@ -1545,6 +1545,12 @@ model PodcastEpisode {
   position       Int       @default(0)
   audio_url      String    @map("audio_url") // URL directe OU lien Drive converti (streamUrl)
   drive_file_id  String?   @map("drive_file_id")
+  // Colonne additive (vidéo 2026-11) : "audio" (défaut, rétro-compatible)
+  // ou "video" — l'épisode est alors lu via `video_url` (YouTube/Drive/mp4).
+  media_kind     String    @default("audio") @map("media_kind")
+  // URL de la vidéo : lien YouTube (normalisé watch?v=ID), aperçu Drive
+  // (file/d/{ID}/preview) ou URL directe (.mp4). Null pour l'audio.
+  video_url      String?   @map("video_url")
   duration_sec   Int?      @map("duration_sec")
   cover_media_id String?   @map("cover_media_id")
   published_at   DateTime  @default(now()) @map("published_at")

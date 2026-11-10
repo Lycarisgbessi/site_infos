@@ -97,6 +97,9 @@ export const frDictionary = {
   "public.podcast.episodesCount": "{count} épisode(s)",
   "public.podcast.noDuration": "Durée inconnue",
   "public.podcast.nowPlaying": "En cours de lecture",
+  "public.podcast.video": "Vidéo",
+  "public.podcast.watch": "Voir",
+  "public.podcast.audio": "Audio",
 
   // ─── Article ─────────────────────────────────────────────────────
   "public.article.breadcrumb": "Fil d'Ariane",

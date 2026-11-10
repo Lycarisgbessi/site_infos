@@ -22,7 +22,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { MediaPicker, type MediaItem } from "@/components/admin/MediaPicker";
 import { apiFetch, errorMessage } from "@/lib/api/client";
-import { isDriveLink } from "@/lib/drive";
+import { isDriveLink, isYouTubeLink } from "@/lib/drive";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import {
@@ -38,13 +38,18 @@ import {
   Power,
   Radio,
   Trash2,
+  Video,
 } from "lucide-react";
 
 /**
  * Podcast / FM (/admin/podcast) — saisons ordonnées (monter/descendre),
  * dépliables pour révéler leurs épisodes. CRUD complet : audio par URL
- * directe ou lien Google Drive (converti en flux lisible côté serveur).
+ * directe ou lien Google Drive (converti en flux lisible côté serveur),
+ * ou vidéo par lien YouTube / Google Drive (liaison directe, lecture
+ * intégrée dans la page /podcast).
  */
+
+type MediaKind = "audio" | "video";
 
 interface EpisodeItem {
   id: string;
@@ -55,6 +60,8 @@ interface EpisodeItem {
   position: number;
   audio_url: string;
   drive_file_id: string | null;
+  media_kind: MediaKind;
+  video_url: string | null;
   duration_sec: number | null;
   cover_media_id: string | null;
   cover_url: string | null;
@@ -121,7 +128,9 @@ interface EpisodeFormState {
   slugEdited: boolean;
   seasonId: string;
   description: string;
+  mediaKind: MediaKind;
   audioUrl: string;
+  videoUrl: string;
   durationMin: string;
   coverMediaId: string | null;
   coverPreviewUrl: string | null;
@@ -271,7 +280,9 @@ export function PodcastClient() {
     slugEdited: false,
     seasonId,
     description: "",
+    mediaKind: "audio",
     audioUrl: "",
+    videoUrl: "",
     durationMin: "",
     coverMediaId: null,
     coverPreviewUrl: null,
@@ -296,7 +307,9 @@ export function PodcastClient() {
       slugEdited: true,
       seasonId: episode.season_id,
       description: episode.description ?? "",
+      mediaKind: episode.media_kind === "video" ? "video" : "audio",
       audioUrl: episode.audio_url,
+      videoUrl: episode.video_url ?? "",
       durationMin: episode.duration_sec ? String(Math.round(episode.duration_sec / 60)) : "",
       coverMediaId: episode.cover_media_id,
       coverPreviewUrl: episode.cover_url,
@@ -313,13 +326,25 @@ export function PodcastClient() {
       toast({ title: "Champs requis", description: "Le titre et le slug sont obligatoires.", variant: "destructive" });
       return;
     }
-    if (!/^https?:\/\//i.test(episodeForm.audioUrl.trim()) && !isDriveLink(episodeForm.audioUrl.trim())) {
+    const isVideo = episodeForm.mediaKind === "video";
+    if (!isVideo && !/^https?:\/\//i.test(episodeForm.audioUrl.trim()) && !isDriveLink(episodeForm.audioUrl.trim())) {
       toast({
         title: "URL audio invalide",
         description: "Fournissez une URL http(s) directe ou un lien Google Drive.",
         variant: "destructive",
       });
       return;
+    }
+    if (isVideo) {
+      const video = episodeForm.videoUrl.trim();
+      if (!/^https?:\/\//i.test(video) && !isDriveLink(video) && !isYouTubeLink(video)) {
+        toast({
+          title: "URL vidéo invalide",
+          description: "Fournissez un lien YouTube, un lien Google Drive ou une URL .mp4 directe.",
+          variant: "destructive",
+        });
+        return;
+      }
     }
     setBusy(true);
     try {
@@ -329,7 +354,9 @@ export function PodcastClient() {
         slug: episodeForm.slug.trim(),
         season_id: episodeForm.seasonId,
         description: episodeForm.description.trim() || null,
-        audio_url: episodeForm.audioUrl.trim(),
+        media_kind: episodeForm.mediaKind,
+        audio_url: isVideo ? undefined : episodeForm.audioUrl.trim(),
+        video_url: isVideo ? episodeForm.videoUrl.trim() : undefined,
         duration_sec: episodeForm.durationMin && Number.isFinite(duration) && duration > 0 ? Math.round(duration * 60) : null,
         cover_media_id: episodeForm.coverMediaId,
         published_at: new Date(episodeForm.publishedAt || Date.now()).toISOString(),
@@ -377,7 +404,10 @@ export function PodcastClient() {
   };
 
   const episodeCount = seasons.reduce((sum, s) => sum + s.episodes.length, 0);
-  const driveDetected = episodeForm ? isDriveLink(episodeForm.audioUrl) : false;
+  const isVideoForm = episodeForm?.mediaKind === "video";
+  const driveDetected = episodeForm ? !isVideoForm && isDriveLink(episodeForm.audioUrl) : false;
+  const youTubeDetected = episodeForm ? isVideoForm && isYouTubeLink(episodeForm.videoUrl) : false;
+  const videoDriveDetected = episodeForm ? isVideoForm && !youTubeDetected && isDriveLink(episodeForm.videoUrl) : false;
 
   // ─── Rendu ────────────────────────────────────────────────────────────
 
@@ -388,7 +418,7 @@ export function PodcastClient() {
           <p className="kicker text-brand-red">Audio</p>
           <h1 className="mt-1 font-serif text-2xl font-bold tracking-tight">Podcast / FM</h1>
           <p className="mt-1 text-sm text-ink-faint">
-            Saisons et épisodes diffusés sur la page publique /podcast. Audio : URL directe ou lien Google Drive.
+            Saisons et épisodes diffusés sur la page publique /podcast. Audio : URL directe ou lien Google Drive · Vidéo : lien YouTube ou Google Drive.
           </p>
         </div>
         <Button onClick={openSeasonCreate}>
@@ -522,21 +552,82 @@ export function PodcastClient() {
               />
             </div>
 
-            <div className="space-y-1 sm:col-span-2">
-              <Label htmlFor="ep-audio" className="text-xs font-semibold text-ink-soft">URL audio * (directe ou Google Drive)</Label>
-              <Input
-                id="ep-audio"
-                value={episodeForm.audioUrl}
-                placeholder="https://drive.google.com/file/d/…/view ou https://…/episode.mp3"
-                onChange={(e) => setEpisodeForm({ ...episodeForm, audioUrl: e.target.value })}
-              />
-              {driveDetected && (
-                <p className="flex items-center gap-1 text-xs font-medium text-green-700">
-                  <CheckCircle2 className="size-3.5" aria-hidden />
-                  Lien Drive détecté ✓ — il sera converti en flux lisible à l&apos;enregistrement.
-                </p>
-              )}
-            </div>
+            {/* ── Type d'épisode : Audio / Vidéo (boutons radio stylés) ── */}
+            <fieldset className="space-y-1.5 sm:col-span-2">
+              <legend className="text-xs font-semibold text-ink-soft">Type d&apos;épisode *</legend>
+              <div role="radiogroup" aria-label="Type d'épisode" className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  role="radio"
+                  aria-checked={!isVideoForm}
+                  onClick={() => setEpisodeForm({ ...episodeForm, mediaKind: "audio" })}
+                  className={cn(
+                    "flex items-center gap-2 border px-4 py-2 text-sm font-medium transition-colors",
+                    !isVideoForm
+                      ? "border-ink bg-ink text-white"
+                      : "border-rule bg-paper text-ink-soft hover:border-ink-soft",
+                  )}
+                >
+                  <Headphones className="size-4" aria-hidden />
+                  Audio (barre flottante)
+                </button>
+                <button
+                  type="button"
+                  role="radio"
+                  aria-checked={isVideoForm}
+                  onClick={() => setEpisodeForm({ ...episodeForm, mediaKind: "video" })}
+                  className={cn(
+                    "flex items-center gap-2 border px-4 py-2 text-sm font-medium transition-colors",
+                    isVideoForm
+                      ? "border-ink bg-ink text-white"
+                      : "border-rule bg-paper text-ink-soft hover:border-ink-soft",
+                  )}
+                >
+                  <Video className="size-4" aria-hidden />
+                  Vidéo (lecteur intégré)
+                </button>
+              </div>
+            </fieldset>
+
+            {isVideoForm ? (
+              <div className="space-y-1 sm:col-span-2">
+                <Label htmlFor="ep-video" className="text-xs font-semibold text-ink-soft">URL vidéo * (YouTube ou Google Drive)</Label>
+                <Input
+                  id="ep-video"
+                  value={episodeForm.videoUrl}
+                  placeholder="https://www.youtube.com/watch?v=… ou https://drive.google.com/file/d/…/view (ou .mp4 direct)"
+                  onChange={(e) => setEpisodeForm({ ...episodeForm, videoUrl: e.target.value })}
+                />
+                {youTubeDetected && (
+                  <p className="flex items-center gap-1 text-xs font-medium text-green-700">
+                    <CheckCircle2 className="size-3.5" aria-hidden />
+                    Lien YouTube détecté ✓ — lu via le lecteur intégré youtube-nocookie.
+                  </p>
+                )}
+                {videoDriveDetected && (
+                  <p className="flex items-center gap-1 text-xs font-medium text-green-700">
+                    <CheckCircle2 className="size-3.5" aria-hidden />
+                    Lien Drive détecté ✓ — il sera converti en aperçu vidéo intégré à l&apos;enregistrement.
+                  </p>
+                )}
+              </div>
+            ) : (
+              <div className="space-y-1 sm:col-span-2">
+                <Label htmlFor="ep-audio" className="text-xs font-semibold text-ink-soft">URL audio * (directe ou Google Drive)</Label>
+                <Input
+                  id="ep-audio"
+                  value={episodeForm.audioUrl}
+                  placeholder="https://drive.google.com/file/d/…/view ou https://…/episode.mp3"
+                  onChange={(e) => setEpisodeForm({ ...episodeForm, audioUrl: e.target.value })}
+                />
+                {driveDetected && (
+                  <p className="flex items-center gap-1 text-xs font-medium text-green-700">
+                    <CheckCircle2 className="size-3.5" aria-hidden />
+                    Lien Drive détecté ✓ — il sera converti en flux lisible à l&apos;enregistrement.
+                  </p>
+                )}
+              </div>
+            )}
 
             <div className="space-y-1 sm:col-span-2">
               <Label className="text-xs font-semibold text-ink-soft">Couverture (médiathèque)</Label>
@@ -615,7 +706,13 @@ export function PodcastClient() {
 
             <div className="flex gap-2 sm:col-span-2">
               <Button type="submit" disabled={busy}>
-                {busy ? <Loader2 className="size-4 animate-spin" aria-hidden /> : <Headphones className="size-4" aria-hidden />}
+                {busy ? (
+                  <Loader2 className="size-4 animate-spin" aria-hidden />
+                ) : isVideoForm ? (
+                  <Video className="size-4" aria-hidden />
+                ) : (
+                  <Headphones className="size-4" aria-hidden />
+                )}
                 {editingEpisodeId ? "Enregistrer" : "Créer l'épisode"}
               </Button>
               <Button type="button" variant="outline" onClick={() => setEpisodeFormOpen(false)}>
@@ -765,14 +862,21 @@ export function PodcastClient() {
                                 <td className="px-3 py-2">
                                   <div className="flex flex-wrap items-center gap-2">
                                     <span className="font-medium text-ink">{episode.title}</span>
-                                    {episode.drive_file_id && (
+                                    {episode.media_kind === "video" ? (
+                                      <Badge variant="outline" className="border-rule bg-red-wash text-red-deep">🎬 Vidéo</Badge>
+                                    ) : (
+                                      <Badge variant="outline" className="border-rule bg-paper text-ink-soft">🎧 Audio</Badge>
+                                    )}
+                                    {episode.drive_file_id && episode.media_kind !== "video" && (
                                       <Badge variant="outline" className="border-rule bg-paper text-ink-soft">Drive</Badge>
                                     )}
                                     {!episode.is_active && (
                                       <Badge className="border-rule bg-paper-alt text-ink-faint">Inactif</Badge>
                                     )}
                                   </div>
-                                  <p className="mt-0.5 truncate text-xs text-ink-faint">{episode.audio_url}</p>
+                                  <p className="mt-0.5 truncate text-xs text-ink-faint">
+                                    {episode.media_kind === "video" ? episode.video_url : episode.audio_url}
+                                  </p>
                                 </td>
                                 <td className="hidden px-3 py-2 text-xs text-ink-soft md:table-cell">{formatDuration(episode.duration_sec)}</td>
                                 <td className="hidden px-3 py-2 text-xs text-ink-soft md:table-cell">{formatDate(episode.published_at)}</td>

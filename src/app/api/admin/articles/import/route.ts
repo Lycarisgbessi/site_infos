@@ -20,7 +20,8 @@ export const runtime = "nodejs";
  * - application/json `{ html }` (max 5 Mo) — collage riche depuis Word ou
  *   Google Docs (text/html du presse-papiers), mêmes conversions.
  *
- * Réponse : `{ blocks, warnings }`. Les images importées reçoivent un
+ * Réponse : `{ blocks, warnings, meta }` — meta.title/surtitre/lede
+ * sont extraits du document (style « Titre » Word → champ Titre, etc.). Les images importées reçoivent un
  * `alt` provisoire « À compléter » : le contrôle bloquant de publication
  * (§11.2) oblige ensuite le journaliste à le renseigner réellement.
  */
@@ -111,7 +112,7 @@ export async function POST(request: NextRequest) {
       request: getRequestContext(request.headers),
     });
 
-    return apiOk({ blocks: result.blocks, warnings: result.warnings, source });
+    return apiOk({ blocks: result.blocks, warnings: result.warnings, meta: result.meta, source });
   } catch (error) {
     return toErrorResponse(error);
   }

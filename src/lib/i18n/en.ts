@@ -83,6 +83,9 @@ export const enDictionary: Dictionary = {
   "public.podcast.episodesCount": "{count} episode(s)",
   "public.podcast.noDuration": "Unknown duration",
   "public.podcast.nowPlaying": "Now playing",
+  "public.podcast.video": "Video",
+  "public.podcast.watch": "Watch",
+  "public.podcast.audio": "Audio",
 
   // ─── Article ─────────────────────────────────────────────────────
   "public.article.breadcrumb": "Breadcrumb",

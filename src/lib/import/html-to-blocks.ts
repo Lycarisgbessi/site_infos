@@ -32,6 +32,12 @@ export interface HtmlToBlocksOptions {
 export interface HtmlToBlocksResult {
   blocks: Block[];
   warnings: string[];
+  /** Structure détectée du document (mapping Word → champs article). */
+  meta: {
+    title: string | null;
+    surtitre: string | null;
+    lede: string | null;
+  };
 }
 
 const MARK_TAGS: Record<string, RichTextMark> = {
@@ -217,6 +223,54 @@ export async function htmlToBlocks(
   const root = parse(sanitizeHtml(html));
   const container = root.querySelector("body") ?? root;
 
+  // ── Mapping structurel Word → article ────────────────────────────────
+  // 1er <h1> (style Word « Titre » / « Heading 1 ») = TITRE de l'article.
+  // Un paragraphe court AVANT ce titre = SURTITRE (kicker).
+  // Le premier paragraphe APRES le titre (40-400 car.) = CHAPEAU (lede).
+  // Ces éléments sont retirés du flux : ils alimentent les champs dédiés.
+  const meta = { title: null as string | null, surtitre: null as string | null, lede: null as string | null };
+  const topLevel = () =>
+    Array.from(container.children).filter(
+      (n): n is HTMLElement => n.nodeType === 1 && (n as HTMLElement).rawTagName?.toLowerCase() !== undefined
+    ) as HTMLElement[];
+
+  let children = topLevel();
+  const h1Index = children.findIndex(
+    (n) => n.rawTagName?.toLowerCase() === "h1" && (n.textContent ?? "").trim().length > 0
+  );
+  if (h1Index >= 0) {
+    meta.title = textOf(children[h1Index]).slice(0, 180);
+    // Surtitre : paragraphe court juste avant le titre (pas d'image)
+    if (h1Index > 0) {
+      const prev = children[h1Index - 1];
+      if (prev.rawTagName?.toLowerCase() === "p") {
+        const prevText = textOf(prev);
+        if (prevText.length > 0 && prevText.length <= 60 && prev.querySelectorAll("img").length === 0) {
+          meta.surtitre = prevText;
+          prev.remove();
+        }
+      }
+    }
+    children[h1Index].remove();
+    // Chapeau : premier paragraphe après le titre
+    const after = children
+      .slice(h1Index + 1)
+      .filter((n) => !n || n.nodeType !== 1 ? false : true);
+    for (const node of after) {
+      const tag = node.rawTagName?.toLowerCase();
+      if (tag === "p" && node.querySelectorAll("img, figure").length === 0) {
+        const text = textOf(node);
+        if (text.length >= 40 && text.length <= 400) {
+          meta.lede = text;
+          node.remove();
+        }
+        break; // premier paragraphe seulement (chapeau ou pas)
+      }
+      if (tag === "h2" || tag === "h3") break; // le corps commence — pas de chapeau
+    }
+  }
+  children = topLevel();
+
   const KNOWN_CHILDREN = new Set([
     "p", "h1", "h2", "h3", "h4", "ul", "ol", "table",
     "blockquote", "figure", "img", "div", "pre", "hr",
@@ -232,7 +286,7 @@ export async function htmlToBlocks(
         case "h4": {
           const text = textOf(node);
           if (!text) break;
-          if (tag === "h1") warnings.push("Un titre de niveau 1 a été rabattu en niveau 2.");
+          if (tag === "h1") warnings.push("Un titre de niveau 1 supplémentaire a été rabattu en niveau 2 (le premier a été appliqué au champ Titre).");
           const level = tag === "h1" ? 2 : (Number(tag.slice(1)) as 2 | 3 | 4);
           blocks.push({ id: newBlockId(), type: "heading", level, text, anchor: slugifyAnchor(text) });
           break;
@@ -374,5 +428,5 @@ export async function htmlToBlocks(
     }
   }
 
-  return { blocks, warnings };
+  return { blocks, warnings, meta };
 }

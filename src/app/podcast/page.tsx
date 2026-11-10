@@ -43,6 +43,10 @@ export default async function PodcastPage() {
         // ID Drive conservé à l'enregistrement (resolveAudio) : source
         // privilégiée de l'URL d'aperçu pour le repli iframe du lecteur.
         driveFileId: ep.drive_file_id,
+        // Épisode vidéo (YouTube/Drive/mp4) : lu dans la page via un
+        // lecteur 16:9 intégré, pas dans la barre audio flottante.
+        mediaKind: ep.media_kind,
+        videoUrl: ep.video_url,
         durationSec: ep.duration_sec,
         coverUrl: ep.cover_url,
         publishedAt: ep.published_at,
@@ -57,6 +61,9 @@ export default async function PodcastPage() {
     play: translate("public.audio.play"),
     playing: translate("public.podcast.nowPlaying"),
     noDuration: translate("public.podcast.noDuration"),
+    video: translate("public.podcast.video"),
+    watch: translate("public.podcast.watch"),
+    audio: translate("public.podcast.audio"),
     episodesCount: translate("public.podcast.episodesCount"),
   };
 

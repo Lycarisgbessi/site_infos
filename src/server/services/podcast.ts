@@ -2,8 +2,9 @@ import { db } from "@/lib/db";
 import type { Prisma } from "@prisma/client";
 import { auditLog } from "@/lib/audit";
 import { ValidationError } from "@/lib/api/respond";
-import { toDriveLink, isDriveLink } from "@/lib/drive";
+import { toDriveLink, isDriveLink, parseYouTubeId, toYouTubeWatchUrl } from "@/lib/drive";
 import type {
+  PodcastMediaKind,
   PodcastSeasonCreateInput,
   PodcastSeasonUpdateInput,
   PodcastEpisodeCreateInput,
@@ -16,6 +17,11 @@ import type {
  * Conversion Google Drive : à l'enregistrement, un lien Drive (ou un ID
  * brut) est converti en flux lisible (`audio_url` = streamUrl) et l'ID
  * du fichier est conservé dans `drive_file_id`.
+ *
+ * Épisodes vidéo (2026-11, `media_kind = "video"`) : la vidéo est liée,
+ * jamais stockée — `video_url` pointe vers YouTube (normalisé en watch),
+ * un aperçu Google Drive ou un fichier direct (.mp4). Les épisodes
+ * existants restent audio (défaut "audio").
  */
 
 // ─── Vues sérialisées (API JSON) ───────────────────────────────────────
@@ -29,6 +35,10 @@ export interface AdminEpisodeView {
   position: number;
   audio_url: string;
   drive_file_id: string | null;
+  /** "audio" (défaut, rétro-compatible) ou "video". */
+  media_kind: PodcastMediaKind;
+  /** URL vidéo (YouTube watch / aperçu Drive / .mp4) — null si audio. */
+  video_url: string | null;
   duration_sec: number | null;
   cover_media_id: string | null;
   cover_url: string | null;
@@ -58,6 +68,8 @@ function toEpisodeView(
     position: number;
     audio_url: string;
     drive_file_id: string | null;
+    media_kind: string;
+    video_url: string | null;
     duration_sec: number | null;
     cover_media_id: string | null;
     published_at: Date;
@@ -75,6 +87,8 @@ function toEpisodeView(
     position: ep.position,
     audio_url: ep.audio_url,
     drive_file_id: ep.drive_file_id,
+    media_kind: ep.media_kind === "video" ? "video" : "audio",
+    video_url: ep.video_url,
     duration_sec: ep.duration_sec,
     cover_media_id: ep.cover_media_id,
     cover_url: ep.cover?.url ?? null,
@@ -237,6 +251,23 @@ function resolveAudio(
   return { audio_url: raw, drive_file_id: null };
 }
 
+/**
+ * URL vidéo normalisée (liaison directe, aucun stockage serveur) :
+ *  - YouTube (watch, youtu.be, embed, shorts…) → watch canonique
+ *    `https://www.youtube.com/watch?v=ID` (l'ID est réextrait au rendu) ;
+ *  - Google Drive → URL d'aperçu intégrable `file/d/{ID}/preview` ;
+ *  - sinon → URL directe (.mp4) telle quelle.
+ */
+function resolveVideo(raw: string): string {
+  const youTubeId = parseYouTubeId(raw);
+  if (youTubeId) return toYouTubeWatchUrl(youTubeId);
+  if (isDriveLink(raw)) {
+    const link = toDriveLink(raw);
+    if (link) return link.embedUrl;
+  }
+  return raw;
+}
+
 async function assertSeasonExists(seasonId: string): Promise<void> {
   const season = await db.podcastSeason.findUnique({ where: { id: seasonId }, select: { id: true } });
   if (!season) throw new ValidationError("Saison introuvable pour cet épisode.");
@@ -245,7 +276,16 @@ async function assertSeasonExists(seasonId: string): Promise<void> {
 export async function createEpisode(userId: string, input: PodcastEpisodeCreateInput) {
   await assertSlugFree(input.slug, "episode");
   await assertSeasonExists(input.season_id);
-  const audio = resolveAudio(input.audio_url);
+  const isVideo = input.media_kind === "video";
+  if (isVideo && !input.video_url) {
+    throw new ValidationError("Un épisode vidéo exige une URL vidéo (YouTube, Google Drive ou .mp4).");
+  }
+  // Audio : conversion Drive éventuelle. Vidéo : audio_url inutilisée ("").
+  const audio = isVideo
+    ? { audio_url: "", drive_file_id: null as string | null }
+    : resolveAudio(input.audio_url ?? "");
+  // Vidéo : URL obligatoire (garantie par le schéma), normalisée YouTube/Drive.
+  const videoUrl = isVideo && input.video_url ? resolveVideo(input.video_url) : null;
   const max = await db.podcastEpisode.aggregate({
     where: { season_id: input.season_id },
     _max: { position: true },
@@ -258,6 +298,8 @@ export async function createEpisode(userId: string, input: PodcastEpisodeCreateI
       season_id: input.season_id,
       position: input.position ?? (max._max.position ?? -1) + 1,
       ...audio,
+      media_kind: isVideo ? "video" : "audio",
+      video_url: videoUrl,
       duration_sec: input.duration_sec ?? null,
       cover_media_id: input.cover_media_id ?? null,
       published_at: input.published_at ? new Date(input.published_at) : new Date(),
@@ -281,12 +323,31 @@ export async function updateEpisode(userId: string, id: string, input: PodcastEp
   if (input.season_id && input.season_id !== before.season_id) {
     await assertSeasonExists(input.season_id);
   }
-  const { audio_url, published_at, season_id, cover_media_id, ...rest } = input;
+  const { audio_url, published_at, season_id, cover_media_id, media_kind, video_url, ...rest } = input;
+
+  // Type de média : l'épisode final doit rester cohérent — une vidéo exige
+  // une URL (fournie ou déjà en base), un audio n'en conserve aucune.
+  let videoData: { media_kind: PodcastMediaKind; video_url: string | null } | undefined;
+  if (media_kind !== undefined || video_url !== undefined) {
+    const nextKind: PodcastMediaKind =
+      media_kind ?? (before.media_kind === "video" ? "video" : "audio");
+    if (nextKind === "video") {
+      const rawVideo = video_url !== undefined && video_url !== null ? video_url : before.video_url;
+      if (!rawVideo) {
+        throw new ValidationError("Un épisode vidéo exige une URL vidéo (YouTube, Google Drive ou .mp4).");
+      }
+      videoData = { media_kind: "video", video_url: resolveVideo(rawVideo) };
+    } else {
+      videoData = { media_kind: "audio", video_url: null };
+    }
+  }
+
   const episode = await db.podcastEpisode.update({
     where: { id },
     data: {
       ...rest,
       ...(audio_url !== undefined ? resolveAudio(audio_url) : {}),
+      ...(videoData ?? {}),
       ...(season_id !== undefined ? { season: { connect: { id: season_id } } } : {}),
       ...(cover_media_id !== undefined
         ? { cover: cover_media_id ? { connect: { id: cover_media_id } } : { disconnect: true } }

@@ -83,6 +83,9 @@ export const esDictionary: Dictionary = {
   "public.podcast.episodesCount": "{count} episodio(s)",
   "public.podcast.noDuration": "Duración desconocida",
   "public.podcast.nowPlaying": "En reproducción",
+  "public.podcast.video": "Vídeo",
+  "public.podcast.watch": "Ver",
+  "public.podcast.audio": "Audio",
 
   // ─── Artículo ────────────────────────────────────────────────────
   "public.article.breadcrumb": "Ruta de navegación",

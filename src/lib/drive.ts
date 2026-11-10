@@ -57,3 +57,42 @@ export function toDriveLink(input: string): DriveLink | null {
 export function drivePlaybackUrl(input: string): string | null {
   return toDriveLink(input)?.streamUrl ?? null;
 }
+
+// ─── YouTube ───────────────────────────────────────────────────────────
+
+/**
+ * Liens YouTube acceptés (l'ID fait toujours 11 caractères) :
+ *  - https://www.youtube.com/watch?v={ID}
+ *  - https://youtu.be/{ID}
+ *  - https://www.youtube.com/embed/{ID}
+ *  - https://www.youtube.com/shorts/{ID}
+ *  - https://www.youtube.com/live/{ID}  ·  /v/{ID}
+ *  - {ID} brut (11 caractères alphanumériques)
+ */
+const YOUTUBE_ID_RE =
+  /(?:youtube(?:-nocookie)?\.com\/(?:watch\?(?:[^#]*&)?v=|embed\/|shorts\/|live\/|v\/)|youtu\.be\/)([A-Za-z0-9_-]{11})/;
+
+/** Extrait l'identifiant (11 caractères) d'un lien YouTube — null sinon. */
+export function parseYouTubeId(input: string): string | null {
+  const trimmed = input.trim();
+  const match = trimmed.match(YOUTUBE_ID_RE);
+  if (match) return match[1];
+  // ID brut (distinct d'un ID Drive : 44 caractères)
+  if (/^[A-Za-z0-9_-]{11}$/.test(trimmed)) return trimmed;
+  return null;
+}
+
+/** True si l'entrée ressemble à un lien YouTube (toute forme). */
+export function isYouTubeLink(input: string): boolean {
+  return /youtube(?:-nocookie)?\.com|youtu\.be/.test(input);
+}
+
+/** URL canonique `watch` d'une vidéo YouTube à partir de son ID. */
+export function toYouTubeWatchUrl(id: string): string {
+  return `https://www.youtube.com/watch?v=${id}`;
+}
+
+/** Iframe d'intégration respectueuse de la vie privée (youtube-nocookie). */
+export function toYouTubeEmbedUrl(id: string, autoplay = false): string {
+  return `https://www.youtube-nocookie.com/embed/${id}?rel=0${autoplay ? "&autoplay=1" : ""}`;
+}

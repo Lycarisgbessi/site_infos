@@ -151,18 +151,38 @@ export function ArticleEditorClient({
       try {
         const form = new FormData();
         form.append("file", file);
-        const { data } = await apiFetch<{ blocks: Block[]; warnings: string[] }>(
-          "/api/admin/articles/import",
-          { method: "POST", body: form }
-        );
-        if (data.blocks.length === 0) {
+        const { data } = await apiFetch<{
+          blocks: Block[];
+          warnings: string[];
+          meta?: { title: string | null; surtitre: string | null; lede: string | null };
+        }>("/api/admin/articles/import", { method: "POST", body: form });
+        if (data.blocks.length === 0 && !data.meta?.title) {
           toast({ title: "Rien à importer", description: "Le document ne contient pas de contenu exploitable." });
           return;
         }
-        setArticle((prev) => ({ ...prev, body: [...prev.body, ...data.blocks] }));
+        // Mapping structurel : titre / surtitre / chapeau détectés dans le
+        // document alimentent les champs vides correspondants (jamais écrasés).
+        const mapped: string[] = [];
+        setArticle((prev) => {
+          const next = { ...prev, body: [...prev.body, ...data.blocks] };
+          const meta = data.meta;
+          if (meta?.title && !next.title.trim()) {
+            next.title = meta.title;
+            mapped.push("Titre");
+          }
+          if (meta?.surtitre && !next.kicker?.trim()) {
+            next.kicker = meta.surtitre;
+            mapped.push("Surtitre");
+          }
+          if (meta?.lede && !next.lede?.trim()) {
+            next.lede = meta.lede;
+            mapped.push("Chapeau");
+          }
+          return next;
+        });
         setDirty(true);
         toast({
-          title: `${data.blocks.length} bloc(s) importé(s)`,
+          title: `${data.blocks.length} bloc(s) importé(s)${mapped.length > 0 ? ` — ${mapped.join(", ")} détecté(s) et appliqué(s)` : ""}`,
           description:
             data.warnings.length > 0
               ? `${data.warnings.length} avertissement(s) — vérifiez les blocs marqués et les images importées.`
