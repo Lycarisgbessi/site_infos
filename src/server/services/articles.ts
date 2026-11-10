@@ -195,25 +195,29 @@ export async function computePublicationChecks(
   if (!article.category_id) {
     blocking.push({ id: "category", message: "La rubrique est obligatoire." });
   }
+  // ── Politique 2026-11 : liberté de publication ────────────────────────
+  // Seuls le TITRE et la RUBRIQUE restent bloquants (structure minimale).
+  // Tout le reste devient une RECOMMANDATION visible mais non bloquante —
+  // la rédaction publie quand elle le décide.
   const ledeLen = (article.lede ?? "").trim().length;
   if (ledeLen < 80) {
-    blocking.push({
+    warnings.push({
       id: "lede",
-      message: `Le chapô doit compter au moins 80 caractères (${ledeLen}).`,
+      message: `Chapô recommandé d'au moins 80 caractères (${ledeLen}) — vous pouvez publier sans.`,
     });
   }
   if (!article.cover_media_id) {
-    blocking.push({ id: "cover", message: "L'image principale est obligatoire." });
+    warnings.push({ id: "cover", message: "Aucune image principale — recommandé pour la une et les réseaux." });
   } else {
     if (opts.coverAlt.trim().length === 0) {
-      blocking.push({ id: "cover_alt", message: "Le texte alternatif de l'image principale est obligatoire." });
+      warnings.push({ id: "cover_alt", message: "Texte alternatif de l'image recommandé (accessibilité/SEO)." });
     }
     if (opts.coverCredit.trim().length === 0) {
-      blocking.push({ id: "cover_credit", message: "Le crédit de l'image principale est obligatoire." });
+      warnings.push({ id: "cover_credit", message: "Crédit photo recommandé." });
     }
   }
   if (opts.tagsCount < 1) {
-    blocking.push({ id: "tags", message: "Au moins un mot-clé est obligatoire." });
+    warnings.push({ id: "tags", message: "Au moins un mot-clé est recommandé (SEO)." });
   }
   if (article.is_sponsored && !article.sponsor_name?.trim()) {
     blocking.push({ id: "sponsor", message: "Le nom du sponsor est obligatoire pour un article sponsorisé." });
@@ -229,7 +233,7 @@ export async function computePublicationChecks(
     });
     const missing = readmoreIds.filter((rid) => !found.some((f) => f.id === rid));
     if (missing.length > 0) {
-      blocking.push({ id: "broken_links", message: `${missing.length} lien(s) interne(s) cassé(s) (bloc « à lire aussi »).` });
+      warnings.push({ id: "broken_links", message: `${missing.length} lien(s) interne(s) cassé(s) (bloc « à lire aussi ») — à corriger quand possible.` });
     }
   }
   const internalLinkCount = readmoreIds.length +
