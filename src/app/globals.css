@@ -888,3 +888,26 @@
 }
 .prose-simple figure[data-video] { margin: 1em 0; }
 .prose-simple hr { border: none; border-top: 1px solid var(--rule); margin: 1.5em 0; }
+
+/* ── Bandeau partenaires : défilement autonome ───────────────────────── */
+.pmarquee-viewport {
+  mask-image: linear-gradient(to right, transparent, black 6%, black 94%, transparent);
+  -webkit-mask-image: linear-gradient(to right, transparent, black 6%, black 94%, transparent);
+}
+.pmarquee-track {
+  animation: pmarquee-scroll var(--pm-duration, 40s) linear infinite;
+  will-change: transform;
+  backface-visibility: hidden;
+}
+.pmarquee-viewport:hover .pmarquee-track,
+.pmarquee-viewport:focus-within .pmarquee-track {
+  animation-play-state: paused;
+}
+@keyframes pmarquee-scroll {
+  from { transform: translate3d(0, 0, 0); }
+  to   { transform: translate3d(-50%, 0, 0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pmarquee-track { animation: none; }
+  .pmarquee-viewport { overflow-x: auto; }
+}

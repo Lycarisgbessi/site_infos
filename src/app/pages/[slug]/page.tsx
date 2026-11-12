@@ -9,6 +9,7 @@ import { getTranslations } from "@/lib/i18n";
 import { getSettingsByGroup } from "@/server/services/settings";
 import { listActiveTeam, type PublicTeamMemberView } from "@/server/services/team";
 import { listActivePartners, type PublicPartnerView } from "@/server/services/partners";
+import { PartnersMarquee } from "@/components/public/partners-marquee";
 import { TopBar, SiteHeader } from "@/components/public/site-header";
 import { SiteFooter } from "@/components/public/site-footer";
 import { NewsletterBlock } from "@/components/public/newsletter-block";
@@ -487,47 +488,22 @@ export default async function PublicPage({ params }: { params: Promise<{ slug: s
                 </div>
               ) : (
                 <div className="mt-8 space-y-10">
-                  {groupPartnersByCategory(partners).map((group, groupIndex) => (
+                  {groupPartnersByCategory(partners).map((group) => (
                     <div key={group.category ?? "__uncategorized__"}>
-                      <Reveal>
-                        <p className="kicker border-b border-rule pb-2 text-brand-red">
-                          {group.category ?? translate("public.partners.otherCategory")}
-                        </p>
-                      </Reveal>
-                      <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-                        {group.items.map((partner, i) => {
-                          const logo = partner.logoUrl ? (
-                            <img
-                              src={partner.logoUrl}
-                              alt={partner.logoAlt ?? partner.name}
-                              className="max-h-14 w-auto object-contain opacity-70 grayscale transition duration-300 group-hover:opacity-100 group-hover:grayscale-0"
-                              loading="lazy"
-                            />
-                          ) : (
-                            <span className="text-center font-serif text-sm font-bold leading-snug text-ink-soft">
-                              {partner.name}
-                            </span>
-                          );
-                          return (
-                            <Reveal key={partner.id} delay={Math.min((groupIndex * 3 + i) * 60, 480)}>
-                              {partner.url ? (
-                                <a
-                                  href={partner.url}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  aria-label={translate("public.partners.visit", { name: partner.name })}
-                                  className="group flex h-28 items-center justify-center border border-rule bg-paper p-6 transition-colors duration-200 hover:border-rule-strong hover:bg-paper-alt"
-                                >
-                                  {logo}
-                                </a>
-                              ) : (
-                                <div className="group flex h-28 items-center justify-center border border-rule bg-paper p-6">
-                                  {logo}
-                                </div>
-                              )}
-                            </Reveal>
-                          );
-                        })}
+                      <p className="kicker border-b border-rule pb-2 text-brand-red">
+                        {group.category ?? translate("public.partners.otherCategory")}
+                      </p>
+                      <div className="mt-4 -mx-2">
+                        <PartnersMarquee
+                          partners={group.items.map((p) => ({
+                            id: p.id,
+                            name: p.name,
+                            url: p.url,
+                            logoUrl: p.logoUrl,
+                            logoAlt: p.logoAlt,
+                          }))}
+                          ariaLabel={group.category ?? translate("public.partners.title")}
+                        />
                       </div>
                     </div>
                   ))}

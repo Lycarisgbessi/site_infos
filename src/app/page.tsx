@@ -31,6 +31,8 @@ import { MobileStickyAd } from "@/components/public/mobile-sticky-ad";
 import { ContinuousItem, timeAgo, HeroCard, MostReadItem, SideCard } from "@/components/public/article-cards";
 import { ContinuousFeed, type ContinuousFeedItem } from "@/components/public/continuous-feed";
 import { InterviewsCarousel } from "@/components/public/interviews-carousel";
+import { PartnersMarquee } from "@/components/public/partners-marquee";
+import { listActivePartners } from "@/server/services/partners";
 import { DossierBlock, OpinionCards, SectionBlock, VideoSection, WorldGrid } from "@/components/public/section-block";
 import { NewsletterBlock } from "@/components/public/newsletter-block";
 import { WeatherStrip } from "@/components/public/weather-strip";
@@ -83,7 +85,7 @@ function toFeedItems(
 export default async function HomePage() {
   const { translate } = await getTranslations();
 
-  const [banners, adCampaigns, settings, composed] = await Promise.all([
+  const [banners, adCampaigns, settings, composed, partners] = await Promise.all([
     getSiteBanners("/"),
     getAdCampaigns(),
     getSettingsValues([
@@ -96,6 +98,7 @@ export default async function HomePage() {
       "ads.stickyMobile",
     ]),
     getComposedHomepage(),
+    listActivePartners().catch(() => []),
   ]);
 
   // Modules désactivables (§11.2 /admin/parametres) — lus comme /video :
@@ -120,6 +123,17 @@ export default async function HomePage() {
   );
   const siteFooter = (
     <>
+      <PartnersMarquee
+        partners={partners.map((p) => ({
+          id: p.id,
+          name: p.name,
+          url: p.url,
+          logoUrl: p.logoUrl,
+          logoAlt: p.logoAlt,
+        }))}
+        title={translate("public.partners.title")}
+        ariaLabel={translate("public.partners.title")}
+      />
       <SiteFooter />
       <MobileStickyAd
         label={translate("public.ad.label")}
