@@ -13,7 +13,6 @@ import {
   Megaphone,
   Pencil,
   Plus,
-  Power,
   RotateCw,
   Save,
   Search,
@@ -24,7 +23,7 @@ import {
 import { apiFetch, errorMessage } from "@/lib/api/client";
 import { useToast } from "@/hooks/use-toast";
 import { parseBlocks, type Block } from "@/types/blocks";
-import { MediaPicker, type MediaItem } from "@/components/admin/MediaPicker";
+import { MediaPicker } from "@/components/admin/MediaPicker";
 
 import {
   AlertDialog,
@@ -59,18 +58,25 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
-import { BlockEditor } from "@/components/editor/BlockEditor";
+import { SimpleEditor } from "@/components/editor/SimpleEditor";
+import { blocksToHtml } from "@/lib/import/blocks-to-html";
+import { htmlToBlocks } from "@/lib/import/html-to-blocks";
 
 /**
  * Écran « Pages & bannières » (§11.2, Phase 2) :
  * - onglet Pages : liste des pages statiques, éditeur pleine largeur avec
- *   corps en blocs (BlockEditor §06.4) — un changement de slug déclenche
- *   une redirection 301 automatique côté serveur ;
+ *   corps édité en « mode simple » (blocs §06.4 au repos) — un changement
+ *   de slug déclenche une redirection 301 automatique côté serveur ;
  * - onglet Bannières : bandeaux du site (alerte / info / promo) avec lien
  *   facultatif, ciblage de chemins, fenêtre d'affichage et refermabilité ;
  * - onglet Redirections : gestion des redirections (§20 Phase 2 tâche 7) —
  *   créées automatiquement par les renommages (is_auto, non supprimables)
- *   ou ajoutées manuellement, avec recherche et pagination.
+ *   ou ajoutées manuellement, avec recherche et pagination ;
+ * - onglets Partenaires et Équipe : logos/noms des partenaires (page
+ *   « Nos partenaires », défilement automatique) et membres de la rédaction
+ *   (page « Notre équipe ») — photo/logo issus de la médiathèque.
+ * Le corps des pages est édité en « mode simple » (SimpleEditor) : le HTML
+ * est converti en blocs §06.4 à la sauvegarde via htmlToBlocks.
  *
  * Toutes les requêtes passent par apiFetch (enveloppe {data,meta} §07.1) ;
  * les erreurs sont signalées par des toasts français.
@@ -290,6 +296,19 @@ function parsePosition(value: string): number {
   return Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
 }
 
+/** Deux initiales pour la vignette sans image (logo / photo). */
+function initials(name: string): string {
+  const letters = name
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((word) => word.charAt(0))
+    .join("")
+    .toUpperCase();
+  return letters || "?";
+}
+
 /** Normalise un chemin côté client (aperçu live) : trim + « / » initial. */
 function previewPath(value: string): string {
   const trimmed = value.trim();
@@ -426,6 +445,8 @@ export function PagesClient() {
     is_published: false,
     blocks: [],
   });
+  /** HTML du « mode simple » du contenu de la page (SimpleEditor). */
+  const [pageHtml, setPageHtml] = useState("");
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState<PageRow | null>(null);
   const [deleteBusy, setDeleteBusy] = useState(false);
@@ -547,6 +568,36 @@ export function PagesClient() {
     [toast]
   );
 
+  const loadTeam = useCallback(async () => {
+    setTeamError(false);
+    try {
+      const { data } = await apiFetch<TeamMemberRow[]>("/api/admin/team");
+      setTeam(Array.isArray(data) ? data : []);
+    } catch (error) {
+      setTeamError(true);
+      toast({
+        title: "Chargement de l'équipe impossible",
+        description: errorMessage(error),
+        variant: "destructive",
+      });
+    }
+  }, [toast]);
+
+  const loadPartners = useCallback(async () => {
+    setPartnersError(false);
+    try {
+      const { data } = await apiFetch<PartnerRow[]>("/api/admin/partners");
+      setPartners(Array.isArray(data) ? data : []);
+    } catch (error) {
+      setPartnersError(true);
+      toast({
+        title: "Chargement des partenaires impossible",
+        description: errorMessage(error),
+        variant: "destructive",
+      });
+    }
+  }, [toast]);
+
   useEffect(() => {
     void loadPages();
   }, [loadPages]);
@@ -570,6 +621,14 @@ export function PagesClient() {
       redirectsRequested.current = true;
       void loadRedirects(redirectsQuery, redirectsPage);
     }
+    if (value === "partners" && !partnersRequested.current) {
+      partnersRequested.current = true;
+      void loadPartners();
+    }
+    if (value === "team" && !teamRequested.current) {
+      teamRequested.current = true;
+      void loadTeam();
+    }
   }
 
   // ── Éditeur de page ──────────────────────────────────────────────────────
@@ -582,6 +641,7 @@ export function PagesClient() {
       is_published: false,
       blocks: [],
     });
+    setPageHtml("");
     setEditor({ id: null, loading: false, originalSlug: null });
   }
 
@@ -593,19 +653,23 @@ export function PagesClient() {
       is_published: false,
       blocks: [],
     });
+    setPageHtml("");
     setEditor({ id, loading: true, originalSlug: null });
     try {
       const { data } = await apiFetch<PageFull>(
         `/api/admin/pages?id=${encodeURIComponent(id)}`
       );
+      // Le corps arrive en chaîne JSON → tableau de blocs typés, puis HTML
+      // pour l'édition en « mode simple » (SimpleEditor).
+      const blocks = parseBlocks(data.body);
       setForm({
         title: data.title ?? "",
         slug: data.slug ?? "",
         template: data.template ?? "default",
         is_published: Boolean(data.is_published),
-        // Le corps arrive en chaîne JSON → tableau de blocs typés.
-        blocks: parseBlocks(data.body),
+        blocks,
       });
+      setPageHtml(blocksToHtml(blocks));
       setEditor({ id, loading: false, originalSlug: data.slug ?? null });
     } catch (error) {
       setEditor(null);
@@ -630,13 +694,16 @@ export function PagesClient() {
     setSaving(true);
     try {
       const slug = form.slug.trim();
+      // Le « mode simple » vit en HTML : conversion en blocs §06.4 avant
+      // l'envoi (reconnaît data-media-id / data-video / data-audio).
+      const result = await htmlToBlocks(pageHtml);
       await apiFetch("/api/admin/pages", {
         method: "POST",
         json: {
           ...(editor.id ? { id: editor.id } : {}),
           title,
           ...(slug ? { slug } : {}),
-          body: form.blocks,
+          body: result.blocks,
           template: form.template,
           is_published: form.is_published,
         },
@@ -688,6 +755,22 @@ export function PagesClient() {
     editor.id !== null &&
     editor.originalSlug !== null &&
     form.slug.trim() !== editor.originalSlug;
+
+  /**
+   * Encadré contextuel : la page ouverte concerne les partenaires ou
+   * l'équipe → pointer vers l'onglet dédié (contenus gérés à part).
+   */
+  const calloutTab: "partners" | "team" | null = (() => {
+    const key = `${form.slug} ${form.title}`.toLowerCase();
+    if (key.includes("nos-partenaires")) return "partners";
+    if (key.includes("notre-equipe")) return "team";
+    return null;
+  })();
+
+  function goToCalloutTab(value: "partners" | "team") {
+    setEditor(null);
+    handleTabChange(value);
+  }
 
   // ── Bannières ────────────────────────────────────────────────────────────
 
@@ -896,6 +979,268 @@ export function PagesClient() {
     }
   }
 
+  // ── Partenaires (logique) ────────────────────────────────────────────────
+
+  function openCreatePartner() {
+    setPartnerEditing(null);
+    setPartnerForm(EMPTY_PARTNER_FORM);
+    setPartnerDialogOpen(true);
+  }
+
+  function openEditPartner(partner: PartnerRow) {
+    setPartnerEditing(partner);
+    setPartnerForm({
+      name: partner.name ?? "",
+      category: partner.category ?? "",
+      url: partner.url ?? "",
+      position: String(partner.position ?? 0),
+      is_active: Boolean(partner.is_active),
+      logo_media_id: partner.logo_media_id,
+      logo_preview_url: partner.logo_url,
+    });
+    setPartnerDialogOpen(true);
+  }
+
+  function closePartnerDialog() {
+    setPartnerDialogOpen(false);
+    setPartnerEditing(null);
+    setPartnerForm(EMPTY_PARTNER_FORM);
+  }
+
+  async function savePartner() {
+    const name = partnerForm.name.trim();
+    if (!name) {
+      toast({ title: "Le nom est obligatoire.", variant: "destructive" });
+      return;
+    }
+    const url = partnerForm.url.trim();
+    if (url && !HTTP_URL_RE.test(url)) {
+      toast({
+        title: "Lien invalide",
+        description:
+          "Le lien web doit commencer par http:// ou https:// (ou rester vide).",
+        variant: "destructive",
+      });
+      return;
+    }
+    setPartnerSaving(true);
+    try {
+      const payload = {
+        name,
+        category: partnerForm.category.trim() || null,
+        url: url || null,
+        logo_media_id: partnerForm.logo_media_id,
+        position: parsePosition(partnerForm.position),
+        is_active: partnerForm.is_active,
+      };
+      if (partnerEditing) {
+        await apiFetch(
+          `/api/admin/partners/${encodeURIComponent(partnerEditing.id)}`,
+          { method: "PATCH", json: payload }
+        );
+        toast({ title: "Partenaire enregistré." });
+      } else {
+        await apiFetch("/api/admin/partners", {
+          method: "POST",
+          json: payload,
+        });
+        toast({ title: "Partenaire créé." });
+      }
+      closePartnerDialog();
+      await loadPartners();
+    } catch (error) {
+      toast({
+        title: "Enregistrement impossible",
+        description: errorMessage(error),
+        variant: "destructive",
+      });
+    } finally {
+      setPartnerSaving(false);
+    }
+  }
+
+  async function togglePartnerActive(partner: PartnerRow, checked: boolean) {
+    setPartnerTogglingId(partner.id);
+    try {
+      await apiFetch(
+        `/api/admin/partners/${encodeURIComponent(partner.id)}`,
+        { method: "PATCH", json: { is_active: checked } }
+      );
+      setPartners((rows) =>
+        rows
+          ? rows.map((row) =>
+              row.id === partner.id ? { ...row, is_active: checked } : row
+            )
+          : rows
+      );
+      toast({ title: checked ? "Partenaire activé." : "Partenaire masqué." });
+    } catch (error) {
+      toast({
+        title: "Action impossible",
+        description: errorMessage(error),
+        variant: "destructive",
+      });
+    } finally {
+      setPartnerTogglingId(null);
+    }
+  }
+
+  async function confirmDeletePartner() {
+    if (!partnerDeleting) return;
+    setPartnerDeleteBusy(true);
+    try {
+      await apiFetch(
+        `/api/admin/partners/${encodeURIComponent(partnerDeleting.id)}`,
+        { method: "DELETE" }
+      );
+      toast({ title: "Partenaire supprimé." });
+      setPartnerDeleting(null);
+      await loadPartners();
+    } catch (error) {
+      toast({
+        title: "Suppression impossible",
+        description: errorMessage(error),
+        variant: "destructive",
+      });
+    } finally {
+      setPartnerDeleteBusy(false);
+    }
+  }
+
+  // ── Équipe (logique) ─────────────────────────────────────────────────────
+
+  function openCreateTeamMember() {
+    setTeamEditing(null);
+    setTeamForm(EMPTY_TEAM_FORM);
+    setTeamDialogOpen(true);
+  }
+
+  function openEditTeamMember(member: TeamMemberRow) {
+    setTeamEditing(member);
+    setTeamForm({
+      name: member.name ?? "",
+      role: member.role ?? "",
+      bio: member.bio ?? "",
+      email: member.email ?? "",
+      position: String(member.position ?? 0),
+      is_active: Boolean(member.is_active),
+      photo_media_id: member.photo_media_id,
+      photo_preview_url: member.photo_url,
+    });
+    setTeamDialogOpen(true);
+  }
+
+  function closeTeamDialog() {
+    setTeamDialogOpen(false);
+    setTeamEditing(null);
+    setTeamForm(EMPTY_TEAM_FORM);
+  }
+
+  async function saveTeamMember() {
+    const name = teamForm.name.trim();
+    if (!name) {
+      toast({ title: "Le nom est obligatoire.", variant: "destructive" });
+      return;
+    }
+    const role = teamForm.role.trim();
+    if (!role) {
+      toast({ title: "La fonction est obligatoire.", variant: "destructive" });
+      return;
+    }
+    const email = teamForm.email.trim();
+    if (email && !EMAIL_RE.test(email)) {
+      toast({
+        title: "Adresse e-mail invalide",
+        description: "Saisissez une adresse valide (ou laissez le champ vide).",
+        variant: "destructive",
+      });
+      return;
+    }
+    setTeamSaving(true);
+    try {
+      const payload = {
+        name,
+        role,
+        bio: teamForm.bio.trim() || null,
+        email: email || null,
+        photo_media_id: teamForm.photo_media_id,
+        position: parsePosition(teamForm.position),
+        is_active: teamForm.is_active,
+      };
+      if (teamEditing) {
+        await apiFetch(
+          `/api/admin/team/${encodeURIComponent(teamEditing.id)}`,
+          { method: "PATCH", json: payload }
+        );
+        toast({ title: "Membre enregistré." });
+      } else {
+        await apiFetch("/api/admin/team", { method: "POST", json: payload });
+        toast({ title: "Membre ajouté à l'équipe." });
+      }
+      closeTeamDialog();
+      await loadTeam();
+    } catch (error) {
+      toast({
+        title: "Enregistrement impossible",
+        description: errorMessage(error),
+        variant: "destructive",
+      });
+    } finally {
+      setTeamSaving(false);
+    }
+  }
+
+  async function toggleTeamActive(member: TeamMemberRow, checked: boolean) {
+    setTeamTogglingId(member.id);
+    try {
+      await apiFetch(`/api/admin/team/${encodeURIComponent(member.id)}`, {
+        method: "PATCH",
+        json: { is_active: checked },
+      });
+      setTeam((rows) =>
+        rows
+          ? rows.map((row) =>
+              row.id === member.id ? { ...row, is_active: checked } : row
+            )
+          : rows
+      );
+      toast({
+        title: checked
+          ? "Membre affiché sur le site."
+          : "Membre masqué du site.",
+      });
+    } catch (error) {
+      toast({
+        title: "Action impossible",
+        description: errorMessage(error),
+        variant: "destructive",
+      });
+    } finally {
+      setTeamTogglingId(null);
+    }
+  }
+
+  async function confirmDeleteTeamMember() {
+    if (!teamDeleting) return;
+    setTeamDeleteBusy(true);
+    try {
+      await apiFetch(`/api/admin/team/${encodeURIComponent(teamDeleting.id)}`, {
+        method: "DELETE",
+      });
+      toast({ title: "Membre supprimé." });
+      setTeamDeleting(null);
+      await loadTeam();
+    } catch (error) {
+      toast({
+        title: "Suppression impossible",
+        description: errorMessage(error),
+        variant: "destructive",
+      });
+    } finally {
+      setTeamDeleteBusy(false);
+    }
+  }
+
   const redirectsPageCount = Math.max(
     1,
     Math.ceil(redirectsTotal / REDIRECT_PAGE_SIZE)
@@ -914,6 +1259,8 @@ export function PagesClient() {
           <TabsTrigger value="pages">Pages</TabsTrigger>
           <TabsTrigger value="banners">Bannières</TabsTrigger>
           <TabsTrigger value="redirects">Redirections</TabsTrigger>
+          <TabsTrigger value="partners">Partenaires</TabsTrigger>
+          <TabsTrigger value="team">Équipe</TabsTrigger>
         </TabsList>
 
         {/* ── Onglet Pages ─────────────────────────────────────────────── */}
@@ -1139,13 +1486,45 @@ export function PagesClient() {
 
                   <div className="space-y-1.5">
                     <Label>Contenu de la page</Label>
-                    <BlockEditor
-                      blocks={form.blocks}
-                      onChange={(blocks) =>
-                        setForm((f) => ({ ...f, blocks }))
-                      }
+                    <p className="text-xs text-ink-faint">
+                      Rédigez librement : texte, images, titres — comme dans
+                      Word.
+                    </p>
+                    <SimpleEditor
+                      initialHtml={pageHtml}
+                      onChange={setPageHtml}
+                      labels={{
+                        insertVideo: "Insérer une vidéo",
+                        videoUrl: "URL de la vidéo",
+                        confirm: "Insérer",
+                        cancel: "Annuler",
+                        pickImage: "Choisir une image (médiathèque)",
+                      }}
                     />
                   </div>
+
+                  {calloutTab !== null ? (
+                    <div
+                      className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-rule bg-paper-sunk px-4 py-3"
+                      role="note"
+                    >
+                      <p className="text-sm text-ink-soft">
+                        {calloutTab === "partners"
+                          ? "Logos et noms des partenaires : onglet « Partenaires »."
+                          : "Photos, noms et fonctions de l'équipe : onglet « Équipe »."}
+                      </p>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => goToCalloutTab(calloutTab)}
+                      >
+                        {calloutTab === "partners"
+                          ? "Gérer les partenaires"
+                          : "Gérer l'équipe"}
+                        <ArrowRight aria-hidden />
+                      </Button>
+                    </div>
+                  ) : null}
 
                   <div className="flex items-center justify-end gap-2 border-t border-rule pt-4">
                     <Button
@@ -1501,6 +1880,266 @@ export function PagesClient() {
             ) : null}
           </section>
         </TabsContent>
+
+        {/* ── Onglet Partenaires ──────────────────────────────────────── */}
+        <TabsContent value="partners" className="space-y-4">
+          <section
+            aria-label="Liste des partenaires"
+            className="border border-rule bg-paper"
+          >
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-rule px-4 py-3">
+              <div>
+                <h2 className="font-serif text-lg font-semibold">
+                  Partenaires
+                </h2>
+                <p className="text-xs text-ink-faint">
+                  Nom, logo et lien de chaque partenaire — ils défilent
+                  automatiquement sur le site.
+                </p>
+              </div>
+              <Button size="sm" onClick={openCreatePartner}>
+                <Plus aria-hidden />
+                Ajouter un partenaire
+              </Button>
+            </div>
+
+            {partners === null ? (
+              partnersError ? (
+                <LoadErrorCard onRetry={() => void loadPartners()} />
+              ) : (
+                <ListSkeleton />
+              )
+            ) : partners.length === 0 ? (
+              <div className="flex flex-col items-center gap-3 px-4 py-12 text-center">
+                <Handshake className="h-8 w-8 text-ink-faint" aria-hidden />
+                <p className="text-sm text-ink-soft">
+                  Aucun partenaire. Ajoutez les institutions, médias et
+                  entreprises qui soutiennent le journal.
+                </p>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={openCreatePartner}
+                >
+                  <Plus className="mr-1.5 h-4 w-4" aria-hidden />
+                  Ajouter un partenaire
+                </Button>
+              </div>
+            ) : (
+              <div className="max-h-[34rem] overflow-y-auto">
+                <ul className="divide-y divide-rule">
+                  {partners.map((partner) => (
+                    <li
+                      key={partner.id}
+                      className="flex flex-col gap-2 px-4 py-3 transition-colors hover:bg-paper-alt sm:flex-row sm:items-center sm:gap-4"
+                    >
+                      <div className="flex min-w-0 flex-1 items-center gap-3">
+                        {partner.logo_url ? (
+                          <img
+                            src={partner.logo_url}
+                            alt={`Logo ${partner.name}`}
+                            className="h-10 w-10 shrink-0 rounded-sm border border-rule bg-paper-sunk object-contain p-0.5"
+                            loading="lazy"
+                          />
+                        ) : (
+                          <span
+                            aria-hidden
+                            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-sm border border-rule bg-paper-sunk text-xs font-bold uppercase text-ink-soft"
+                          >
+                            {initials(partner.name)}
+                          </span>
+                        )}
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-medium">
+                            {partner.name}
+                          </p>
+                          <p
+                            className="truncate font-mono text-xs text-ink-faint"
+                            title={partner.url ?? undefined}
+                          >
+                            {partner.url ?? "—"}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        {partner.category ? (
+                          <Badge
+                            variant="outline"
+                            className="font-normal text-ink-soft"
+                          >
+                            {partner.category}
+                          </Badge>
+                        ) : null}
+                        <Badge
+                          variant="outline"
+                          className="font-normal text-ink-faint"
+                        >
+                          n° {partner.position}
+                        </Badge>
+                        <Switch
+                          checked={partner.is_active}
+                          onCheckedChange={(checked) =>
+                            void togglePartnerActive(partner, checked)
+                          }
+                          disabled={partnerTogglingId === partner.id}
+                          aria-label={
+                            partner.is_active
+                              ? `Masquer le partenaire ${partner.name}`
+                              : `Afficher le partenaire ${partner.name}`
+                          }
+                        />
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => openEditPartner(partner)}
+                          aria-label={`Modifier le partenaire ${partner.name}`}
+                        >
+                          <Pencil aria-hidden />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="text-danger hover:bg-red-wash hover:text-danger"
+                          onClick={() => setPartnerDeleting(partner)}
+                          aria-label={`Supprimer le partenaire ${partner.name}`}
+                        >
+                          <Trash2 aria-hidden />
+                        </Button>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </section>
+        </TabsContent>
+
+        {/* ── Onglet Équipe ───────────────────────────────────────────── */}
+        <TabsContent value="team" className="space-y-4">
+          <section
+            aria-label="Liste des membres de l'équipe"
+            className="border border-rule bg-paper"
+          >
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-rule px-4 py-3">
+              <div>
+                <h2 className="font-serif text-lg font-semibold">
+                  Équipe de la rédaction
+                </h2>
+                <p className="text-xs text-ink-faint">
+                  Photo, fonction et bio de chaque membre — affichés sur la
+                  page « Notre équipe ».
+                </p>
+              </div>
+              <Button size="sm" onClick={openCreateTeamMember}>
+                <Plus aria-hidden />
+                Ajouter un membre
+              </Button>
+            </div>
+
+            {team === null ? (
+              teamError ? (
+                <LoadErrorCard onRetry={() => void loadTeam()} />
+              ) : (
+                <ListSkeleton />
+              )
+            ) : team.length === 0 ? (
+              <div className="flex flex-col items-center gap-3 px-4 py-12 text-center">
+                <Users className="h-8 w-8 text-ink-faint" aria-hidden />
+                <p className="text-sm text-ink-soft">
+                  Aucun membre. Ajoutez les journalistes et collaborateurs de
+                  la rédaction.
+                </p>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={openCreateTeamMember}
+                >
+                  <Plus className="mr-1.5 h-4 w-4" aria-hidden />
+                  Ajouter un membre
+                </Button>
+              </div>
+            ) : (
+              <div className="max-h-[34rem] overflow-y-auto">
+                <ul className="divide-y divide-rule">
+                  {team.map((member) => (
+                    <li
+                      key={member.id}
+                      className="flex flex-col gap-2 px-4 py-3 transition-colors hover:bg-paper-alt sm:flex-row sm:items-center sm:gap-4"
+                    >
+                      <div className="flex min-w-0 flex-1 items-center gap-3">
+                        {member.photo_url ? (
+                          <img
+                            src={member.photo_url}
+                            alt={`Photo de ${member.name}`}
+                            className="h-10 w-10 shrink-0 rounded-full border border-rule bg-paper-sunk object-cover"
+                            loading="lazy"
+                          />
+                        ) : (
+                          <span
+                            aria-hidden
+                            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-rule bg-paper-sunk text-xs font-bold uppercase text-ink-soft"
+                          >
+                            {initials(member.name)}
+                          </span>
+                        )}
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-medium">
+                            {member.name}
+                          </p>
+                          <p className="truncate text-xs text-ink-faint">
+                            {member.role}
+                            {member.email ? ` · ${member.email}` : ""}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Badge
+                          variant="outline"
+                          className="font-normal text-ink-faint"
+                        >
+                          n° {member.position}
+                        </Badge>
+                        <Switch
+                          checked={member.is_active}
+                          onCheckedChange={(checked) =>
+                            void toggleTeamActive(member, checked)
+                          }
+                          disabled={teamTogglingId === member.id}
+                          aria-label={
+                            member.is_active
+                              ? `Masquer ${member.name} du site`
+                              : `Afficher ${member.name} sur le site`
+                          }
+                        />
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => openEditTeamMember(member)}
+                          aria-label={`Modifier le membre ${member.name}`}
+                        >
+                          <Pencil aria-hidden />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="text-danger hover:bg-red-wash hover:text-danger"
+                          onClick={() => setTeamDeleting(member)}
+                          aria-label={`Supprimer le membre ${member.name}`}
+                        >
+                          <Trash2 aria-hidden />
+                        </Button>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </section>
+        </TabsContent>
       </Tabs>
 
       {/* ── Dialogue bannière (création / édition) ─────────────────────── */}
@@ -1821,6 +2460,382 @@ export function PagesClient() {
         </DialogContent>
       </Dialog>
 
+      {/* ── Dialogue partenaire (création / édition) ─────────────────── */}
+      <Dialog
+        open={partnerDialogOpen}
+        onOpenChange={(open) => {
+          if (!open) closePartnerDialog();
+        }}
+      >
+        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>
+              {partnerEditing ? "Modifier le partenaire" : "Nouveau partenaire"}
+            </DialogTitle>
+            <DialogDescription>
+              Nom, logo et lien affichés sur la page « Nos partenaires » et
+              dans le défilement automatique du site.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="grid gap-4 py-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="partner-name">
+                Nom <span className="text-brand-red">*</span>
+              </Label>
+              <Input
+                id="partner-name"
+                value={partnerForm.name}
+                onChange={(e) =>
+                  setPartnerForm((f) => ({ ...f, name: e.target.value }))
+                }
+                placeholder="Ex. : Fondation INFOSPRO"
+                required
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="partner-category">Catégorie</Label>
+              <Input
+                id="partner-category"
+                value={partnerForm.category}
+                onChange={(e) =>
+                  setPartnerForm((f) => ({ ...f, category: e.target.value }))
+                }
+                placeholder="Institutions, Médias, Entreprises…"
+              />
+              <p className="text-xs text-ink-faint">
+                Catégorie libre utilisée pour grouper les partenaires sur la
+                page publique.
+              </p>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="partner-url">Lien web</Label>
+              <Input
+                id="partner-url"
+                value={partnerForm.url}
+                onChange={(e) =>
+                  setPartnerForm((f) => ({ ...f, url: e.target.value }))
+                }
+                placeholder="https://www.exemple.com"
+                className="font-mono"
+              />
+              <p className="text-xs text-ink-faint">
+                URL optionnelle commençant par http:// ou https://.
+              </p>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label>Logo</Label>
+              {partnerForm.logo_preview_url ? (
+                <div className="flex items-center gap-4 rounded-md border border-rule p-3">
+                  <img
+                    src={partnerForm.logo_preview_url}
+                    alt="Aperçu du logo"
+                    className="h-16 w-16 shrink-0 object-contain"
+                  />
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setPartnerPickerOpen(true)}
+                    >
+                      Changer
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-danger hover:bg-red-wash hover:text-danger"
+                      onClick={() =>
+                        setPartnerForm((f) => ({
+                          ...f,
+                          logo_media_id: null,
+                          logo_preview_url: null,
+                        }))
+                      }
+                    >
+                      Retirer
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setPartnerPickerOpen(true)}
+                  className="flex w-full flex-col items-center gap-2 rounded-md border border-dashed border-rule bg-paper-alt px-4 py-8 text-ink-soft transition-colors hover:border-brand-red hover:text-ink"
+                >
+                  <ImageIcon className="h-6 w-6" aria-hidden />
+                  <span className="text-sm">
+                    Choisir le logo (médiathèque)
+                  </span>
+                </button>
+              )}
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label htmlFor="partner-position">Position</Label>
+                <Input
+                  id="partner-position"
+                  type="number"
+                  min={0}
+                  value={partnerForm.position}
+                  onChange={(e) =>
+                    setPartnerForm((f) => ({
+                      ...f,
+                      position: e.target.value,
+                    }))
+                  }
+                  className="w-24"
+                />
+                <p className="text-xs text-ink-faint">
+                  Ordre d&apos;affichage croissant.
+                </p>
+              </div>
+              <div className="flex items-center justify-between rounded-md border border-rule p-3">
+                <Label htmlFor="partner-active" className="text-sm font-normal">
+                  Actif
+                </Label>
+                <Switch
+                  id="partner-active"
+                  checked={partnerForm.is_active}
+                  onCheckedChange={(checked) =>
+                    setPartnerForm((f) => ({ ...f, is_active: checked }))
+                  }
+                />
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={closePartnerDialog}
+              disabled={partnerSaving}
+            >
+              Annuler
+            </Button>
+            <Button
+              onClick={() => void savePartner()}
+              disabled={partnerSaving || partnerForm.name.trim().length === 0}
+            >
+              {partnerSaving ? (
+                <Loader2 className="animate-spin" aria-hidden />
+              ) : null}
+              {partnerEditing ? "Enregistrer" : "Ajouter le partenaire"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <MediaPicker
+        open={partnerPickerOpen}
+        onOpenChange={setPartnerPickerOpen}
+        filterType="image"
+        title="Choisir le logo"
+        onSelect={(media) =>
+          setPartnerForm((f) => ({
+            ...f,
+            logo_media_id: media.id,
+            logo_preview_url: media.url,
+          }))
+        }
+      />
+
+      {/* ── Dialogue membre de l'équipe (création / édition) ─────────── */}
+      <Dialog
+        open={teamDialogOpen}
+        onOpenChange={(open) => {
+          if (!open) closeTeamDialog();
+        }}
+      >
+        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>
+              {teamEditing ? "Modifier le membre" : "Nouveau membre"}
+            </DialogTitle>
+            <DialogDescription>
+              Photo, fonction et bio affichés sur la page « Notre équipe ».
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="grid gap-4 py-2">
+            <div className="space-y-1.5">
+              <Label>Photo</Label>
+              {teamForm.photo_preview_url ? (
+                <div className="flex items-center gap-4 rounded-md border border-rule p-3">
+                  <img
+                    src={teamForm.photo_preview_url}
+                    alt="Aperçu de la photo"
+                    className="h-16 w-16 shrink-0 rounded-full object-cover"
+                  />
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setTeamPickerOpen(true)}
+                    >
+                      Changer
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-danger hover:bg-red-wash hover:text-danger"
+                      onClick={() =>
+                        setTeamForm((f) => ({
+                          ...f,
+                          photo_media_id: null,
+                          photo_preview_url: null,
+                        }))
+                      }
+                    >
+                      Retirer
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setTeamPickerOpen(true)}
+                  className="flex w-full flex-col items-center gap-2 rounded-md border border-dashed border-rule bg-paper-alt px-4 py-8 text-ink-soft transition-colors hover:border-brand-red hover:text-ink"
+                >
+                  <ImageIcon className="h-6 w-6" aria-hidden />
+                  <span className="text-sm">
+                    Choisir la photo (médiathèque)
+                  </span>
+                </button>
+              )}
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label htmlFor="team-name">
+                  Nom <span className="text-brand-red">*</span>
+                </Label>
+                <Input
+                  id="team-name"
+                  value={teamForm.name}
+                  onChange={(e) =>
+                    setTeamForm((f) => ({ ...f, name: e.target.value }))
+                  }
+                  placeholder="Ex. : Awa GBESSI"
+                  required
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="team-role">
+                  Fonction <span className="text-brand-red">*</span>
+                </Label>
+                <Input
+                  id="team-role"
+                  value={teamForm.role}
+                  onChange={(e) =>
+                    setTeamForm((f) => ({ ...f, role: e.target.value }))
+                  }
+                  placeholder="Rédactrice en chef"
+                  required
+                />
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="team-bio">Bio</Label>
+              <Textarea
+                id="team-bio"
+                rows={4}
+                value={teamForm.bio}
+                onChange={(e) =>
+                  setTeamForm((f) => ({ ...f, bio: e.target.value }))
+                }
+                placeholder="Quelques lignes sur le parcours du membre…"
+              />
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label htmlFor="team-email">E-mail</Label>
+                <Input
+                  id="team-email"
+                  type="email"
+                  value={teamForm.email}
+                  onChange={(e) =>
+                    setTeamForm((f) => ({ ...f, email: e.target.value }))
+                  }
+                  placeholder="prenom.nom@infospro.example"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="team-position">Position</Label>
+                <Input
+                  id="team-position"
+                  type="number"
+                  min={0}
+                  value={teamForm.position}
+                  onChange={(e) =>
+                    setTeamForm((f) => ({ ...f, position: e.target.value }))
+                  }
+                  className="w-24"
+                />
+                <p className="text-xs text-ink-faint">
+                  Ordre d&apos;affichage croissant.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between rounded-md border border-rule p-3">
+              <Label htmlFor="team-active" className="text-sm font-normal">
+                Actif
+              </Label>
+              <Switch
+                id="team-active"
+                checked={teamForm.is_active}
+                onCheckedChange={(checked) =>
+                  setTeamForm((f) => ({ ...f, is_active: checked }))
+                }
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={closeTeamDialog}
+              disabled={teamSaving}
+            >
+              Annuler
+            </Button>
+            <Button
+              onClick={() => void saveTeamMember()}
+              disabled={
+                teamSaving ||
+                teamForm.name.trim().length === 0 ||
+                teamForm.role.trim().length === 0
+              }
+            >
+              {teamSaving ? (
+                <Loader2 className="animate-spin" aria-hidden />
+              ) : null}
+              {teamEditing ? "Enregistrer" : "Ajouter le membre"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <MediaPicker
+        open={teamPickerOpen}
+        onOpenChange={setTeamPickerOpen}
+        filterType="image"
+        title="Choisir la photo"
+        onSelect={(media) =>
+          setTeamForm((f) => ({
+            ...f,
+            photo_media_id: media.id,
+            photo_preview_url: media.url,
+          }))
+        }
+      />
+
       {/* ── Confirmation de suppression (page) ────────────────────────── */}
       <AlertDialog
         open={deleting !== null}
@@ -1920,6 +2935,79 @@ export function PagesClient() {
               }}
             >
               {redirectDeleteBusy ? (
+                <Loader2 className="animate-spin" aria-hidden />
+              ) : null}
+              Supprimer
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* ── Confirmation de suppression (partenaire) ─────────────────── */}
+      <AlertDialog
+        open={partnerDeleting !== null}
+        onOpenChange={(open) => {
+          if (!open) setPartnerDeleting(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Supprimer ce partenaire ?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Le partenaire « {partnerDeleting?.name} » ne sera plus affiché
+              sur la page « Nos partenaires » ni dans le défilement du site.
+              Cette action est irréversible.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={partnerDeleteBusy}>
+              Annuler
+            </AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-danger text-white hover:bg-danger/90"
+              disabled={partnerDeleteBusy}
+              onClick={(e) => {
+                e.preventDefault();
+                void confirmDeletePartner();
+              }}
+            >
+              {partnerDeleteBusy ? (
+                <Loader2 className="animate-spin" aria-hidden />
+              ) : null}
+              Supprimer
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* ── Confirmation de suppression (membre de l'équipe) ────────── */}
+      <AlertDialog
+        open={teamDeleting !== null}
+        onOpenChange={(open) => {
+          if (!open) setTeamDeleting(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Supprimer ce membre ?</AlertDialogTitle>
+            <AlertDialogDescription>
+              « {teamDeleting?.name} » ({teamDeleting?.role}) sera retiré de
+              la page « Notre équipe ». Cette action est irréversible.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={teamDeleteBusy}>
+              Annuler
+            </AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-danger text-white hover:bg-danger/90"
+              disabled={teamDeleteBusy}
+              onClick={(e) => {
+                e.preventDefault();
+                void confirmDeleteTeamMember();
+              }}
+            >
+              {teamDeleteBusy ? (
                 <Loader2 className="animate-spin" aria-hidden />
               ) : null}
               Supprimer

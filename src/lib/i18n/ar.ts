@@ -239,6 +239,7 @@ export const arDictionary: Dictionary = {
   "public.nav.videos": "فيديو",
   "public.nav.podcast": "بودكاست",
   "public.nav.dossiers": "ملفات",
+  "public.nav.about": "من نحن",
 
   // ─── فهرس /rubriques ──────────────────────────────────────────────
   "public.rubriques.pageTitle": "الأقسام",

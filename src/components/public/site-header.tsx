@@ -105,7 +105,7 @@ function NavLinks({ items }: { items: NavItem[] }) {
             href={item.href}
             target={openNewTab ? "_blank" : undefined}
             rel={openNewTab ? "noopener noreferrer" : undefined}
-            className={`group relative flex h-11 items-center whitespace-nowrap px-3 text-sm font-semibold tracking-wide transition-colors duration-200 hover:text-white lg:px-4 ${
+            className={`group relative flex h-11 items-center whitespace-nowrap px-2.5 text-[0.83rem] font-semibold tracking-wide transition-colors duration-200 hover:text-white xl:px-3 ${
               highlighted ? "text-red-bright" : "text-white/90"
             }`}
           >
@@ -137,14 +137,17 @@ export async function SiteHeader() {
   // « main » pointe déjà vers l'une de ces routes). Vidéos suit le flag
   // features.tv, lu comme /video : absent ou "true" = actif.
   const tvEnabled = settings["features.tv"] !== "false";
+  // Le menu doit rester LISIBLE et tenir dans la bande sans défilement :
+  // rubriques de la base plafonnées + liens essentiels (À propos, Vidéos,
+  // Podcast). Rubriques/Dossiers/équivalent restent dans le footer et le
+  // menu mobile.
   const staticItems: NavItem[] = [
-    { label: translate("public.nav.rubriques"), href: "/rubriques" },
+    { label: translate("public.nav.about"), href: "/pages/a-propos" },
     ...(tvEnabled ? [{ label: translate("public.nav.videos"), href: "/video" }] : []),
     { label: translate("public.nav.podcast"), href: "/podcast" },
-    { label: translate("public.nav.dossiers"), href: "/dossiers" },
   ];
   const seenHrefs = new Set(dbItems.map((it) => it.href));
-  const items = [...dbItems, ...staticItems.filter((it) => !seenHrefs.has(it.href))];
+  const items = [...dbItems.slice(0, 7), ...staticItems.filter((it) => !seenHrefs.has(it.href))];
 
   return (
     <header className="bg-paper">

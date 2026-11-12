@@ -233,6 +233,7 @@ export const zhDictionary: Dictionary = {
   "public.nav.videos": "视频",
   "public.nav.podcast": "播客",
   "public.nav.dossiers": "专题",
+  "public.nav.about": "关于我们",
 
   // ─── /rubriques 索引页 ────────────────────────────────────────────
   "public.rubriques.pageTitle": "栏目",

@@ -240,6 +240,7 @@ export const enDictionary: Dictionary = {
   "public.nav.videos": "Videos",
   "public.nav.podcast": "Podcast",
   "public.nav.dossiers": "Special Reports",
+  "public.nav.about": "About",
 
   // ─── /rubriques index ─────────────────────────────────────────────
   "public.rubriques.pageTitle": "Sections",

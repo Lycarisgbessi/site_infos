@@ -240,6 +240,7 @@ export const esDictionary: Dictionary = {
   "public.nav.videos": "Vídeos",
   "public.nav.podcast": "Podcast",
   "public.nav.dossiers": "Especiales",
+  "public.nav.about": "Acerca de",
 
   // ─── Índice /rubriques ────────────────────────────────────────────
   "public.rubriques.pageTitle": "Secciones",

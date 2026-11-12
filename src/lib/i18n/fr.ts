@@ -248,6 +248,7 @@ export const frDictionary = {
   "public.nav.videos": "Vidéos",
   "public.nav.podcast": "Podcast",
   "public.nav.dossiers": "Dossiers",
+  "public.nav.about": "À propos",
 
   // ─── Index /rubriques ─────────────────────────────────────────────
   "public.rubriques.pageTitle": "Rubriques",
