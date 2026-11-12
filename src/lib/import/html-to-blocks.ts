@@ -36,6 +36,8 @@ export interface HtmlToBlocksResult {
   meta: {
     title: string | null;
     surtitre: string | null;
+    /** Sous-titre (short_title) détecté entre titre et chapeau. */
+    shortTitle?: string | null;
     lede: string | null;
   };
 }
@@ -228,7 +230,7 @@ export async function htmlToBlocks(
   // Un paragraphe court AVANT ce titre = SURTITRE (kicker).
   // Le premier paragraphe APRES le titre (40-400 car.) = CHAPEAU (lede).
   // Ces éléments sont retirés du flux : ils alimentent les champs dédiés.
-  const meta = { title: null as string | null, surtitre: null as string | null, lede: null as string | null };
+  const meta = { title: null as string | null, surtitre: null as string | null, shortTitle: null as string | null, lede: null as string | null };
   const topLevel = () =>
     Array.from(container.children).filter(
       (n): n is HTMLElement => n.nodeType === 1 && (n as HTMLElement).rawTagName?.toLowerCase() !== undefined
@@ -252,21 +254,32 @@ export async function htmlToBlocks(
       }
     }
     children[h1Index].remove();
-    // Chapeau : premier paragraphe après le titre
+    // Après le titre : sous-titre (court) puis chapeau (long) le cas échéant
     const after = children
       .slice(h1Index + 1)
       .filter((n) => !n || n.nodeType !== 1 ? false : true);
-    for (const node of after) {
-      const tag = node.rawTagName?.toLowerCase();
-      if (tag === "p" && node.querySelectorAll("img, figure").length === 0) {
-        const text = textOf(node);
-        if (text.length >= 40 && text.length <= 400) {
-          meta.lede = text;
-          node.remove();
+    const paras = after.filter((n) => n.rawTagName?.toLowerCase() === "p" && n.querySelectorAll("img, figure").length === 0);
+    const p1 = paras[0] ? textOf(paras[0]) : "";
+    const p2 = paras[1] ? textOf(paras[1]) : "";
+    if (p1.length > 0 && p1.length <= 120 && p2.length >= 40 && p2.length <= 400 && !meta.surtitre) {
+      // Titre / sous-titre / chapeau — structure Word classique
+      meta.shortTitle = p1;
+      paras[0].remove();
+      meta.lede = p2;
+      paras[1].remove();
+    } else {
+      for (const node of after) {
+        const tag = node.rawTagName?.toLowerCase();
+        if (tag === "p" && node.querySelectorAll("img, figure").length === 0) {
+          const text = textOf(node);
+          if (text.length >= 40 && text.length <= 400) {
+            meta.lede = text;
+            node.remove();
+          }
+          break; // premier paragraphe seulement (chapeau ou pas)
         }
-        break; // premier paragraphe seulement (chapeau ou pas)
+        if (tag === "h2" || tag === "h3") break; // le corps commence — pas de chapeau
       }
-      if (tag === "h2" || tag === "h3") break; // le corps commence — pas de chapeau
     }
   }
   children = topLevel();
@@ -289,6 +302,45 @@ export async function htmlToBlocks(
           if (tag === "h1") warnings.push("Un titre de niveau 1 supplémentaire a été rabattu en niveau 2 (le premier a été appliqué au champ Titre).");
           const level = tag === "h1" ? 2 : (Number(tag.slice(1)) as 2 | 3 | 4);
           blocks.push({ id: newBlockId(), type: "heading", level, text, anchor: slugifyAnchor(text) });
+          break;
+        }
+        case "figure": {
+          const videoUrl = node.getAttribute("data-video");
+          const audioUrl = node.getAttribute("data-audio");
+          if (videoUrl) {
+            const youtube = videoUrl.match(/[?&]v=([\w-]{6,})/)?.[1] ?? videoUrl.match(/youtu\.be\/([\w-]{6,})/)?.[1];
+            if (youtube) {
+              blocks.push({ id: newBlockId(), type: "video", provider: "youtube", playbackId: youtube });
+            } else if (/\.mp4($|\?)/i.test(videoUrl) || videoUrl.startsWith("media:")) {
+              blocks.push({ id: newBlockId(), type: "video", mediaId: videoUrl.startsWith("media:") ? videoUrl.slice(6) : undefined, provider: undefined, playbackId: undefined } as unknown as Block);
+            } else {
+              blocks.push({ id: newBlockId(), type: "embed", provider: videoUrl.includes("drive.google") ? "iframe" : "iframe", url: videoUrl });
+            }
+            break;
+          }
+          if (audioUrl) {
+            blocks.push({
+              id: newBlockId(),
+              type: "audio",
+              url: audioUrl.startsWith("media:") ? undefined : audioUrl,
+              mediaId: audioUrl.startsWith("media:") ? audioUrl.slice(6) : undefined,
+              driveUrl: node.getAttribute("data-drive") ?? undefined,
+              source: audioUrl.includes("drive.google") ? "drive" : "url",
+            } as unknown as Block);
+            break;
+          }
+          await walk(Array.from(node.children) as HTMLElement[]);
+          break;
+        }
+        case "img": {
+          const mediaId = node.getAttribute("data-media-id");
+          blocks.push({
+            id: newBlockId(),
+            type: "image",
+            mediaId: mediaId ?? "",
+            size: "wide",
+            caption: node.getAttribute("alt") ?? undefined,
+          } as unknown as Block);
           break;
         }
         case "p": {

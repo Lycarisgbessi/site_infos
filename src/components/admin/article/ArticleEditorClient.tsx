@@ -13,6 +13,9 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { MediaPicker, type MediaItem } from "@/components/admin/MediaPicker";
 import { BlockEditor, createEmptyBlock } from "@/components/editor/BlockEditor";
+import { SimpleEditor } from "@/components/editor/SimpleEditor";
+import { blocksToHtml } from "@/lib/import/blocks-to-html";
+import { htmlToBlocks } from "@/lib/import/html-to-blocks";
 import { computeSeoScore, type SeoScoreResult } from "@/lib/seo/score";
 import { plainTextFromBlocks } from "@/lib/blocks";
 import { apiFetch, ApiError, errorMessage } from "@/lib/api/client";
@@ -139,6 +142,10 @@ export function ArticleEditorClient({
   const [pickerOpen, setPickerOpen] = useState(false);
   const [lockedBlocks, setLockedBlocks] = useState<Set<string>>(new Set());
   const [activeTab, setActiveTab] = useState("publication");
+  // Mode de rédaction : « simple » (surface type Word) ou « blocs » (avancé)
+  const [editMode, setEditMode] = useState<"simple" | "blocks">("simple");
+  const [simpleHtml, setSimpleHtml] = useState<string | null>(null); // null = non initialisé
+
   const stateRef = useRef(article);
   stateRef.current = article;
 
@@ -154,7 +161,7 @@ export function ArticleEditorClient({
         const { data } = await apiFetch<{
           blocks: Block[];
           warnings: string[];
-          meta?: { title: string | null; surtitre: string | null; lede: string | null };
+          meta?: { title: string | null; surtitre: string | null; shortTitle?: string | null; lede: string | null };
         }>("/api/admin/articles/import", { method: "POST", body: form });
         if (data.blocks.length === 0 && !data.meta?.title) {
           toast({ title: "Rien à importer", description: "Le document ne contient pas de contenu exploitable." });
@@ -165,10 +172,15 @@ export function ArticleEditorClient({
         const mapped: string[] = [];
         setArticle((prev) => {
           const next = { ...prev, body: [...prev.body, ...data.blocks] };
+          if (editMode === "simple") setSimpleHtml(blocksToHtml(next.body));
           const meta = data.meta;
           if (meta?.title && !next.title.trim()) {
             next.title = meta.title;
             mapped.push("Titre");
+          }
+          if (meta?.shortTitle && !next.short_title?.trim()) {
+            next.short_title = meta.shortTitle;
+            mapped.push("Sous-titre");
           }
           if (meta?.surtitre && !next.kicker?.trim()) {
             next.kicker = meta.surtitre;
@@ -210,6 +222,52 @@ export function ArticleEditorClient({
       setDirty(true);
     },
     []
+  );
+
+  // Référence différée vers patch (ordre de déclaration)
+  const patchRef = useRef(patch);
+  patchRef.current = patch;
+  const articleRef = useRef(article);
+  articleRef.current = article;
+
+  // Mode simple : l'HTML est converti en blocs (anti-rebond 700 ms) pour
+  // que sauvegarde, publication et retour au mode blocs soient toujours à jour.
+  const simpleTimer = useRef<number | undefined>(undefined);
+  const onSimpleChange = useCallback(
+    (html: string) => {
+      setSimpleHtml(html);
+      window.clearTimeout(simpleTimer.current);
+      simpleTimer.current = window.setTimeout(() => {
+        void htmlToBlocks(html)
+          .then((r) => patchRef.current({ body: r.blocks }))
+          .catch(() => undefined);
+      }, 700);
+    },
+    []
+  );
+
+  const switchMode = useCallback(
+    (mode: "simple" | "blocks") => {
+      if (mode === editMode) return;
+      if (mode === "blocks") {
+        // simple → blocs : convertir immédiatement l'HTML courant
+        if (simpleHtml !== null) {
+          void htmlToBlocks(simpleHtml)
+            .then((r) => {
+              patchRef.current({ body: r.blocks });
+              setEditMode("blocks");
+            })
+            .catch(() => setEditMode("blocks"));
+          return;
+        }
+        setEditMode("blocks");
+      } else {
+        // blocs → simple : régénérer l'HTML depuis les blocs actuels
+        setSimpleHtml(blocksToHtml(articleRef.current.body));
+        setEditMode("simple");
+      }
+    },
+    [editMode, simpleHtml]
   );
 
   // ── Payload de sauvegarde (ordre contractuel §07.2 assuré côté API)
@@ -567,6 +625,44 @@ export function ArticleEditorClient({
                 {importingDoc ? "Import en cours…" : "Importer un document (.docx)"}
               </Button>
             </div>
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-rule bg-paper-alt px-3 py-2">
+              <div className="flex items-center gap-1 rounded-md bg-paper p-1 shadow-inner">
+                <button
+                  type="button"
+                  onClick={() => switchMode("simple")}
+                  aria-pressed={editMode === "simple"}
+                  className={`rounded px-3 py-1.5 text-xs font-bold uppercase tracking-wider transition-all duration-200 ${editMode === "simple" ? "bg-brand-red text-white shadow" : "text-ink-soft hover:text-ink"}`}
+                >
+                  ✏️ Rédaction simple
+                </button>
+                <button
+                  type="button"
+                  onClick={() => switchMode("blocks")}
+                  aria-pressed={editMode === "blocks"}
+                  className={`rounded px-3 py-1.5 text-xs font-bold uppercase tracking-wider transition-all duration-200 ${editMode === "blocks" ? "bg-brand-red text-white shadow" : "text-ink-soft hover:text-ink"}`}
+                >
+                  🧱 Blocs avancés
+                </button>
+              </div>
+              <p className="text-[0.7rem] text-ink-faint">
+                {editMode === "simple"
+                  ? "Interface type Word — collez votre texte, le formatage est conservé."
+                  : "Éditeur par blocs : tableaux, timelines, encarts spécialisés…"}
+              </p>
+            </div>
+            {editMode === "simple" ? (
+              <SimpleEditor
+                initialHtml={simpleHtml ?? blocksToHtml(article.body)}
+                onChange={onSimpleChange}
+                labels={{
+                  insertVideo: "Insérer une vidéo",
+                  videoUrl: "URL de la vidéo",
+                  confirm: "Insérer",
+                  cancel: "Annuler",
+                  pickImage: "Choisir une image (médiathèque)",
+                }}
+              />
+            ) : (
             <BlockEditor
               blocks={article.body}
               onChange={(blocks) => patch({ body: blocks })}
@@ -580,6 +676,7 @@ export function ArticleEditorClient({
                 })
               }
             />
+            )}
           </div>
         </div>
 

@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { AdPlacementMap } from "./AdPlacementMap";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
@@ -345,6 +346,10 @@ export function AdsClient({ canManage }: { canManage: boolean }) {
 
             <div className="space-y-1">
               <Label className="text-xs font-semibold text-ink-soft">Emplacement *</Label>
+              <AdPlacementMap
+                selected={form.slotCode}
+                onSelect={(code) => setForm({ ...form, slotCode: code })}
+              />
               <Select value={form.slotCode} onValueChange={(value) => setForm({ ...form, slotCode: value })}>
                 <SelectTrigger aria-label="Emplacement publicitaire">
                   <SelectValue placeholder="Choisir un emplacement" />
