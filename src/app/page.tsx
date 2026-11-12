@@ -32,6 +32,7 @@ import { ContinuousItem, timeAgo, HeroCard, MostReadItem, SideCard } from "@/com
 import { ContinuousFeed, type ContinuousFeedItem } from "@/components/public/continuous-feed";
 import { InterviewsCarousel } from "@/components/public/interviews-carousel";
 import { PartnersMarquee } from "@/components/public/partners-marquee";
+import { HeroCarousel, type HeroSlide } from "@/components/public/hero-carousel";
 import { listActivePartners } from "@/server/services/partners";
 import { DossierBlock, OpinionCards, SectionBlock, VideoSection, WorldGrid } from "@/components/public/section-block";
 import { NewsletterBlock } from "@/components/public/newsletter-block";
@@ -79,6 +80,24 @@ function toFeedItems(
       today: t("public.time.today"),
       yesterday: t("public.time.yesterday"),
     }),
+  }));
+}
+
+function toHeroSlides(articles: PublicArticle[], t: Translator): HeroSlide[] {
+  const now = new Date();
+  return articles.map((a) => ({
+    id: a.id,
+    slug: a.slug,
+    title: a.title,
+    shortTitle: a.shortTitle ?? null,
+    lede: a.lede,
+    categoryName: a.category?.name ?? null,
+    categoryColor: a.category?.colorAccent ?? null,
+    coverUrl: a.cover?.url ?? null,
+    coverAlt: a.cover?.alt ?? null,
+    timeAgoLabel: timeAgo(a.publishedAt, now, { today: t("public.time.today"), yesterday: t("public.time.yesterday") }),
+    readingTimeMin: a.readingTimeMin,
+    videoPreview: a.videoPreview ?? null,
   }));
 }
 
@@ -207,7 +226,15 @@ export default async function HomePage() {
               <h1 className="kicker text-ink">{translate("public.une.title")}</h1>
             </header>
             <div className="hero-stage grid gap-6 lg:grid-cols-[2fr_1fr]">
-              <HeroCard article={heroMain} />
+              <HeroCarousel
+                slides={toHeroSlides(hero, translate)}
+                labels={{
+                  read: translate("public.card.readTime"),
+                  watch: translate("public.interviews.watch"),
+                  prev: "Article précédent",
+                  next: "Article suivant",
+                }}
+              />
               <div className="flex flex-col gap-3 border-t border-rule pt-3 lg:border-t-0 lg:pt-0">
                 {heroSide.map((a, i) => (
                   <Reveal key={a.id} variant="right" delay={i * 90}>
@@ -470,7 +497,15 @@ function ComposedMain({ blocks, adCampaigns, tvEnabled, weatherEnabled, translat
           <h1 className="kicker text-ink">{b.title ?? translate("public.une.title")}</h1>
         </header>
         <div className="hero-stage grid gap-6 lg:grid-cols-[2fr_1fr]">
-          <HeroCard article={heroMain} />
+          <HeroCarousel
+            slides={toHeroSlides(b.articles, translate)}
+            labels={{
+              read: translate("public.card.readTime"),
+              watch: translate("public.interviews.watch"),
+              prev: "Article précédent",
+              next: "Article suivant",
+            }}
+          />
           <div className="flex flex-col gap-3 border-t border-rule pt-3 lg:border-t-0 lg:pt-0">
             {heroSide.map((a, i) => (
               <Reveal key={a.id} variant="right" delay={i * 90}>
