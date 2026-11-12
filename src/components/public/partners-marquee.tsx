@@ -1,12 +1,10 @@
 "use client";
 
-import Link from "next/link";
-
 /**
- * Bandeau des logos partenaires — défilement horizontal AUTONOME en boucle
- * (piste dupliquée ×2, translation -50 %), pause au survol, repli statique
- * en prefers-reduced-motion. Cartes claires, logos nets (object-contain,
- * jamais déformés), légèrement grisés puis en couleurs au survol.
+ * Bandeau partenaires — PREMIUM : défilement horizontal autonome en boucle
+ * parfaite (répétition suffisante du jeu de logos + piste dupliquée),
+ * cartes blanches élégantes, logos nets (object-contain), monogramme
+ * raffiné pour les partenaires sans logo, pause au survol, fondu des bords.
  */
 
 export interface MarqueePartner {
@@ -17,40 +15,60 @@ export interface MarqueePartner {
   logoAlt: string | null;
 }
 
+/** Monogramme élégant (2 initiales en serif sur fond rosé). */
+function Monogram({ name }: { name: string }) {
+  const initials = name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((w) => w[0]?.toUpperCase() ?? "")
+    .join("");
+  return (
+    <span className="flex size-14 items-center justify-center rounded-full border border-[#A4161A]/15 bg-gradient-to-br from-[#A4161A]/10 to-transparent">
+      <span className="bg-gradient-to-br from-[#A4161A] to-[#d45055] bg-clip-text font-serif text-xl font-black text-transparent">
+        {initials || "?"}
+      </span>
+    </span>
+  );
+}
+
 function PartnerCard({ partner }: { partner: MarqueePartner }) {
-  const inner = (
+  const flare = (
+    <span
+      aria-hidden
+      className="pointer-events-none absolute inset-0 -translate-x-[130%] skew-x-[-18deg] bg-gradient-to-r from-transparent via-white/50 to-transparent transition-transform duration-700 ease-out group-hover:translate-x-[520%]"
+    />
+  );
+  const inner = partner.logoUrl ? (
+    <img
+      src={partner.logoUrl}
+      alt={partner.logoAlt ?? partner.name}
+      className="max-h-16 w-auto max-w-[150px] object-contain opacity-80 saturate-[.35] transition-all duration-500 ease-out group-hover:opacity-100 group-hover:saturate-100 md:max-h-[4.5rem]"
+      loading="lazy"
+      decoding="async"
+    />
+  ) : (
     <>
-      {partner.logoUrl ? (
-        <img
-          src={partner.logoUrl}
-          alt={partner.logoAlt ?? partner.name}
-          className="h-12 w-auto max-w-[140px] object-contain opacity-75 grayscale transition-all duration-300 group-hover:opacity-100 group-hover:grayscale-0 md:h-14"
-          loading="lazy"
-          decoding="async"
-        />
-      ) : (
-        <span className="px-2 text-center font-serif text-sm font-bold leading-snug text-ink-soft transition-colors duration-300 group-hover:text-ink">
-          {partner.name}
-        </span>
-      )}
+      <Monogram name={partner.name} />
+      <span className="mt-1.5 max-w-[130px] truncate text-center text-[0.72rem] font-bold uppercase tracking-wider text-ink-soft">
+        {partner.name}
+      </span>
     </>
   );
 
   const cls =
-    "group flex h-20 w-[170px] shrink-0 items-center justify-center rounded-lg border border-rule bg-paper px-3 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:border-[#A4161A]/40 hover:shadow-md md:h-24 md:w-[190px]";
+    "group relative flex h-28 w-[180px] shrink-0 flex-col items-center justify-center overflow-hidden rounded-xl border border-rule/70 bg-white px-4 shadow-[0_1px_2px_rgba(20,18,14,0.04),0_10px_24px_-14px_rgba(20,18,14,0.18)] transition-all duration-500 ease-out hover:-translate-y-1 hover:border-[#A4161A]/35 hover:shadow-[0_2px_4px_rgba(20,18,14,0.05),0_18px_36px_-16px_rgba(164,22,26,0.35)] md:h-32 md:w-[210px]";
 
   return partner.url ? (
-    <a
-      href={partner.url}
-      target="_blank"
-      rel="noopener noreferrer"
-      className={cls}
-      aria-label={partner.name}
-    >
+    <a href={partner.url} target="_blank" rel="noopener noreferrer" className={cls} aria-label={partner.name}>
       {inner}
+      {flare}
     </a>
   ) : (
-    <div className={cls}>{inner}</div>
+    <div className={cls}>
+      {inner}
+      {flare}
+    </div>
   );
 }
 
@@ -65,39 +83,38 @@ export function PartnersMarquee({
 }) {
   if (partners.length === 0) return null;
 
-  // Trop peu de partenaires : une rangée statique centrée (défilement inutile)
-  const staticMode = partners.length < 4;
+  // Répétition du jeu pour garantir une piste large même avec 1-2
+  // partenaires — le défilement tourne TOUJOURS, en boucle parfaite.
+  const repetitions = Math.max(4, Math.ceil(10 / partners.length));
+  const sequence = Array.from({ length: repetitions }, (_, r) =>
+    partners.map((p) => ({ ...p, id: `${p.id}-${r}` })),
+  ).flat();
+  const duration = Math.min(70, Math.max(30, sequence.length * 4.2));
 
   return (
-    <section aria-label={ariaLabel} className="border-y border-rule bg-paper-alt py-4">
+    <section aria-label={ariaLabel} className="partners-band">
       {title && (
-        <p className="mb-3 text-center text-[0.68rem] font-bold uppercase tracking-[0.34em] text-ink-faint">
-          {title}
+        <p className="mb-4 flex items-center justify-center gap-3">
+          <span aria-hidden className="h-px w-10 bg-gradient-to-r from-transparent to-rule-strong" />
+          <span className="text-[0.66rem] font-bold uppercase tracking-[0.42em] text-ink-faint">{title}</span>
+          <span aria-hidden className="h-px w-10 bg-gradient-to-l from-transparent to-rule-strong" />
         </p>
       )}
 
-      {staticMode ? (
-        <div className="flex flex-wrap items-center justify-center gap-3 px-4">
-          {partners.map((p) => (
-            <PartnerCard key={p.id} partner={p} />
+      <div
+        className="pmarquee-viewport relative overflow-hidden"
+        style={{ "--pm-duration": `${duration}s` } as React.CSSProperties}
+      >
+        <div className="pmarquee-track flex w-max">
+          {[0, 1].map((dup) => (
+            <div key={dup} className="flex gap-5 px-2.5" aria-hidden={dup === 1}>
+              {sequence.map((p) => (
+                <PartnerCard key={`${dup}-${p.id}`} partner={p} />
+              ))}
+            </div>
           ))}
         </div>
-      ) : (
-        <div
-          className="pmarquee-viewport relative overflow-hidden"
-          style={{ "--pm-duration": `${Math.max(26, partners.length * 7)}s` } as React.CSSProperties}
-        >
-          <div className="pmarquee-track flex w-max">
-            {[0, 1].map((dup) => (
-              <div key={dup} className="flex gap-3 pe-3 ps-3" aria-hidden={dup === 1}>
-                {partners.map((p) => (
-                  <PartnerCard key={`${dup}-${p.id}`} partner={p} />
-                ))}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+      </div>
     </section>
   );
 }
