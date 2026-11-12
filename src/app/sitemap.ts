@@ -14,12 +14,19 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${SITE_URL}/pages/newsletters`, changeFrequency: 'weekly', priority: 0.5 },
   ];
 
-  const articles = await db.article.findMany({
-    where: { deleted_at: null, status: 'published', published_at: { lte: new Date() } },
-    select: { slug: true, updated_at: true },
-    orderBy: { published_at: 'desc' },
-    take: 5000,
-  });
+  // Résilient : si la base est injoignable au moment du build ( Neon en
+  // veille), le sitemap statique est servi — le build ne doit jamais échouer.
+  let articles: { slug: string; updated_at: Date }[] = [];
+  try {
+    articles = await db.article.findMany({
+      where: { deleted_at: null, status: 'published', published_at: { lte: new Date() } },
+      select: { slug: true, updated_at: true },
+      orderBy: { published_at: 'desc' },
+      take: 5000,
+    });
+  } catch {
+    articles = [];
+  }
 
   return [
     ...staticPages,
