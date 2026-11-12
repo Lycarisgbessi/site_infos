@@ -88,6 +88,10 @@ const patchSchema = z.object({
   status: z.enum(["active", "invited", "suspended", "disabled"]).optional(),
   role_key: z.string().trim().min(1).max(64).optional(),
   category_ids: z.array(z.string()).max(200).optional(),
+  // ── Profil auteur (nom affiché, fonction, bio) ──
+  display_name: z.string().trim().min(2).max(120).optional(),
+  job_title: z.string().trim().max(120).optional(),
+  bio: z.string().trim().max(2000).optional(),
 });
 
 // ─── PATCH — statut et/ou rôle ────────────────────────────────────────
@@ -103,9 +107,17 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     if (!body) throw new ValidationError("Corps de requête manquant.");
     const input = patchSchema.parse(body);
 
-    if (input.status === undefined && input.role_key === undefined && input.category_ids === undefined) {
+    const profileFields = ["display_name", "job_title", "bio"] as const;
+    const hasProfile = profileFields.some((k) => input[k] !== undefined);
+    if (
+      input.status === undefined &&
+      input.role_key === undefined &&
+      input.category_ids === undefined &&
+      !hasProfile
+    ) {
       throw new ValidationError("Aucune modification fournie.");
     }
+
 
     const target = await db.user.findFirst({
       where: { id, deleted_at: null },
@@ -123,6 +135,25 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     });
     if (!target) {
       return apiError(404, "NOT_FOUND", "Utilisateur introuvable.");
+    }
+
+    // Profil seul : mise à jour directe du compte (nom, fonction, bio).
+    if (hasProfile && input.status === undefined && input.role_key === undefined && input.category_ids === undefined) {
+      const data: Record<string, string | null> = {};
+      if (input.display_name !== undefined) data.display_name = input.display_name;
+      if (input.job_title !== undefined) data.job_title = input.job_title || null;
+      if (input.bio !== undefined) data.bio = input.bio || null;
+      const row = await db.user.update({ where: { id }, data, select: userItemSelect });
+      await auditLog({
+        userId: session.user.id,
+        action: "user.profile_update",
+        resourceType: "user",
+        resourceId: id,
+        before: { name: target.email },
+        after: { display_name: data.display_name ?? null, job_title: data.job_title ?? null },
+        request: ctx,
+      });
+      return apiOk(serializeUser(row));
     }
 
     // Garde-fou 1 : on ne modifie jamais son propre compte (§11.2).

@@ -73,12 +73,6 @@ export async function TopBar() {
               {translate("public.topbar.advertise")}
             </Link>
           </div>
-          <Link
-            href="/login?next=/admin"
-            className="bg-ink px-2.5 py-1 font-semibold text-white shadow-sm transition-colors duration-200 hover:bg-black"
-          >
-            {translate("public.topbar.desk")}
-          </Link>
         </nav>
       </div>
     </div>
@@ -189,7 +183,7 @@ export async function SiteHeader() {
         className="sticky top-0 z-40 border-b-2 border-brand-red bg-[#0a0a0b] shadow-[0_4px_16px_rgba(0,0,0,0.25)]"
       >
         <div className="container-page flex items-center justify-between">
-          <MobileMenu items={items} deskLabel={translate("public.topbar.desk")} deskHref="/login?next=/admin" />
+          <MobileMenu items={items} />
           <div className="hidden items-center overflow-x-auto scrollbar-none md:flex">
             <NavLinks items={items} />
           </div>
@@ -200,12 +194,6 @@ export async function SiteHeader() {
               title={translate("public.language.switcher")}
             />
             <ThemeToggle />
-            <Link
-              href="/login?next=/admin"
-              className="hidden h-11 shrink-0 items-center border-s border-white/20 px-4 text-sm font-semibold text-white/80 transition-colors duration-200 hover:text-red-bright md:flex"
-            >
-              {translate("public.topbar.desk")}
-            </Link>
           </div>
         </div>
       </nav>

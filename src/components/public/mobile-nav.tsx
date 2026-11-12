@@ -30,7 +30,7 @@ export function ThemeToggle() {
 
 interface NavItem { label: string; href: string; }
 
-export function MobileMenu({ items, deskLabel, deskHref }: { items: NavItem[]; deskLabel: string; deskHref: string }) {
+export function MobileMenu({ items }: { items: NavItem[] }) {
   const [open, setOpen] = useState(false);
   useEffect(() => {
     document.body.style.overflow = open ? "hidden" : "";
@@ -47,7 +47,7 @@ export function MobileMenu({ items, deskLabel, deskHref }: { items: NavItem[]; d
       </button>
       {open && (
         <div className="fixed inset-0 z-50 md:hidden">
-          <div className="absolute inset-0 bg-ink/60 backdrop-blur-sm" onClick={() => setOpen(false)} />
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setOpen(false)} />
           <nav className="animate-fade-in-up absolute inset-y-0 start-0 w-[280px] max-w-[85vw] scrollbar-none overflow-y-auto bg-[#0a0a0b] shadow-2xl">
             <div className="flex h-14 items-center justify-between border-b border-rule px-4">
               <span className="font-serif text-lg font-black tracking-tight">INFOS<span className="text-brand-red">PRO</span></span>
@@ -57,11 +57,10 @@ export function MobileMenu({ items, deskLabel, deskHref }: { items: NavItem[]; d
             </div>
             <ul className="divide-y divide-rule overflow-y-auto px-2 py-2">
               {items.map((item) => (
-                <li key={item.label}><Link href={item.href} onClick={() => setOpen(false)} className="block border-b border-paper/10 px-3 py-3 text-sm font-semibold text-paper/90 transition-colors hover:bg-paper/10 hover:text-red-bright">{item.label}</Link></li>
+                <li key={item.label}><Link href={item.href} onClick={() => setOpen(false)} className="block border-b border-white/10 px-3 py-3 text-sm font-semibold text-white/90 transition-colors hover:bg-white/10 hover:text-red-bright">{item.label}</Link></li>
               ))}
             </ul>
             <div className="border-t border-rule p-4">
-              <Link href={deskHref} className="block bg-brand-red px-4 py-2.5 text-center text-sm font-bold text-white transition-colors hover:bg-red-deep">{deskLabel}</Link>
             </div>
           </nav>
         </div>

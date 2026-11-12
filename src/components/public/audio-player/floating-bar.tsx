@@ -81,7 +81,7 @@ export function AudioFloatingBar({ labels }: { labels: { play: string; pause: st
     <div
       role="region"
       aria-label={track.title}
-      className="animate-slide-in-up fixed inset-x-0 bottom-0 z-50 border-t border-rule bg-ink/97 text-paper shadow-[0_-4px_16px_rgba(0,0,0,0.25)] backdrop-blur supports-[backdrop-filter]:bg-ink/92"
+      className="animate-slide-in-up fixed inset-x-0 bottom-0 z-50 border-t border-white/10 bg-[#0E0D0C]/97 text-white shadow-[0_-4px_16px_rgba(0,0,0,0.25)] backdrop-blur supports-[backdrop-filter]:bg-[#0E0D0C]/92"
     >
       <audio
         ref={audioRef}
@@ -101,14 +101,14 @@ export function AudioFloatingBar({ labels }: { labels: { play: string; pause: st
       {embedUrl && panelOpen && (
         <div className="border-b border-paper/15">
           <div className="container-page flex items-center gap-2 px-4 pt-2">
-            <p className="min-w-0 flex-1 truncate text-[0.7rem] uppercase tracking-widest text-paper/60">
+            <p className="min-w-0 flex-1 truncate text-[0.7rem] uppercase tracking-widest text-white/60">
               Aperçu Google Drive · {track.title}
             </p>
             <button
               type="button"
               onClick={() => setPanelOpen(false)}
               aria-label="Replier l'aperçu Google Drive"
-              className="flex size-7 shrink-0 items-center justify-center text-paper/60 transition-colors duration-200 hover:text-paper"
+              className="flex size-7 shrink-0 items-center justify-center text-white/60 transition-colors duration-200 hover:text-white"
             >
               <svg aria-hidden viewBox="0 0 16 16" className="size-3.5 fill-none stroke-current" strokeWidth="1.8">
                 <path d="M3 10l5-5 5 5" strokeLinecap="round" strokeLinejoin="round" />
@@ -147,12 +147,12 @@ export function AudioFloatingBar({ labels }: { labels: { play: string; pause: st
         <div className="min-w-0 flex-1">
           <p className="truncate font-serif text-sm font-bold">{track.title}</p>
           {embedUrl ? (
-            <p className="mt-1 truncate text-[0.7rem] text-paper/60">
+            <p className="mt-1 truncate text-[0.7rem] text-white/60">
               Lecture directe indisponible — lecture via l'aperçu Google Drive
             </p>
           ) : (
             <div className="mt-1 flex items-center gap-2">
-              <span className="w-9 shrink-0 text-end font-mono text-[0.65rem] text-paper/60">{formatTime(position)}</span>
+              <span className="w-9 shrink-0 text-end font-mono text-[0.65rem] text-white/60">{formatTime(position)}</span>
               <input
                 type="range"
                 min={0}
@@ -167,7 +167,7 @@ export function AudioFloatingBar({ labels }: { labels: { play: string; pause: st
                 aria-label="Position de lecture"
                 className="h-1 min-w-0 flex-1 cursor-pointer accent-[var(--brand-red,#C8102E)]"
               />
-              <span className="w-9 shrink-0 font-mono text-[0.65rem] text-paper/60">{formatTime(duration)}</span>
+              <span className="w-9 shrink-0 font-mono text-[0.65rem] text-white/60">{formatTime(duration)}</span>
             </div>
           )}
         </div>
@@ -177,7 +177,7 @@ export function AudioFloatingBar({ labels }: { labels: { play: string; pause: st
             type="button"
             onClick={() => setPanelOpen((p) => !p)}
             aria-label={panelOpen ? "Replier l'aperçu Google Drive" : "Déplier l'aperçu Google Drive"}
-            className="flex size-8 shrink-0 items-center justify-center text-paper/60 transition-colors duration-200 hover:text-paper"
+            className="flex size-8 shrink-0 items-center justify-center text-white/60 transition-colors duration-200 hover:text-white"
           >
             <svg
               aria-hidden
@@ -210,7 +210,7 @@ export function AudioFloatingBar({ labels }: { labels: { play: string; pause: st
           type="button"
           onClick={close}
           aria-label={labels.close}
-          className="flex size-8 shrink-0 items-center justify-center text-paper/60 transition-colors duration-200 hover:text-paper"
+          className="flex size-8 shrink-0 items-center justify-center text-white/60 transition-colors duration-200 hover:text-white"
         >
           <svg aria-hidden viewBox="0 0 16 16" className="size-3.5 fill-none stroke-current" strokeWidth="1.8">
             <path d="M3 3l10 10M13 3L3 13" strokeLinecap="round" />

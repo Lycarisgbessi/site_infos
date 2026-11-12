@@ -180,7 +180,7 @@ export function Chatbot() {
           aria-label="Assistant INFOSPRO"
           className="animate-slide-in-up fixed bottom-40 end-4 z-50 flex h-[26rem] w-[min(92vw,20rem)] flex-col overflow-hidden rounded-lg border border-rule bg-paper shadow-[0_12px_40px_rgba(0,0,0,0.35)]"
         >
-          <header className="flex items-center gap-2 bg-ink px-4 py-3 text-white">
+          <header className="flex items-center gap-2 bg-[#0E0D0C] px-4 py-3 text-white">
             <img src="/logo.svg" alt="" className="h-6 w-auto invert hue-rotate-180" />
             <div className="min-w-0">
               <p className="text-sm font-bold leading-tight">Assistant INFOSPRO</p>

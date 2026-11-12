@@ -41,7 +41,7 @@ async function Badge({ article }: { article: PublicArticle }) {
   }
   if (article.format === "video") {
     return (
-      <span className="inline-flex items-center gap-1 bg-ink px-2 py-0.5 text-[0.65rem] font-bold uppercase tracking-widest text-paper">
+      <span className="inline-flex items-center gap-1 bg-[#0E0D0C] px-2 py-0.5 text-[0.65rem] font-bold uppercase tracking-widest text-white">
         ▶ {translate("public.card.video")}
       </span>
     );

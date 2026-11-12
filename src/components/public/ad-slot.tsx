@@ -251,10 +251,10 @@ export async function AdNativeCard({
 async function AdSelfPromoContent() {
   const { translate } = await getTranslations();
   return (
-    <div className="bg-ink p-5 text-paper">
+    <div className="bg-[#0E0D0C] p-5 text-white">
       <p className="kicker text-red-bright">INFOSPRO</p>
       <p className="mt-2 font-serif text-lg font-bold leading-snug">{translate("public.newsletter.morningTitle")}</p>
-      <p className="mt-1 text-xs leading-relaxed text-paper/70">{translate("public.newsletter.morningDesc")}</p>
+      <p className="mt-1 text-xs leading-relaxed text-white/70">{translate("public.newsletter.morningDesc")}</p>
       <a
         href="#newsletter"
         className="mt-3 inline-block bg-brand-red px-3 py-1.5 text-xs font-bold text-white transition-colors duration-200 hover:bg-red-deep"

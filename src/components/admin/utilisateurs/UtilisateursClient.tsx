@@ -233,6 +233,12 @@ export function UtilisateursClient() {
   const [invited, setInvited] = useState<{ email: string; password: string } | null>(null);
 
   const [roleTarget, setRoleTarget] = useState<UserItem | null>(null);
+  // ── Édition du profil auteur (nom, fonction, bio) ──
+  const [profileTarget, setProfileTarget] = useState<UserItem | null>(null);
+  const [profileName, setProfileName] = useState("");
+  const [profileJob, setProfileJob] = useState("");
+  const [profileBio, setProfileBio] = useState("");
+  const [profileSaving, setProfileSaving] = useState(false);
   const [roleKey, setRoleKey] = useState("journalist");
   const [roleCats, setRoleCats] = useState<string[]>([]);
 
@@ -364,6 +370,38 @@ export function UtilisateursClient() {
     setInviteRole("journalist");
     setInviteCats([]);
     setInvited(null);
+  };
+
+  const openProfileDialog = (target: UserItem) => {
+    setProfileTarget(target);
+    setProfileName(target.display_name);
+    setProfileJob(target.job_title ?? "");
+    setProfileBio("");
+  };
+
+  const saveProfile = async () => {
+    if (!profileTarget || profileName.trim().length < 2) {
+      toast.error("Le nom doit contenir au moins 2 caractères.");
+      return;
+    }
+    setProfileSaving(true);
+    try {
+      await apiFetch(`/api/admin/users/${profileTarget.id}`, {
+        method: "PATCH",
+        json: {
+          display_name: profileName.trim(),
+          job_title: profileJob.trim(),
+          bio: profileBio.trim(),
+        },
+      });
+      toast.success(`Profil de ${profileName.trim()} mis à jour.`);
+      setProfileTarget(null);
+      await loadUsers(q);
+    } catch (error) {
+      toast.error(errorMessage(error));
+    } finally {
+      setProfileSaving(false);
+    }
   };
 
   const openRoleDialog = (target: UserItem) => {
@@ -548,6 +586,9 @@ export function UtilisateursClient() {
                             Désactiver
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
+                          <DropdownMenuItem onSelect={() => openProfileDialog(user)}>
+                            Modifier le profil (nom, fonction, bio)
+                          </DropdownMenuItem>
                           <DropdownMenuItem onSelect={() => openRoleDialog(user)}>
                             <UserCog aria-hidden="true" className="size-4" />
                             Modifier le rôle
@@ -562,6 +603,66 @@ export function UtilisateursClient() {
           </Table>
         )}
       </div>
+
+      {/* ── Dialog : profil auteur ───────────────────────────────────── */}
+      <Dialog open={!!profileTarget} onOpenChange={(v) => !v && setProfileTarget(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Modifier le profil de l&apos;auteur</DialogTitle>
+            <DialogDescription>
+              Ce nom s&apos;affiche comme signature des articles de {profileTarget?.display_name}.
+            </DialogDescription>
+          </DialogHeader>
+          <form
+            className="space-y-4"
+            onSubmit={(e) => {
+              e.preventDefault();
+              void saveProfile();
+            }}
+          >
+            <div className="space-y-1.5">
+              <Label htmlFor="profile-name">Nom affiché *</Label>
+              <Input
+                id="profile-name"
+                value={profileName}
+                onChange={(e) => setProfileName(e.target.value)}
+                maxLength={120}
+                placeholder="Ex. Fatoumata Camara"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="profile-job">Fonction</Label>
+              <Input
+                id="profile-job"
+                value={profileJob}
+                onChange={(e) => setProfileJob(e.target.value)}
+                maxLength={120}
+                placeholder="Ex. Rédactrice en chef"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="profile-bio">Bio (page auteur)</Label>
+              <textarea
+                id="profile-bio"
+                value={profileBio}
+                onChange={(e) => setProfileBio(e.target.value)}
+                maxLength={2000}
+                rows={4}
+                placeholder="Laissez vide pour conserver la bio actuelle."
+                className="w-full rounded-md border border-rule bg-paper-alt px-3 py-2 text-sm outline-none focus:border-brand-red"
+              />
+            </div>
+            <div className="flex justify-end gap-2 border-t border-rule pt-3">
+              <Button type="button" variant="outline" onClick={() => setProfileTarget(null)} disabled={profileSaving}>
+                Annuler
+              </Button>
+              <Button type="submit" disabled={profileSaving || profileName.trim().length < 2}>
+                {profileSaving ? "Enregistrement…" : "Enregistrer"}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
 
       {/* ── Dialog : invitation d'un collaborateur ──────────────────── */}
       <Dialog

@@ -42,7 +42,7 @@ function TickerTrack({
                 className="px-6 text-sm font-semibold text-white transition-colors duration-200 hover:text-white hover:underline hover:decoration-white/70 hover:underline-offset-4"
               >
                 {item.priority === 1 && (
-                  <span className="me-2 inline-block rounded-sm bg-ink px-1.5 py-0.5 text-[0.65rem] font-bold uppercase tracking-widest text-white">
+                  <span className="me-2 inline-block rounded-sm bg-[#0E0D0C] px-1.5 py-0.5 text-[0.65rem] font-bold uppercase tracking-widest text-white">
                     {urgentLabel}
                   </span>
                 )}
@@ -51,7 +51,7 @@ function TickerTrack({
             ) : (
               <span className="px-6 text-sm font-semibold text-white">
                 {item.priority === 1 && (
-                  <span className="me-2 inline-block rounded-sm bg-ink px-1.5 py-0.5 text-[0.65rem] font-bold uppercase tracking-widest text-white">
+                  <span className="me-2 inline-block rounded-sm bg-[#0E0D0C] px-1.5 py-0.5 text-[0.65rem] font-bold uppercase tracking-widest text-white">
                     {urgentLabel}
                   </span>
                 )}
@@ -77,7 +77,7 @@ export async function FlashTicker() {
     <section aria-label={translate("public.flash.label")} className="border-b-2 border-ink/20 bg-gradient-to-r from-brand-red via-red-600 to-brand-red">
       <div className="container-page flex items-stretch gap-0">
         {/* Étiquette fixe à gauche */}
-        <div className="relative z-10 flex shrink-0 items-center gap-2 bg-ink px-3 py-2 md:px-4">
+        <div className="relative z-10 flex shrink-0 items-center gap-2 bg-[#0E0D0C] px-3 py-2 md:px-4">
           <span
             aria-hidden
             className={`inline-block size-2 rounded-full bg-paper ${hasUrgent ? "animate-ping" : "animate-pulse"}`}

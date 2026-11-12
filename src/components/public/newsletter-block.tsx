@@ -61,7 +61,7 @@ export function NewsletterBlock({
   }
 
   return (
-    <section id="newsletter" aria-label={title} className="scroll-mt-20 border border-rule bg-ink text-paper">
+    <section id="newsletter" aria-label={title} className="scroll-mt-20 border border-rule bg-[#0E0D0C] text-white">
       <div className="grid gap-6 p-6 md:grid-cols-[1fr_auto] md:items-center md:p-8">
         <div>
           <p className="kicker text-red-bright">{kicker}</p>

@@ -80,7 +80,7 @@ export function HeroCarousel({
 
   return (
     <div
-      className="group/car relative aspect-[16/10] overflow-hidden rounded-lg border border-rule bg-ink shadow-[0_10px_36px_-16px_rgba(0,0,0,0.5)] sm:aspect-[16/9]"
+      className="group/car relative aspect-[16/10] overflow-hidden rounded-lg border border-rule bg-[#0E0D0C] shadow-[0_10px_36px_-16px_rgba(0,0,0,0.5)] sm:aspect-[16/9]"
       onMouseEnter={() => (paused.current = true)}
       onMouseLeave={() => (paused.current = false)}
       onFocusCapture={() => (paused.current = true)}
