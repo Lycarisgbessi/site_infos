@@ -70,8 +70,13 @@ export function MediaPicker({ open, onOpenChange, onSelect, filterType, title }:
   const uploadFiles = useCallback(
     async (files: FileList | File[]) => {
       setUploading(true);
+      const list = Array.from(files);
+      // Ids téléversés avec succès — pour l'auto-sélection (le débutant
+      // n'a plus à retrouver sa vignette dans la grille : son image est
+      // sélectionnée automatiquement dès qu'elle est en ligne).
+      const uploadedIds: string[] = [];
       try {
-        for (const file of Array.from(files)) {
+        for (const file of list) {
           const form = new FormData();
           form.set("file", file);
           form.set("title", file.name.replace(/\.[a-z0-9]+$/i, ""));
@@ -84,14 +89,37 @@ export function MediaPicker({ open, onOpenChange, onSelect, filterType, title }:
             toast({ title: "Téléversement refusé", description: payload.error?.message ?? `Erreur ${res.status}`, variant: "destructive" });
           } else if (payload.data?.media.duplicate) {
             toast({ title: "Doublon détecté", description: payload.data.warning ?? "Ce média existe déjà." });
+            uploadedIds.push(payload.data.media.id);
+          } else if (payload.data?.media.id) {
+            uploadedIds.push(payload.data.media.id);
           }
         }
         await load();
+        // Fichier unique téléversé → sélectionné automatiquement
+        if (uploadedIds.length === 1) {
+          // items vient d'être rechargé par load() ; on récupère le média
+          // frais via l'API (léger) pour éviter la fermeture de course :
+          try {
+            const { data } = await apiFetch<MediaItem[]>(`/api/admin/media?per_page=1&q=`);
+            const fresh = data.find((m) => m.id === uploadedIds[0]) ?? data[0];
+            if (fresh && fresh.id === uploadedIds[0]) {
+              toast({ title: "Image prête ✓", description: "Sélectionnée automatiquement — elle va être insérée." });
+              onSelect(fresh);
+              onOpenChange(false);
+              return;
+            }
+          } catch {
+            /* l'auto-sélection échoue silencieusement : la grille reste */
+          }
+          toast({ title: "Téléversement terminé ✓", description: "Votre fichier est en tête de liste — cliquez dessus pour l'insérer." });
+        } else if (uploadedIds.length > 1) {
+          toast({ title: `${uploadedIds.length} fichiers téléversés ✓`, description: "Cliquez sur une vignette pour l'insérer." });
+        }
       } finally {
         setUploading(false);
       }
     },
-    [load, toast]
+    [load, onOpenChange, onSelect, toast]
   );
 
   return (

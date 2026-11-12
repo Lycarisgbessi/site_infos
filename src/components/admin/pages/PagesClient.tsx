@@ -709,12 +709,17 @@ export function PagesClient() {
         },
       });
       toast({
-        title: editor.id ? "Page enregistrée." : "Page créée.",
-        description: editor.id
-          ? form.slug.trim() !== editor.originalSlug
+        title: editor.id ? "Page enregistrée." : "Page créée en BROUILLON.",
+        description: [
+          !form.is_published
+            ? "Activez l'interrupteur « Publiée » (en haut à droite) pour la rendre visible sur le site."
+            : null,
+          editor.id && form.slug.trim() !== editor.originalSlug
             ? "Une redirection 301 a été créée depuis l'ancienne adresse."
-            : undefined
-          : undefined,
+            : null,
+        ]
+          .filter(Boolean)
+          .join(" "),
       });
       setEditor(null);
       await loadPages();
@@ -1434,7 +1439,7 @@ export function PagesClient() {
                       />
                     </div>
                     <div className="space-y-1.5">
-                      <Label htmlFor="page-template">Modèle</Label>
+                      <Label htmlFor="page-template">Modèle <span className="font-normal text-ink-faint">(réservé à un usage futur — sans effet actuellement)</span></Label>
                       <Select
                         value={form.template}
                         onValueChange={(value) =>
@@ -1490,6 +1495,21 @@ export function PagesClient() {
                       Rédigez librement : texte, images, titres — comme dans
                       Word.
                     </p>
+                    {["contact", "publicite", "newsletters"].includes(form.slug) && (
+                      <p className="rounded-md border border-amber-400/60 bg-amber-50/60 px-3 py-2 text-xs leading-relaxed text-ink-soft">
+                        ⚠️ Page spéciale : une fois <strong>publiée</strong>, cette
+                        page remplace la page « {form.slug} » par défaut du site
+                        {form.slug === "newsletters"
+                          ? " (y compris le formulaire d'inscription à la newsletter)"
+                          : ""}
+                        . Si vous la dépubliez ou la supprimez, le site affichera à
+                        nouveau la page par défaut
+                        {form.slug === "contact"
+                          ? " (coordonnées définies dans Paramètres)"
+                          : ""}
+                        .
+                      </p>
+                    )}
                     <SimpleEditor
                       initialHtml={pageHtml}
                       onChange={setPageHtml}

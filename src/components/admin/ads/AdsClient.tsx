@@ -1,12 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { AdPlacementMap } from "./AdPlacementMap";
+import { AdPlacementMap, slotDims, slotHint } from "./AdPlacementMap";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
@@ -25,7 +25,7 @@ import { MediaPicker, type MediaItem } from "@/components/admin/MediaPicker";
 import { apiFetch, errorMessage } from "@/lib/api/client";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
-import { ExternalLink, Image as ImageIcon, Loader2, Megaphone, Monitor, MousePointerClick, Pencil, Plus, Power, Smartphone, Trash2, Eye } from "lucide-react";
+import { ChevronDown, ExternalLink, Image as ImageIcon, Loader2, Megaphone, Monitor, MousePointerClick, Pencil, Plus, Power, Settings, Smartphone, Trash2, Eye } from "lucide-react";
 
 /**
  * Régie publicitaire (§11.2 /admin/ads) — gestion des campagnes réelles :
@@ -87,32 +87,101 @@ const FORMAT_LABELS: Record<string, string> = {
 };
 
 /**
- * Mentions d'emplacement — où la créative est réellement affichée sur le
- * site public (usages vérifiés dans src/app/page.tsx, /video, /podcast et
- * le rendu des corps d'articles). Objectif : permettre à l'annonceur de
- * choisir un emplacement visible ; les slots sans usage frontal sont
- * signalés comme réservés.
+ * Page publique où chaque emplacement est visible (lien « Voir sur le site »).
+ * Vérifié dans src/app/page.tsx, article/[slug]/page.tsx, video, podcast.
  */
-const SLOT_HINTS: Record<string, string> = {
-  "AD-01": "Bannière haut de page accueil",
-  "AD-02": "Colonne accueil",
-  "AD-03": "Pleine largeur accueil",
-  "AD-04": "Dans les articles",
-  "AD-10": "Haut page vidéo/podcast",
-  "AD-12": "Bandeau mobile collant",
-  // Autres emplacements réellement rendus aujourd'hui :
-  "AD-06": "Pavé pied de page vidéo",
-  "AD-07": "Entre les sections accueil",
-  "AD-08": "Carte éditoriale accueil",
-  "AD-14": "Bas de colonne accueil",
-  "AD-15": "Pied de page accueil",
-  "AD-16": "Carte éditoriale accueil (météo)",
+const SLOT_VIEW_PATHS: Record<string, string> = {
+  "AD-01": "/",
+  "AD-02": "/",
+  "AD-03": "/",
+  "AD-04": "/",
+  "AD-05": "/",
+  "AD-07": "/",
+  "AD-08": "/",
+  "AD-11": "/",
+  "AD-12": "/",
+  "AD-13": "/article/bauxite-exportations-en-hausse-revenus-communautes",
+  "AD-14": "/",
+  "AD-15": "/",
+  "AD-16": "/",
+  "AD-19": "/",
+  "AD-06": "/video",
+  "AD-10": "/video",
 };
 
-const SLOT_RESERVED_HINT = "Réservé — non affiché actuellement";
+function slotViewPath(code: string): string {
+  return SLOT_VIEW_PATHS[code] ?? "/";
+}
 
-function slotHint(code: string): string {
-  return SLOT_HINTS[code] ?? SLOT_RESERVED_HINT;
+/** Statut réel de diffusion calculé à partir des dates et de l'activité. */
+function campaignStatus(item: AdCampaignItem, now: number): { label: string; className: string } {
+  if (!item.is_active) {
+    return { label: "En pause", className: "border-rule bg-paper-alt text-ink-faint" };
+  }
+  if (new Date(item.starts_at).getTime() > now) {
+    const start = new Date(item.starts_at).toLocaleDateString("fr-FR", { dateStyle: "medium" });
+    return { label: `À venir (démarre le ${start})`, className: "border-amber-200 bg-amber-50 text-amber-800" };
+  }
+  if (item.ends_at && new Date(item.ends_at).getTime() < now) {
+    return { label: "Terminée", className: "border-rule bg-paper-alt text-ink-faint" };
+  }
+  return { label: "🟢 En diffusion", className: "border-brand-red bg-brand-red text-white" };
+}
+
+/** Hauteur maximale (px) du cadre d'aperçu aux proportions de l'emplacement. */
+const PREVIEW_MAX_HEIGHT = 240;
+
+/** Abonnement vide pour lire window.location.origin côté client uniquement. */
+const emptySubscribe = () => () => {};
+
+/**
+ * Aperçu de l'image choisie dans un cadre aux PROPORTIONS réelles de
+ * l'emplacement sélectionné (pleine largeur du panneau, hauteur plafonnée).
+ * Si les dimensions du média sont connues et que l'image est trop petite
+ * (< 80 % de la largeur de l'emplacement), un bandeau orange avertit
+ * qu'elle apparaîtra agrandie/floue.
+ */
+function MediaSlotPreview({
+  url,
+  slotCode,
+  mediaWidth,
+  mediaHeight,
+}: {
+  url: string;
+  slotCode: string;
+  mediaWidth: number | null;
+  mediaHeight: number | null;
+}) {
+  const dims = slotCode ? slotDims(slotCode) : null;
+
+  // Dimensions de l'emplacement inconnues → vignette simple sans cadre proportionné.
+  if (!dims) {
+    return <img src={url} alt="Aperçu de l'image" className="h-16 w-28 border border-rule object-cover" />;
+  }
+
+  const tooSmall = mediaWidth != null && mediaWidth < dims.w * 0.8;
+  const mediaSize = `${mediaWidth ?? "?"}${mediaHeight != null ? `×${mediaHeight}` : ""}`;
+
+  return (
+    <div className="space-y-1.5">
+      <div className="flex justify-center">
+        <div
+          className="flex items-center justify-center overflow-hidden border border-dashed border-rule-strong/70 bg-paper-alt p-1"
+          style={{ width: `min(100%, ${Math.round((PREVIEW_MAX_HEIGHT * dims.w) / dims.h)}px)`, aspectRatio: `${dims.w} / ${dims.h}` }}
+        >
+          <img src={url} alt={`Aperçu de l'image aux proportions de l'emplacement ${slotCode}`} className="h-full w-full object-contain" />
+        </div>
+      </div>
+      <p className="text-[11px] text-ink-faint">
+        Aperçu aux proportions de l&apos;emplacement {slotCode} ({dims.w}×{dims.h} px)
+      </p>
+      {tooSmall && (
+        <p role="status" className="border border-amber-300 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800">
+          Image petite ({mediaSize} px) pour cet emplacement ({dims.w}×{dims.h} px) — elle apparaîtra agrandie/floue.
+        </p>
+      )}
+    </div>
+  );
 }
 
 function formatDateTime(iso: string | null): string {
@@ -140,6 +209,8 @@ interface FormState {
   mediaKind: AdCampaignItem["media_kind"];
   mediaId: string | null;
   mediaPreviewUrl: string | null;
+  mediaWidth: number | null;
+  mediaHeight: number | null;
   videoUrl: string;
   clickUrl: string;
   startsAt: string;
@@ -158,6 +229,8 @@ const EMPTY_FORM: FormState = {
   mediaKind: "image",
   mediaId: null,
   mediaPreviewUrl: null,
+  mediaWidth: null,
+  mediaHeight: null,
   videoUrl: "",
   clickUrl: "",
   startsAt: toInputDateTime(new Date().toISOString()),
@@ -181,6 +254,11 @@ export function AdsClient({ canManage }: { canManage: boolean }) {
   const [formOpen, setFormOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
+  const [showAdvanced, setShowAdvanced] = useState(false);
+
+  // Origine du site pour les liens « Voir sur le site » — lue côté client
+  // uniquement (snapshot serveur vide : aucun décalage d'hydratation).
+  const siteOrigin = useSyncExternalStore(emptySubscribe, () => window.location.origin, () => "");
 
   const load = useCallback(async () => {
     try {
@@ -201,6 +279,7 @@ export function AdsClient({ canManage }: { canManage: boolean }) {
   const openCreate = () => {
     setEditingId(null);
     setForm({ ...EMPTY_FORM, slotCode: slots[0]?.code ?? "" });
+    setShowAdvanced(false);
     setFormOpen(true);
   };
 
@@ -213,6 +292,8 @@ export function AdsClient({ canManage }: { canManage: boolean }) {
       mediaKind: item.media_kind,
       mediaId: item.media_id,
       mediaPreviewUrl: item.media_url,
+      mediaWidth: null, // dimensions du média inconnues en édition → pas d'alerte
+      mediaHeight: null,
       videoUrl: item.video_url ?? "",
       clickUrl: item.click_url,
       startsAt: toInputDateTime(item.starts_at),
@@ -223,6 +304,7 @@ export function AdsClient({ canManage }: { canManage: boolean }) {
       categoryTargeting: item.category_targeting ?? "",
       htmlCode: item.html_code ?? "",
     });
+    setShowAdvanced(Boolean(item.html_code));
     setFormOpen(true);
   };
 
@@ -306,6 +388,9 @@ export function AdsClient({ canManage }: { canManage: boolean }) {
     }
   };
 
+  // Instant de référence pour le calcul du statut de diffusion de chaque campagne.
+  const now = Date.now();
+
   return (
     <div className="mx-auto max-w-5xl space-y-6">
       <header className="flex flex-wrap items-end justify-between gap-3">
@@ -362,9 +447,7 @@ export function AdsClient({ canManage }: { canManage: boolean }) {
                           {slot.code} — {slot.name}
                           {slot.width && slot.height ? ` (${slot.width}×${slot.height})` : ""}
                         </span>
-                        <span className={cn("text-[11px] leading-tight", SLOT_HINTS[slot.code] ? "text-ink-faint" : "text-ink-faint/70")}>
-                          {slotHint(slot.code)}
-                        </span>
+                        <span className="text-[11px] leading-tight text-ink-faint">{slotHint(slot.code)}</span>
                       </span>
                     </SelectItem>
                   ))}
@@ -376,9 +459,8 @@ export function AdsClient({ canManage }: { canManage: boolean }) {
                 </p>
               )}
               <p className="text-[11px] leading-snug text-ink-faint/90">
-                Emplacements principaux réellement affichés : AD-01 bannière haut de page accueil · AD-02 colonne
-                accueil · AD-03 pleine largeur accueil · AD-04 dans les articles · AD-10 haut page vidéo/podcast ·
-                AD-12 bandeau mobile collant.
+                Astuce : cliquez directement sur la carte ci-dessus pour choisir. Emplacements réservés (non
+                affichés actuellement) : AD-09, AD-17, AD-18.
               </p>
             </div>
             <div className="space-y-1">
@@ -396,19 +478,24 @@ export function AdsClient({ canManage }: { canManage: boolean }) {
             </div>
 
             {form.mediaKind !== "video" ? (
-              <div className="space-y-1 sm:col-span-2">
-                <Label className="text-xs font-semibold text-ink-soft">Créative (médiathèque) *</Label>
-                <div className="flex items-center gap-3">
-                  {form.mediaPreviewUrl ? (
-                    <img src={form.mediaPreviewUrl} alt="Aperçu de la créative" className="h-16 w-28 border border-rule object-cover" />
-                  ) : (
-                    <span className="flex h-16 w-28 items-center justify-center border border-dashed border-rule bg-paper-alt text-ink-faint">
-                      <ImageIcon className="size-5" aria-hidden />
-                    </span>
-                  )}
+              <div className="space-y-2 sm:col-span-2">
+                <Label className="text-xs font-semibold text-ink-soft">Image de la publicité *</Label>
+                {form.mediaPreviewUrl ? (
+                  <MediaSlotPreview
+                    url={form.mediaPreviewUrl}
+                    slotCode={form.slotCode}
+                    mediaWidth={form.mediaWidth}
+                    mediaHeight={form.mediaHeight}
+                  />
+                ) : (
+                  <span className="flex h-16 w-28 items-center justify-center border border-dashed border-rule bg-paper-alt text-ink-faint">
+                    <ImageIcon className="size-5" aria-hidden />
+                  </span>
+                )}
+                <div className="flex flex-wrap items-center gap-3">
                   <Button type="button" variant="outline" onClick={() => setPickerOpen(true)}>
                     <ImageIcon className="size-4" aria-hidden />
-                    {form.mediaId ? "Changer de média" : "Choisir un média"}
+                    {form.mediaId ? "Changer d'image" : "Choisir une image"}
                   </Button>
                   <span className="text-xs text-ink-faint">{MEDIA_KIND_LABELS[form.mediaKind]} · l&apos;original est servi tel quel (GIF animé préservé)</span>
                 </div>
@@ -416,12 +503,14 @@ export function AdsClient({ canManage }: { canManage: boolean }) {
                   open={pickerOpen}
                   onOpenChange={setPickerOpen}
                   filterType="image"
-                  title="Choisir la créative"
+                  title="Choisir l'image de la publicité"
                   onSelect={(media: MediaItem) =>
                     setForm({
                       ...form,
                       mediaId: media.id,
                       mediaPreviewUrl: media.url,
+                      mediaWidth: media.width,
+                      mediaHeight: media.height,
                       mediaKind: media.mime_type === "image/gif" ? "gif" : "image",
                     })
                   }
@@ -439,8 +528,11 @@ export function AdsClient({ canManage }: { canManage: boolean }) {
               <Input id="ad-click" type="url" value={form.clickUrl} onChange={(e) => setForm({ ...form, clickUrl: e.target.value })} placeholder="https://…" />
             </div>
             <div className="space-y-1">
-              <Label htmlFor="ad-priority" className="text-xs font-semibold text-ink-soft">Priorité (1 garanti → 9 remplissage)</Label>
+              <Label htmlFor="ad-priority" className="text-xs font-semibold text-ink-soft">Ordre d&apos;affichage (1 = en premier, 9 = en dernier)</Label>
               <Input id="ad-priority" type="number" min={1} max={9} value={form.priority} onChange={(e) => setForm({ ...form, priority: e.target.value })} />
+              <p className="text-[11px] leading-snug text-ink-faint/90">
+                Si plusieurs campagnes occupent le même emplacement, elles s&apos;affichent à tour de rôle automatiquement.
+              </p>
             </div>
 
             <div className="space-y-1">
@@ -461,34 +553,50 @@ export function AdsClient({ canManage }: { canManage: boolean }) {
             </div>
 
             <div className="space-y-1">
-              <Label htmlFor="ad-categories" className="text-xs font-semibold text-ink-soft">Rubriques ciblées (CSV de slugs, optionnel)</Label>
+              <Label htmlFor="ad-categories" className="text-xs font-semibold text-ink-soft">Rubriques où afficher (optionnel)</Label>
               <Input
                 id="ad-categories"
                 value={form.categoryTargeting}
                 onChange={(e) => setForm({ ...form, categoryTargeting: e.target.value })}
                 maxLength={500}
-                placeholder="ex. politique,economie,sport"
+                placeholder="ex. politique,sport"
               />
               <p className="text-[11px] leading-snug text-ink-faint/90">
-                Slugs de rubriques séparés par des virgules — vide = toutes les pages.
+                Noms techniques séparés par des virgules (ex. politique,sport) — laissez vide pour tout le site.
               </p>
             </div>
 
-            <div className="space-y-1 sm:col-span-2">
-              <Label htmlFor="ad-html" className="text-xs font-semibold text-ink-soft">Code HTML de repli (optionnel)</Label>
-              <Textarea
-                id="ad-html"
-                value={form.htmlCode}
-                onChange={(e) => setForm({ ...form, htmlCode: e.target.value })}
-                className="min-h-20 bg-paper font-mono text-xs"
-                placeholder="<div><strong>Votre marque</strong> — <a href='https://…'>découvrir</a></div>"
-                aria-label="Code HTML de repli"
-              />
-              <p className="text-[11px] leading-snug text-ink-faint/90">
-                Affiché si aucun média ni vidéo n'est disponible. Sanitisation stricte au rendu :
-                seules les balises b, i, em, strong, a, img, div, span, p, br sont conservées
-                (scripts, iframes et attributs on* supprimés ; liens http(s) uniquement).
-              </p>
+            <div className="space-y-2 sm:col-span-2">
+              <button
+                type="button"
+                onClick={() => setShowAdvanced((v) => !v)}
+                aria-expanded={showAdvanced}
+                className="flex w-full items-center gap-2 rounded-md border border-rule bg-paper-alt px-3 py-2 text-left text-xs font-semibold text-ink-soft transition-colors hover:bg-rule/30"
+              >
+                <Settings className="size-4 text-ink-faint" aria-hidden />
+                Options avancées
+                {form.htmlCode.trim() && <span className="text-[11px] font-normal text-ink-faint">(code HTML de repli défini)</span>}
+                <ChevronDown className={`ml-auto size-4 text-ink-faint transition-transform ${showAdvanced ? "rotate-180" : ""}`} aria-hidden />
+              </button>
+              {showAdvanced && (
+                <div className="space-y-1 rounded-md border border-rule bg-paper-alt/60 p-3">
+                  <Label htmlFor="ad-html" className="text-xs font-semibold text-ink-soft">Code HTML de repli (optionnel)</Label>
+                  <Textarea
+                    id="ad-html"
+                    value={form.htmlCode}
+                    onChange={(e) => setForm({ ...form, htmlCode: e.target.value })}
+                    className="min-h-20 bg-paper font-mono text-xs"
+                    placeholder="<div><strong>Votre marque</strong> — <a href='https://…'>découvrir</a></div>"
+                    aria-label="Code HTML de repli"
+                  />
+                  <p className="text-[11px] leading-snug text-ink-faint/90">
+                    Réservé aux utilisateurs avancés : ce code est affiché si aucune image ni vidéo n&apos;est
+                    disponible. Sanitisation stricte au rendu : seules les balises b, i, em, strong, a, img, div,
+                    span, p, br sont conservées (scripts, iframes et attributs on* supprimés ; liens http(s)
+                    uniquement).
+                  </p>
+                </div>
+              )}
             </div>
 
             <div className="space-y-1">
@@ -538,14 +646,16 @@ export function AdsClient({ canManage }: { canManage: boolean }) {
           </div>
         ) : (
           <ul className="mt-3 border border-rule bg-paper">
-            {items.map((item) => (
-              <li key={item.id} className={cn("border-b border-rule p-3 last:border-0", !item.is_active && "bg-paper-alt/60")}>
+            {items.map((item) => {
+              const status = campaignStatus(item, now);
+              return (
+              <li key={item.id} className={cn("border-b border-rule p-3 last:border-0", status.label !== "🟢 En diffusion" && "bg-paper-alt/60")}>
                 <div className="flex flex-wrap items-start gap-3">
                   <div className="flex min-w-0 flex-1 flex-col gap-1">
                     <div className="flex flex-wrap items-center gap-2">
                       <p className="text-sm font-semibold text-ink">{item.name}</p>
-                      <Badge className={item.is_active ? "border-brand-red bg-brand-red text-white" : "border-rule bg-paper-alt text-ink-faint"}>
-                        {item.is_active ? "Active" : "Inactive"}
+                      <Badge title="Statut de diffusion calculé à partir des dates et de l'activité" className={status.className}>
+                        {status.label}
                       </Badge>
                       <Badge variant="outline" className="border-rule bg-paper text-ink-soft">
                         {item.media_kind === "video" ? "Vidéo" : item.media_kind === "gif" ? "GIF" : "Image"}
@@ -567,14 +677,14 @@ export function AdsClient({ canManage }: { canManage: boolean }) {
                         <MousePointerClick className="size-3" aria-hidden />
                         {item.clicks.toLocaleString("fr-FR")}
                       </span>
-                      <span>Priorité {item.priority}</span>
+                      <span title="Ordre d'affichage (1 = en premier, 9 = en dernier)">Ordre d'affichage : {item.priority}</span>
                       <span className="inline-flex items-center gap-1" title="Appareils ciblés">
                         {item.device_targeting === "MOBILE" ? <Smartphone className="size-3" aria-hidden /> : item.device_targeting === "DESKTOP" ? <Monitor className="size-3" aria-hidden /> : null}
                         {item.device_targeting === "MOBILE" ? "Mobile" : item.device_targeting === "DESKTOP" ? "Desktop" : "Tous appareils"}
                       </span>
                       {item.category_targeting && (
-                        <span title={`Rubriques ciblées : ${item.category_targeting}`}>
-                          Ciblage : {item.category_targeting}
+                        <span title={`Rubriques où afficher : ${item.category_targeting}`}>
+                          Rubriques : {item.category_targeting}
                         </span>
                       )}
                       {item.html_code && <span title="Créative HTML de repli définie">HTML repli</span>}
@@ -587,6 +697,16 @@ export function AdsClient({ canManage }: { canManage: boolean }) {
                       >
                         <ExternalLink className="size-3" aria-hidden />
                         Destination
+                      </a>
+                      <a
+                        href={`${siteOrigin}${slotViewPath(item.slot_code)}?ad=${encodeURIComponent(item.slot_code)}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        title={`Voir l'emplacement ${item.slot_code} sur le site public (${slotHint(item.slot_code)})`}
+                        className="inline-flex items-center gap-1 text-ink-soft underline underline-offset-2 hover:text-brand-red"
+                      >
+                        <ExternalLink className="size-3" aria-hidden />
+                        Voir sur le site
                       </a>
                     </div>
                   </div>
@@ -639,7 +759,8 @@ export function AdsClient({ canManage }: { canManage: boolean }) {
                   )}
                 </div>
               </li>
-            ))}
+              );
+            })}
           </ul>
         )}
       </section>

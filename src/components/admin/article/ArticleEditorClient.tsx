@@ -142,6 +142,9 @@ export function ArticleEditorClient({
   const [lockedBlocks, setLockedBlocks] = useState<Set<string>>(new Set());
   const [activeTab, setActiveTab] = useState("publication");
   const [simpleHtml, setSimpleHtml] = useState<string | null>(null); // null = non initialisé
+  // Miroir de simpleHtml lisible hors rendu (détection d'un corps non vide
+  // avant un import .docx, y compris pendant l'anti-rebond de 700 ms).
+  const simpleHtmlRef = useRef<string | null>(null);
 
   const stateRef = useRef(article);
   stateRef.current = article;
@@ -151,6 +154,21 @@ export function ArticleEditorClient({
   const [importingDoc, setImportingDoc] = useState(false);
   const importDocx = useCallback(
     async (file: File) => {
+      // Corps déjà rempli ? Demander comment importer : ajout à la suite ou
+      // remplacement complet (deux confirmations successives — si l'utilisateur
+      // refuse les deux, abandon silencieux de l'import).
+      const currentText = (simpleHtmlRef.current ?? "").replace(/<[^>]*>/g, " ").trim();
+      const bodyEmpty = stateRef.current.body.length === 0 && currentText.length === 0;
+      let replace = false;
+      if (!bodyEmpty) {
+        const append = window.confirm(
+          "Le document sera AJOUTÉ après le contenu existant.\n\nOK = Ajouter à la suite — Annuler = choisir « Remplacer »"
+        );
+        if (!append) {
+          if (!window.confirm("Remplacer tout le contenu actuel ?")) return;
+          replace = true;
+        }
+      }
       setImportingDoc(true);
       try {
         const form = new FormData();
@@ -168,8 +186,13 @@ export function ArticleEditorClient({
         // document alimentent les champs vides correspondants (jamais écrasés).
         const mapped: string[] = [];
         setArticle((prev) => {
-          const next = { ...prev, body: [...prev.body, ...data.blocks] };
-          setSimpleHtml(blocksToHtml(next.body));
+          // En mode remplacement, on vide le corps existant avant d'appliquer
+          // les blocs importés (le mapping titre/chapeau ne s'applique que si
+          // ces champs sont encore vides).
+          const next = { ...prev, body: replace ? data.blocks : [...prev.body, ...data.blocks] };
+          const html = blocksToHtml(next.body);
+          setSimpleHtml(html);
+          simpleHtmlRef.current = html;
           const meta = data.meta;
           if (meta?.title && !next.title.trim()) {
             next.title = meta.title;
@@ -232,6 +255,7 @@ export function ArticleEditorClient({
   const simpleTimer = useRef<number | undefined>(undefined);
   const onSimpleChange = useCallback(
     (html: string) => {
+      simpleHtmlRef.current = html;
       setSimpleHtml(html);
       window.clearTimeout(simpleTimer.current);
       simpleTimer.current = window.setTimeout(() => {
@@ -301,8 +325,10 @@ export function ArticleEditorClient({
   );
 
   // ── Sauvegarde explicite
+  // Retourne true si l'enregistrement a réussi — les actions critiques
+  // (transitions de workflow) vérifient ce résultat avant d'agir.
   const save = useCallback(
-    async (opts?: { silent?: boolean }) => {
+    async (opts?: { silent?: boolean }): Promise<boolean> => {
       setSaving(true);
       try {
         await apiFetch(`/api/admin/articles/${initial.id}`, {
@@ -312,6 +338,7 @@ export function ArticleEditorClient({
         setDirty(false);
         setLastSavedAt(new Date());
         if (!opts?.silent) toast({ title: "Article enregistré" });
+        return true;
       } catch (error) {
         if (!opts?.silent) {
           toast({ title: "Échec de l'enregistrement", description: errorMessage(error), variant: "destructive" });
@@ -319,6 +346,7 @@ export function ArticleEditorClient({
         if (error instanceof ApiError && error.status === 403) {
           // verrou d'édition ou droit perdu : on fige l'autosave
         }
+        return false;
       } finally {
         setSaving(false);
       }
@@ -374,6 +402,21 @@ export function ArticleEditorClient({
   // ── Transitions de workflow
   const transition = useCallback(
     async (action: string, extra?: Record<string, unknown>) => {
+      // Sauvegarde préalable : une transition ne doit jamais s'appliquer à une
+      // version obsolète de l'article (les modifications non enregistrées
+      // seraient perdues au refraîchissement).
+      if (dirty) {
+        const saved = await save({ silent: true });
+        if (!saved) {
+          toast({
+            title: "Transition annulée : enregistrement impossible",
+            description:
+              "Vos modifications n'ont pas pu être enregistrées. Corrigez le problème (verrou, connexion…) puis relancez l'action.",
+            variant: "destructive",
+          });
+          return;
+        }
+      }
       try {
         const { data } = await apiFetch<{ status: string }>(`/api/admin/articles/${initial.id}/transition`, {
           method: "POST",
@@ -387,7 +430,7 @@ export function ArticleEditorClient({
         toast({ title: "Transition refusée", description: errorMessage(error), variant: "destructive" });
       }
     },
-    [initial.id, router, toast]
+    [initial.id, router, toast, dirty, save]
   );
 
   // ── Score SEO en direct (calcul local, même logique que le serveur)
@@ -417,6 +460,11 @@ export function ArticleEditorClient({
   }, [dirty, save, initial.id]);
 
   const publishFlash = useCallback(async () => {
+    // Confirmation obligatoire : action immédiate et très visible sur tout le site.
+    const confirmed = window.confirm(
+      "Ce titre défilera en URGENCE (rouge) sur tout le site pendant 12 h.\n\nPublier en flash ?"
+    );
+    if (!confirmed) return;
     try {
       await apiFetch("/api/admin/flash", {
         method: "POST",
@@ -479,13 +527,13 @@ export function ArticleEditorClient({
                   size="sm"
                   className="bg-brand-red text-white shadow-sm hover:bg-red-deep"
                   onClick={() => void transition("publish")}
-                  disabled={!rights.editable}
+                  disabled={!rights.editable || saving}
                   title="Publication instantanée — passe la relecture"
                 >
                   <CheckCheck className="mr-1 size-4" aria-hidden /> Publier maintenant
                 </Button>
               )}
-              <Button variant="outline" size="sm" onClick={() => void transition("submit")} disabled={!rights.editable}>
+              <Button variant="outline" size="sm" onClick={() => void transition("submit")} disabled={!rights.editable || saving}>
                 <Send className="mr-1 size-4" aria-hidden /> Soumettre à relecture
               </Button>
             </>
@@ -493,38 +541,38 @@ export function ArticleEditorClient({
           {article.status === "in_review" && (
             <>
               {rights.canPublish && (
-                <Button size="sm" className="bg-brand-red text-white hover:bg-red-deep" onClick={() => void transition("publish")}>
+                <Button size="sm" className="bg-brand-red text-white hover:bg-red-deep" onClick={() => void transition("publish")} disabled={saving}>
                   <CheckCheck className="mr-1 size-4" aria-hidden /> Publier
                 </Button>
               )}
-              <Button variant="outline" size="sm" onClick={() => void transition("request_changes", { note: "Retour pour corrections." })}>
+              <Button variant="outline" size="sm" onClick={() => void transition("request_changes", { note: "Retour pour corrections." })} disabled={saving}>
                 <Undo2 className="mr-1 size-4" aria-hidden /> Demander des modifications
               </Button>
-              {rights.canSchedule && <ScheduleButton onConfirm={(when) => void transition("schedule", { scheduled_at: when })} />}
+              {rights.canSchedule && <ScheduleButton disabled={saving} onConfirm={(when) => void transition("schedule", { scheduled_at: when })} />}
             </>
           )}
           {article.status === "scheduled" && (
             <>
               {rights.canPublish && (
-                <Button size="sm" className="bg-brand-red text-white hover:bg-red-deep" onClick={() => void transition("publish")}>
+                <Button size="sm" className="bg-brand-red text-white hover:bg-red-deep" onClick={() => void transition("publish")} disabled={saving}>
                   <CheckCheck className="mr-1 size-4" aria-hidden /> Publier maintenant
                 </Button>
               )}
-              <Button variant="outline" size="sm" onClick={() => void transition("restore_draft")}>
+              <Button variant="outline" size="sm" onClick={() => void transition("restore_draft")} disabled={saving}>
                 <CalendarClock className="mr-1 size-4" aria-hidden /> Annuler la programmation
               </Button>
             </>
           )}
           {(article.status === "published" || article.status === "updated") && rights.canPublish && (
             <>
-              <Button variant="outline" size="sm" onClick={() => void transition("unpublish")}>Dépublier</Button>
-              <Button variant="outline" size="sm" onClick={() => void transition("archive")}><Archive className="mr-1 size-4" aria-hidden /> Archiver</Button>
+              <Button variant="outline" size="sm" onClick={() => void transition("unpublish")} disabled={saving}>Dépublier</Button>
+              <Button variant="outline" size="sm" onClick={() => void transition("archive")} disabled={saving}><Archive className="mr-1 size-4" aria-hidden /> Archiver</Button>
             </>
           )}
           {article.status === "unpublished" && rights.canPublish && (
             <>
-              <Button size="sm" className="bg-brand-red text-white hover:bg-red-deep" onClick={() => void transition("publish")}>Republier</Button>
-              <Button variant="outline" size="sm" onClick={() => void transition("archive")}>Archiver</Button>
+              <Button size="sm" className="bg-brand-red text-white hover:bg-red-deep" onClick={() => void transition("publish")} disabled={saving}>Republier</Button>
+              <Button variant="outline" size="sm" onClick={() => void transition("archive")} disabled={saving}>Archiver</Button>
             </>
           )}
           {rights.canFlash && (
@@ -556,7 +604,9 @@ export function ArticleEditorClient({
               />
             </div>
             <div>
-              <Label htmlFor="lede" className="kicker">Chapô * (≥ 80 caractères)</Label>
+              <Label htmlFor="lede" className="kicker">
+                Chapô (≥ 80 caractères) <span className="text-ink-faint">(recommandé)</span>
+              </Label>
               <Textarea id="lede" value={article.lede ?? ""} onChange={(e) => patch({ lede: e.target.value })} disabled={!rights.editable} rows={3} className="mt-1 font-serif text-lg" />
               <p className={`mt-1 text-xs ${(article.lede ?? "").length >= 80 ? "text-success" : "text-ink-faint"}`}>
                 {(article.lede ?? "").length} / 80 caractères minimum
@@ -617,13 +667,13 @@ export function ArticleEditorClient({
         <Tabs value={activeTab} onValueChange={setActiveTab} className="border border-rule bg-paper">
           <TabsList className="flex w-full flex-wrap justify-start gap-0 rounded-none border-b border-rule bg-paper-alt p-0">
             {[
-              ["publication", "Publi."], ["classement", "Class."], ["signature", "Sign."],
-              ["medias", "Médias"], ["seo", "SEO"], ["relecture", "Relec."],
+              ["publication", "Publication"], ["classement", "Classement"], ["signature", "Signature"],
+              ["medias", "Médias"], ["seo", "SEO"], ["relecture", "Relecture"],
             ].map(([key, label]) => (
               <TabsTrigger
                 key={key}
                 value={key}
-                className="rounded-none border-0 px-3 py-2 text-xs data-[state=active]:border-b-2 data-[state=active]:border-brand-red data-[state=active]:bg-paper"
+                className="rounded-none border-0 px-2.5 py-2 text-[0.66rem] data-[state=active]:border-b-2 data-[state=active]:border-brand-red data-[state=active]:bg-paper"
               >
                 {label}
               </TabsTrigger>
@@ -703,7 +753,7 @@ export function ArticleEditorClient({
                 disabled={!rights.editable}
               />
             </PanelRow>
-            <PanelRow label="Mots-clés * (au moins 1)">
+            <PanelRow label={<>Mots-clés (au moins 1) <span className="font-normal text-ink-faint">(recommandé)</span></>}>
               <TagPicker
                 tags={lists.tags}
                 selected={article.tag_ids}
@@ -732,7 +782,7 @@ export function ArticleEditorClient({
           </TabsContent>
 
           <TabsContent value="signature" className="space-y-4 p-4">
-            <PanelRow label="Auteurs et rôles *">
+            <PanelRow label={<>Auteurs et rôles <span className="font-normal text-ink-faint">(recommandé)</span></>}>
               <AuthorEditor
                 users={lists.users}
                 authors={article.authors}
@@ -750,7 +800,7 @@ export function ArticleEditorClient({
 
           <TabsContent value="medias" className="space-y-4 p-4">
             <div>
-              <Label className="kicker">Image principale *</Label>
+              <Label className="kicker">Image principale <span className="text-ink-faint">(recommandé)</span></Label>
               {article.cover_url ? (
                 <div className="mt-2">
                   <img src={article.cover_url} alt={article.cover_alt} className="max-h-48 w-full rounded-sm object-cover" />
@@ -762,10 +812,10 @@ export function ArticleEditorClient({
                 </Button>
               )}
             </div>
-            <PanelRow label="Texte alternatif * (accessibilité)">
+            <PanelRow label={<>Texte alternatif (accessibilité) <span className="font-normal text-ink-faint">(recommandé)</span></>}>
               <Input value={article.cover_alt} onChange={(e) => patch({ cover_alt: e.target.value })} disabled={!rights.editable} aria-label="Texte alternatif de l'image principale" />
             </PanelRow>
-            <PanelRow label="Crédit *">
+            <PanelRow label={<>Crédit <span className="font-normal text-ink-faint">(recommandé)</span></>}>
               <Input value={article.cover_credit} onChange={(e) => patch({ cover_credit: e.target.value })} disabled={!rights.editable} placeholder="Nom du photographe / agence" aria-label="Crédit photo" />
             </PanelRow>
             <PanelRow label="Légende">
@@ -855,7 +905,7 @@ export function ArticleEditorClient({
 
 // ─── Sous-composants ───────────────────────────────────────────────────
 
-function PanelRow({ label, children }: { label: string; children: React.ReactNode }) {
+function PanelRow({ label, children }: { label: React.ReactNode; children: React.ReactNode }) {
   return (
     <div>
       <Label className="text-xs font-semibold text-ink-soft">{label}</Label>
@@ -1170,12 +1220,12 @@ function VersionHistory({ articleId, onRestored }: { articleId: string; onRestor
   );
 }
 
-function ScheduleButton({ onConfirm }: { onConfirm: (whenIso: string) => void }) {
+function ScheduleButton({ onConfirm, disabled }: { onConfirm: (whenIso: string) => void; disabled?: boolean }) {
   const [when, setWhen] = useState("");
   const [open, setOpen] = useState(false);
   return (
     <>
-      <Button variant="outline" size="sm" onClick={() => setOpen(true)}>
+      <Button variant="outline" size="sm" onClick={() => setOpen(true)} disabled={disabled}>
         <CalendarClock className="mr-1 size-4" aria-hidden /> Programmer
       </Button>
       {open && (
