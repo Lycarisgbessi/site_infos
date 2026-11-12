@@ -8,6 +8,7 @@ import Highlight from "@tiptap/extension-highlight";
 import Link from "@tiptap/extension-link";
 import Image from "@tiptap/extension-image";
 import Placeholder from "@tiptap/extension-placeholder";
+import { VideoEmbed } from "./VideoEmbed";
 import { MediaPicker } from "@/components/admin/MediaPicker";
 import {
   Bold, Italic, Underline as UnderlineIcon, Highlighter, Strikethrough, Link2,
@@ -58,6 +59,7 @@ export function SimpleEditor({
       Highlight,
       Link.configure({ openOnClick: false, autolink: true }),
       Image.configure({ inline: false, allowBase64: false }),
+      VideoEmbed,
       Placeholder.configure({ placeholder: "Rédigez ou collez votre article ici — le formatage de Word est conservé…" }),
     ],
     content: initialHtml,
@@ -102,7 +104,8 @@ export function SimpleEditor({
       return;
     }
     const url = videoUrl.trim();
-    editor.chain().focus().insertContent(`<figure data-video="${url}">🎬 Vidéo : ${url}</figure><p></p>`).run();
+    editor.chain().focus().insertContent({ type: "videoEmbed", attrs: { url } }).run();
+    editor.chain().focus().insertContent("<p></p>").run();
     setVideoOpen(false);
     setVideoUrl("");
   }, [editor, videoUrl]);

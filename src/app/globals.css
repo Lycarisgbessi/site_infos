@@ -836,3 +836,55 @@
   .side-peek.peek-out { transform: translateY(-50%) translateX(calc(100% + 2rem)); }
   .interstitial-card { animation: none; }
 }
+
+/* ── « Rédaction simple » : typographie de la surface (type Word) ───── */
+.prose-simple {
+  font-size: 1rem;
+  line-height: 1.75;
+  color: var(--ink);
+}
+.prose-simple > * + * { margin-top: 0.9em; }
+.prose-simple h2, .prose-simple h3, .prose-simple h4 {
+  font-family: var(--font-serif, Georgia, serif);
+  font-weight: 900;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+  margin-top: 1.4em;
+}
+.prose-simple h2 { font-size: 1.5rem; }
+.prose-simple h3 { font-size: 1.25rem; }
+.prose-simple h4 { font-size: 1.1rem; }
+.prose-simple blockquote {
+  border-inline-start: 3px solid var(--brand-red);
+  padding-inline-start: 1rem;
+  font-style: italic;
+  color: var(--ink-soft);
+}
+.prose-simple mark {
+  border-radius: 2px;
+  background: rgba(245, 158, 11, 0.35);
+  padding: 0 0.15em;
+}
+[data-theme="dark"] .prose-simple mark { background: rgba(245, 158, 11, 0.28); color: inherit; }
+.prose-simple img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin-inline: auto;
+  border-radius: 8px;
+  border: 1px solid var(--rule);
+}
+.prose-simple ul, .prose-simple ol { padding-inline-start: 1.4em; }
+.prose-simple ul { list-style: disc; }
+.prose-simple ol { list-style: decimal; }
+.prose-simple li + li { margin-top: 0.25em; }
+.prose-simple a { color: var(--brand-red); text-decoration: underline; text-underline-offset: 3px; }
+.prose-simple p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  color: var(--ink-faint);
+  float: inline-start;
+  height: 0;
+  pointer-events: none;
+}
+.prose-simple figure[data-video] { margin: 1em 0; }
+.prose-simple hr { border: none; border-top: 1px solid var(--rule); margin: 1.5em 0; }
