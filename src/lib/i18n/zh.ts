@@ -19,7 +19,7 @@ export const zhDictionary: Dictionary = {
   "public.topbar.city": "几内亚科纳克里",
 
   // ─── 页眉 ────────────────────────────────────────────────────────
-  "public.header.tagline": "几内亚资讯，直击要点",
+  "public.header.tagline": "Le réflex info en continu",
   "public.nav.menu": "主导航",
 
   // ─── 快讯 ────────────────────────────────────────────────────────

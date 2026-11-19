@@ -4,6 +4,7 @@ import { LanguageSwitcher } from "@/lib/i18n/language-switcher";
 import { getAdCampaigns, getMainMenu, getWeather, type NavItem } from "@/lib/public/homepage-data";
 import { AdBanner } from "./ad-slot";
 import { WorldClock } from "./world-clock";
+import { SloganTypewriter } from "./slogan-typewriter";
 import { getSettingsValues } from "@/server/services/settings";
 import { MobileMenu, ThemeToggle } from "./mobile-nav";
 
@@ -156,7 +157,7 @@ export async function SiteHeader() {
               className="h-20 w-auto transition-transform duration-300 group-hover:scale-105 sm:h-24 md:h-28 dark:invert dark:hue-rotate-180"
             />
           </Link>
-          <p className="mt-2 hidden text-sm text-ink-soft sm:block">{translate("public.header.tagline")}</p>
+          <SloganTypewriter text={translate("public.header.tagline")} />
         </div>
         {/* AD-01 : espace publicitaire animé à côté du logo — gabarit
             compact (leaderboard 728×90) : s'inscrit dans l'espace libre

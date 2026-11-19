@@ -19,7 +19,7 @@ export const enDictionary: Dictionary = {
   "public.topbar.city": "Conakry, Guinea",
 
   // ─── Header ──────────────────────────────────────────────────────
-  "public.header.tagline": "News from Guinea, straight to the point",
+  "public.header.tagline": "Le réflex info en continu",
   "public.nav.menu": "Main menu",
 
   // ─── News flash ──────────────────────────────────────────────────

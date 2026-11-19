@@ -23,7 +23,7 @@ export const frDictionary = {
   "public.topbar.city": "Conakry, Guinée",
 
   // ─── En-tête ─────────────────────────────────────────────────────
-  "public.header.tagline": "L'information de Guinée, sans détour",
+  "public.header.tagline": "Le réflex info en continu",
   "public.nav.menu": "Menu principal",
 
   // ─── Flash info ──────────────────────────────────────────────────

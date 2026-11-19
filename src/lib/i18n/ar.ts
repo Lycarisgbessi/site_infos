@@ -19,7 +19,7 @@ export const arDictionary: Dictionary = {
   "public.topbar.city": "كوناكري، غينيا",
 
   // ─── الترويسة ────────────────────────────────────────────────────
-  "public.header.tagline": "أخبار غينيا بلا مواربة",
+  "public.header.tagline": "Le réflex info en continu",
   "public.nav.menu": "القائمة الرئيسية",
 
   // ─── موجز إخباري ─────────────────────────────────────────────────
