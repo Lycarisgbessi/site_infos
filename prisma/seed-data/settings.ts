@@ -200,7 +200,7 @@ export const TRANSLATIONS: TranslationSeed[] = [
   { key: "public.topbar.advertise", value: "Publicité" },
   { key: "public.topbar.desk", value: "Rédaction" },
   { key: "public.topbar.city", value: "Conakry, Guinée" },
-  { key: "public.header.tagline", value: "L'information de Guinée, sans détour" },
+  { key: "public.header.tagline", value: "Le réflex info en continu" },
   { key: "public.nav.menu", value: "Menu principal" },
   { key: "public.flash.label", value: "Flash Info" },
   { key: "public.flash.urgent", value: "URGENT" },
