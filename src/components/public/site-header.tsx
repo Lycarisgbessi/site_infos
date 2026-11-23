@@ -156,8 +156,9 @@ export async function SiteHeader() {
               alt="INFOSPRO.net"
               className="h-20 w-auto transition-transform duration-300 group-hover:scale-105 sm:h-24 md:h-28 dark:invert dark:hue-rotate-180"
             />
+            {/* Slogan cursive animée — collé sous le logo */}
+            <SloganTypewriter text={translate("public.header.tagline")} />
           </Link>
-          <SloganTypewriter text={translate("public.header.tagline")} />
         </div>
         {/* AD-01 : espace publicitaire animé à côté du logo — gabarit
             compact (leaderboard 728×90) : s'inscrit dans l'espace libre

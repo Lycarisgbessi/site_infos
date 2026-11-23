@@ -2,7 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { ThemeProvider } from "next-themes";
 import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
-import { fontVariables } from "@/lib/fonts";
+import { fontVariables, fontCaveat } from "@/lib/fonts";
 import { getTranslations, resolveLocale, localeDir, localeTag } from "@/lib/i18n";
 import { getSettingsValues } from "@/server/services/settings";
 import { AudioPlayerProvider } from "@/components/public/audio-player/context";
@@ -86,7 +86,7 @@ export default async function RootLayout({
 
   return (
     <html lang={localeTag(locale)} dir={localeDir(locale)} suppressHydrationWarning>
-      <body className={`${fontVariables} antialiased bg-background text-foreground`}>
+      <body className={`${fontVariables} ${fontCaveat.variable} antialiased bg-background text-foreground`}>
         <ThemeProvider
           attribute="data-theme"
           defaultTheme="system"

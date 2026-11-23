@@ -38,11 +38,15 @@ export function SloganTypewriter({ text }: { text: string }) {
   }, [len, phase, text]);
 
   return (
-    <p className="mt-2 hidden items-center gap-0.5 text-sm font-semibold text-ink-soft sm:flex" aria-label={text}>
-      <span>{text.slice(0, len)}</span>
+    <p
+      className="font-cursive -mt-1 hidden items-center gap-0.5 text-xl font-bold leading-none text-brand-red sm:flex"
+      style={{ fontFamily: "var(--font-caveat), 'Segoe Script', 'Brush Script MT', cursive", transform: "rotate(-1.5deg)" }}
+      aria-label={text}
+    >
+      <span className="drop-shadow-[0_1px_0_rgba(0,0,0,0.04)]">{text.slice(0, len)}</span>
       <span
         aria-hidden
-        className="ml-0.5 inline-block h-[1.05em] w-[2px] animate-pulse rounded-sm bg-brand-red"
+        className="ml-0.5 inline-block h-[1em] w-[2.5px] animate-pulse rounded-sm bg-brand-red"
       />
       <span className="sr-only">{text}</span>
     </p>

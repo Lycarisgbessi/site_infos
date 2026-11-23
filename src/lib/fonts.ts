@@ -1,4 +1,5 @@
 import {
+  Caveat,
   Inter,
   JetBrains_Mono,
   Source_Serif_4,
@@ -37,6 +38,14 @@ export const fontMono = JetBrains_Mono({
   variable: "--font-jetbrains-mono",
   display: "swap",
   adjustFontFallback: true,
+});
+
+/** Caveat : écriture cursive manuscrite — slogan du logo. */
+export const fontCaveat = Caveat({
+  subsets: ["latin"],
+  weight: ["500", "700"],
+  variable: "--font-caveat",
+  display: "swap",
 });
 
 export const fontVariables = `${fontSerif.variable} ${fontSans.variable} ${fontMono.variable}`;
