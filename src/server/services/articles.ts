@@ -160,7 +160,11 @@ export async function getArticleForEdit(session: AuthenticatedSession, id: strin
   const canDelete = await hasPermission(session.user, "article.delete");
   const canSchedule = await hasPermission(session.user, "article.schedule");
 
-  return { article, rights: { editable, canPublish, canDelete, canSchedule, isOwner: article.created_by === session.user.id } };
+  // view_count est BigInt en base — JSON ne sérialise pas les BigInt (§07.1),
+  // cf. listArticles : sans conversion, GET /api/admin/articles/[id] répond 500
+  // et la restauration de versions de l'éditeur échoue.
+  const serializable = { ...article, view_count: Number(article.view_count) };
+  return { article: serializable, rights: { editable, canPublish, canDelete, canSchedule, isOwner: article.created_by === session.user.id } };
 }
 
 // ─── Contrôles bloquants et avertissements (§11.2) ─────────────────────

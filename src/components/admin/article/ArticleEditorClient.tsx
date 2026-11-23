@@ -147,7 +147,10 @@ export function ArticleEditorClient({
   const simpleHtmlRef = useRef<string | null>(null);
 
   const stateRef = useRef(article);
-  stateRef.current = article;
+  // Miroir mis à jour après chaque commit (jamais pendant le rendu).
+  useEffect(() => {
+    stateRef.current = article;
+  }, [article]);
 
   // ── Import Word/Google Docs (§20 Phase 2, tâche 10)
   const docInputRef = useRef<HTMLInputElement>(null);
@@ -184,34 +187,32 @@ export function ArticleEditorClient({
         }
         // Mapping structurel : titre / surtitre / chapeau détectés dans le
         // document alimentent les champs vides correspondants (jamais écrasés).
+        // L'updater de setArticle reste PUR : les effets (setSimpleHtml) et
+        // la lecture de l'état courant passent par stateRef, hors de l'updater.
         const mapped: string[] = [];
-        setArticle((prev) => {
-          // En mode remplacement, on vide le corps existant avant d'appliquer
-          // les blocs importés (le mapping titre/chapeau ne s'applique que si
-          // ces champs sont encore vides).
-          const next = { ...prev, body: replace ? data.blocks : [...prev.body, ...data.blocks] };
-          const html = blocksToHtml(next.body);
-          setSimpleHtml(html);
-          simpleHtmlRef.current = html;
-          const meta = data.meta;
-          if (meta?.title && !next.title.trim()) {
-            next.title = meta.title;
-            mapped.push("Titre");
-          }
-          if (meta?.shortTitle && !next.short_title?.trim()) {
-            next.short_title = meta.shortTitle;
-            mapped.push("Sous-titre");
-          }
-          if (meta?.surtitre && !next.kicker?.trim()) {
-            next.kicker = meta.surtitre;
-            mapped.push("Surtitre");
-          }
-          if (meta?.lede && !next.lede?.trim()) {
-            next.lede = meta.lede;
-            mapped.push("Chapeau");
-          }
-          return next;
-        });
+        const meta = data.meta;
+        const metaPatch: Partial<EditorArticle> = {};
+        if (meta?.title && !stateRef.current.title.trim()) {
+          metaPatch.title = meta.title;
+          mapped.push("Titre");
+        }
+        if (meta?.shortTitle && !stateRef.current.short_title?.trim()) {
+          metaPatch.short_title = meta.shortTitle;
+          mapped.push("Sous-titre");
+        }
+        if (meta?.surtitre && !stateRef.current.kicker?.trim()) {
+          metaPatch.kicker = meta.surtitre;
+          mapped.push("Surtitre");
+        }
+        if (meta?.lede && !stateRef.current.lede?.trim()) {
+          metaPatch.lede = meta.lede;
+          mapped.push("Chapeau");
+        }
+        const merged = replace ? data.blocks : [...stateRef.current.body, ...data.blocks];
+        setArticle((prev) => ({ ...prev, ...metaPatch, body: merged }));
+        const html = blocksToHtml(merged);
+        setSimpleHtml(html);
+        simpleHtmlRef.current = html;
         setDirty(true);
         toast({
           title: `${data.blocks.length} bloc(s) importé(s)${mapped.length > 0 ? ` — ${mapped.join(", ")} détecté(s) et appliqué(s)` : ""}`,
@@ -244,11 +245,11 @@ export function ArticleEditorClient({
     []
   );
 
-  // Référence différée vers patch (ordre de déclaration)
+  // Référence différée vers patch (stable), miroir mis à jour après commit.
   const patchRef = useRef(patch);
-  patchRef.current = patch;
-  const articleRef = useRef(article);
-  articleRef.current = article;
+  useEffect(() => {
+    patchRef.current = patch;
+  }, [patch]);
 
   // Mode simple : l'HTML est converti en blocs (anti-rebond 700 ms) pour
   // que sauvegarde, publication et retour au mode blocs soient toujours à jour.

@@ -4,7 +4,7 @@
  *  - navigations (pages)    : network-first avec repli cache, puis "/"
  *  - /admin/** et /api/**   : JAMAIS mis en cache (réseau uniquement)
  */
-const VERSION = "infospro-v3";
+const VERSION = "infospro-v4";
 const STATIC_CACHE = `${VERSION}-static`;
 const PAGES_CACHE = `${VERSION}-pages`;
 const MAX_PAGES = 30;

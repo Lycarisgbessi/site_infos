@@ -1,8 +1,6 @@
 import type { NextRequest } from "next/server";
 import { articleCreateSchema, articleListQuerySchema } from "@/schemas/article";
 import { requireApiSession, apiOk, toErrorResponse, ValidationError } from "@/lib/api/respond";
-import { auditLog } from "@/lib/audit";
-import { getRequestContext } from "@/lib/auth/session";
 import { createArticle, listArticles } from "@/server/services/articles";
 
 export const runtime = "nodejs";
@@ -29,14 +27,8 @@ export async function POST(request: NextRequest) {
     const body = await request.json().catch(() => null);
     if (!body) throw new ValidationError("Corps de requête manquant.");
     const input = articleCreateSchema.parse(body);
+    // Journalisation d'audit assurée par createArticle (§07.2 — un seul audit).
     const article = await createArticle(session, input);
-    await auditLog({
-      userId: session.user.id,
-      action: "article.create",
-      resourceType: "article",
-      resourceId: article.id,
-      request: getRequestContext(request.headers),
-    });
     return apiOk(article);
   } catch (error) {
     return toErrorResponse(error);
