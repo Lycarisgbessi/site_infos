@@ -40,10 +40,10 @@ export function SloganTypewriter({ text }: { text: string }) {
   return (
     <p
       className="font-cursive -mt-1 hidden items-center gap-0.5 text-xl font-bold leading-none text-brand-red sm:flex"
-      style={{ fontFamily: "var(--font-caveat), 'Segoe Script', 'Brush Script MT', cursive", transform: "rotate(-1.5deg)" }}
+      style={{ fontFamily: "var(--font-caveat), 'Segoe Script', 'Brush Script MT', cursive" }}
       aria-label={text}
     >
-      <span className="drop-shadow-[0_1px_0_rgba(0,0,0,0.04)]">{text.slice(0, len)}</span>
+      <span className="slogan-shine relative inline-block drop-shadow-[0_1px_0_rgba(0,0,0,0.04)]">{text.slice(0, len)}</span>
       <span
         aria-hidden
         className="ml-0.5 inline-block h-[1em] w-[2.5px] animate-pulse rounded-sm bg-brand-red"

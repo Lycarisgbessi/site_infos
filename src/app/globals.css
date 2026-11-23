@@ -1012,3 +1012,22 @@
   .hc-progress { animation: none; }
   .hc-slide.hc-active, .hc-slide.hc-leaving { transition: none; }
 }
+
+/* ── Slogan : reflet qui traverse le texte écrit (complète le typewriter) */
+.slogan-shine::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 4px;
+  background: linear-gradient(100deg, transparent 35%, rgba(255,255,255,0.55) 50%, transparent 65%);
+  transform: translateX(-120%);
+  animation: slogan-shine 3.2s ease-in-out 1.2s infinite;
+  pointer-events: none;
+}
+@keyframes slogan-shine {
+  0%, 55%  { transform: translateX(-120%); }
+  85%, 100% { transform: translateX(120%); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .slogan-shine::after { display: none; }
+}
